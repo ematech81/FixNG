@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "FixNG",
+    "slug": "fixng",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#FF6B00"
+    },
+    "assetBundlePatterns": ["**/*"],
+    "ios": {
+      "supportsTablet": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "FixNG needs camera access to upload your profile photo and skill video.",
+        "NSPhotoLibraryUsageDescription": "FixNG needs photo library access to select your profile photo, ID, and skill video.",
+        "NSLocationWhenInUseUsageDescription": "FixNG uses your location to connect you with nearby customers.",
+        "NSMicrophoneUsageDescription": "FixNG needs microphone access when recording your skill video."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#FF6B00"
+      },
+      "permissions": [
+        "CAMERA",
+        "READ_EXTERNAL_STORAGE",
+        "WRITE_EXTERNAL_STORAGE",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "RECORD_AUDIO"
+      ]
+    },
+    "plugins": [
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "FixNG needs access to your photos.",
+          "cameraPermission": "FixNG needs access to your camera."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "FixNG uses your location to connect you with nearby customers."
+        }
+      ]
+    ]
+  }
+}
