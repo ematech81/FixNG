@@ -2,6 +2,9 @@ import api from './index';
 
 export const getOnboardingStatus = () => api.get('/artisan/onboarding/status');
 
+// Upgrade a customer account to artisan (creates ArtisanProfile, sets role)
+export const becomeArtisan = () => api.post('/auth/become-artisan');
+
 export const uploadProfilePhoto = (imageUri) => {
   const formData = new FormData();
   const filename = imageUri.split('/').pop();
@@ -57,8 +60,12 @@ export const uploadSkillVideo = (videoUri) => {
 
   return api.post('/artisan/onboarding/skill-video', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
-    timeout: 120000, // 2 min — videos can be large on slow connections
+    timeout: 300000, // 5 min — matches the backend's per-route timeout for large videos on slow connections
   });
 };
 
 export const getSkillsList = () => api.get('/artisan/skills-list');
+
+// Skip optional onboarding steps
+export const skipVerificationId = () => api.post('/artisan/onboarding/skip-verification-id');
+export const skipSkillVideo = () => api.post('/artisan/onboarding/skip-skill-video');

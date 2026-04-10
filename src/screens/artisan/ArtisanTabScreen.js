@@ -2,35 +2,42 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import ArtisanDashboard from './ArtisanDashboard';
 import ArtisanJobScreen from './ArtisanJobScreen';
+import CustomerHomeScreen from '../customer/CustomerHomeScreen';
+import SearchArtisansScreen from '../customer/SearchArtisansScreen';
 import MessagesScreen from '../customer/MessagesScreen';
 import ProfileScreen from '../customer/ProfileScreen';
 
 const PRIMARY = '#2563EB';
 
 const TABS = [
-  { key: 'home',     label: 'Home',     icon: '🏠' },
   { key: 'jobs',     label: 'Jobs',     icon: '🔧' },
+  { key: 'search',   label: 'Search',   icon: '🔍' },
   { key: 'messages', label: 'Messages', icon: '💬' },
   { key: 'profile',  label: 'Profile',  icon: '👤' },
 ];
 
-export default function ArtisanTabScreen({ navigation, onLogout }) {
-  // Start on 'jobs' tab — that's the main work screen for artisans
+export default function ArtisanTabScreen({ navigation, onLogout, onRefreshAuth }) {
   const [activeTab, setActiveTab] = useState('jobs');
   const insets = useSafeAreaInsets();
 
   const renderScreen = () => {
     switch (activeTab) {
-      case 'home':
-        return <ArtisanDashboard navigation={navigation} onLogout={onLogout} />;
       case 'jobs':
         return <ArtisanJobScreen navigation={navigation} />;
+      case 'search':
+        return <SearchArtisansScreen navigation={navigation} embedded />;
       case 'messages':
         return <MessagesScreen navigation={navigation} />;
       case 'profile':
-        return <ProfileScreen navigation={navigation} onLogout={onLogout} />;
+        return (
+          <ProfileScreen
+            navigation={navigation}
+            onLogout={onLogout}
+            onRefreshAuth={onRefreshAuth}
+            onSwitchToJobs={() => setActiveTab('jobs')}
+          />
+        );
       default:
         return null;
     }

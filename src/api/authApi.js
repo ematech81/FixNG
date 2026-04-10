@@ -22,4 +22,8 @@ export const verifyLoginOTP = (data) => api.post('/auth/otp/verify-login', data)
 
 // ── Shared ─────────────────────────────────────────────────────────────────────
 export const getMe = () => api.get('/auth/me');
+
+// ── Account changes ────────────────────────────────────────────────────────────
+// Abort artisan onboarding — deletes profile, reverts role to customer
+export const cancelArtisanRegistration = () => api.post('/auth/cancel-artisan-registration');
  

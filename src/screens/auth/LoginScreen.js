@@ -8,6 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { checkDevice } from '../../api/authApi';
 import { getDeviceId } from '../../utils/deviceId';
 import { saveToken, saveUser } from '../../utils/storage';
+import BackButton from '../../components/BackButton';
 
 export default function LoginScreen({ navigation, onAuthSuccess }) {
   const [phone, setPhone] = useState('');
@@ -86,22 +87,20 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
         >
           {/* Nav bar */}
           <View style={styles.navBar}>
-            <TouchableOpacity onPress={() => navigation.canGoBack() && navigation.goBack()}>
-              <Text style={styles.navBack}>←</Text>
-            </TouchableOpacity>
+            <BackButton onPress={() => navigation.canGoBack() && navigation.goBack()} />
             <Text style={styles.navTitle}>FixNG</Text>
-            <View style={{ width: 24 }} />
+            <View style={{ width: 28 }} />
           </View>
 
           {/* App icon */}
           <View style={styles.iconWrapper}>
-            {/* <View style={styles.iconBox}> */}
-              <Image
+            <View style={styles.iconBox}>
+              {/* <Image
                 source={require('../../../assets/icon.png')}
                 style={styles.iconImg}
                 resizeMode="contain"
-              />
-            {/* </View> */}
+              /> */}
+            </View>
           </View>
 
           {/* Title + subtitle */}
@@ -217,8 +216,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderBottomWidth: 1, borderBottomColor: '#E8ECF4',
   },
-  navBack: { fontSize: 22, color: '#1A1A1A', width: 24 },
-  navTitle: { fontSize: 16, fontWeight: '700', color: PRIMARY },
+  navTitle: { fontSize: 20, fontWeight: '900', color: PRIMARY, letterSpacing: -0.5 },
 
   iconWrapper: { alignItems: 'center', marginTop: 36, marginBottom: 20 },
   iconBox: {

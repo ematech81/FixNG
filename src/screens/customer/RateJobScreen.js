@@ -5,6 +5,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { rateJob } from '../../api/reviewApi';
+import BackButton from '../../components/BackButton';
 
 const RATING_DIMENSIONS = [
   { key: 'quality', label: 'Quality of Work', icon: '🔨' },
@@ -71,11 +72,9 @@ export default function RateJobScreen({ route, navigation }) {
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.backBtn}>← Skip</Text>
-          </TouchableOpacity>
+          <BackButton onPress={() => navigation.goBack()} />
           <Text style={styles.headerTitle}>Rate Artisan</Text>
-          <View style={{ width: 60 }} />
+          <View style={{ width: 28 }} />
         </View>
 
         <Text style={styles.subtitle}>
@@ -152,7 +151,6 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8,
   },
-  backBtn: { color: '#FF6B00', fontSize: 15, fontWeight: '600', width: 60 },
   headerTitle: { fontSize: 20, fontWeight: '700', color: '#1A1A1A' },
   subtitle: { fontSize: 14, color: '#888', lineHeight: 20, marginBottom: 24, textAlign: 'center' },
   dimensionCard: {

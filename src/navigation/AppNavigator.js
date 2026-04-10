@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
 
-import { getToken, getUser, clearSession } from '../utils/storage';
-import { getMe } from '../api/authApi';
+import { getToken, clearSession, saveToken, saveUser } from '../utils/storage';
+import { getMe, cancelArtisanRegistration } from '../api/authApi';
 import { getOnboardingStatus } from '../api/artisanApi';
 import ArtisanOnboardingNavigator from './ArtisanOnboardingNavigator';
 
@@ -22,6 +22,8 @@ import RateJobScreen from '../screens/customer/RateJobScreen';
 // Artisan
 import ArtisanTabScreen from '../screens/artisan/ArtisanTabScreen';
 import AvailableJobsScreen from '../screens/artisan/AvailableJobsScreen';
+// import ArtisanJobScreen from '../screens/artisan/AvailableJobsScreen';
+
 
 // Shared
 import MyJobsScreen from '../screens/shared/MyJobsScreen';
@@ -30,7 +32,9 @@ import ArtisanProfileScreen from '../screens/shared/ArtisanProfileScreen';
 import ChatScreen from '../screens/shared/ChatScreen';
 
 // Artisan onboarding
-import PendingVerification from '../screens/artisan/onboarding/PendingVerification';
+import Step4_VerificationID from '../screens/artisan/onboarding/Step4_VerificationID';
+import Step5_SkillVideo from '../screens/artisan/onboarding/Step5_SkillVideo';
+import ArtisanJobScreen from '../screens/artisan/ArtisanJobScreen';
 
 const Stack = createStackNavigator();
 const AuthStack = createStackNavigator();
@@ -64,12 +68,20 @@ function AuthNavigator({ onAuthSuccess }) {
 }
 
 // ─── Customer Stack ───────────────────────────────────────────────────────────
-function CustomerNavigator({ onLogout }) {
+function CustomerNavigator({ onLogout, onRefreshAuth, initialTab, onInitialTabConsumed }) {
   return (
     <CustomerStack.Navigator screenOptions={{ headerShown: false }}>
-      {/* Tab root — Home / Messages / Profile */}
+      {/* Tab root — Jobs / Search / Messages / Profile */}
       <CustomerStack.Screen name="CustomerTabs">
-        {(props) => <CustomerTabScreen {...props} onLogout={onLogout} />}
+        {(props) => (
+          <CustomerTabScreen
+            {...props}
+            onLogout={onLogout}
+            onRefreshAuth={onRefreshAuth}
+            initialTab={initialTab}
+            onInitialTabConsumed={onInitialTabConsumed}
+          />
+        )}
       </CustomerStack.Screen>
       {/* Detail screens pushed on top of tabs */}
       <CustomerStack.Screen name="CreateJob" component={CreateJobScreen} />
@@ -79,24 +91,31 @@ function CustomerNavigator({ onLogout }) {
       <CustomerStack.Screen name="JobDetail" component={JobDetailScreen} />
       <CustomerStack.Screen name="Chat" component={ChatScreen} />
       <CustomerStack.Screen name="RateJob" component={RateJobScreen} />
+      {/* Pending artisans can access the job dashboard while awaiting verification */}
+      <CustomerStack.Screen name="JobScreen" component={ArtisanJobScreen} />
     </CustomerStack.Navigator>
   );
 }
 
 // ─── Artisan Stack ────────────────────────────────────────────────────────────
-function ArtisanNavigator({ onLogout }) {
+function ArtisanNavigator({ onLogout, onRefreshAuth }) {
   return (
     <ArtisanStack.Navigator screenOptions={{ headerShown: false }}>
       {/* Tab root — Home / Jobs / Messages / Profile */}
       <ArtisanStack.Screen name="ArtisanTabs">
-        {(props) => <ArtisanTabScreen {...props} onLogout={onLogout} />}
+        {(props) => <ArtisanTabScreen {...props} onLogout={onLogout} onRefreshAuth={onRefreshAuth} />}
       </ArtisanStack.Screen>
       {/* Detail screens pushed on top of tabs */}
       <ArtisanStack.Screen name="AvailableJobs" component={AvailableJobsScreen} />
+      <ArtisanStack.Screen name="JobScreen" component={ArtisanJobScreen} />
       <ArtisanStack.Screen name="MyJobs" component={MyJobsScreen} />
       <ArtisanStack.Screen name="JobDetail" component={JobDetailScreen} />
       <ArtisanStack.Screen name="Chat" component={ChatScreen} />
       <ArtisanStack.Screen name="ArtisanProfile" component={ArtisanProfileScreen} />
+      <ArtisanStack.Screen name="SearchArtisans" component={SearchArtisansScreen} />
+      {/* Profile completion — accessible from "Edit Profile" on the dashboard */}
+      <ArtisanStack.Screen name="Step4_VerificationID" component={Step4_VerificationID} />
+      <ArtisanStack.Screen name="Step5_SkillVideo" component={Step5_SkillVideo} />
     </ArtisanStack.Navigator>
   );
 }
@@ -110,6 +129,8 @@ export default function AppNavigator() {
     artisanStep: null,      // null | 'profilePhoto' | 'skills' | ... | 'pending' | 'verified' | 'rejected'
     verificationStatus: null,
   });
+  // Set to true by handleGoToDashboard so CustomerTabScreen opens on the Profile tab
+  const [startOnProfile, setStartOnProfile] = useState(false);
 
   useEffect(() => {
     bootstrapAsync();
@@ -122,6 +143,7 @@ export default function AppNavigator() {
 
       const meRes = await getMe();
       const user = meRes.data.user;
+      await saveUser(user); // keep storage in sync with backend (role may have changed)
 
       if (user.role === 'artisan') {
         const statusRes = await getOnboardingStatus();
@@ -173,6 +195,33 @@ export default function AppNavigator() {
     setAuthState({ isAuthenticated: false, user: null, artisanStep: null, verificationStatus: null });
   };
 
+  // Called after "Become an Artisan" or "Cancel Registration" — re-fetches auth state
+  const handleRefreshAuth = useCallback(() => {
+    setIsLoading(true);
+    bootstrapAsync();
+  }, []);
+
+  // Called from onboarding "Cancel Registration" — reverts role to customer
+  const handleCancelRegistration = useCallback(async () => {
+    try {
+      const res = await cancelArtisanRegistration();
+      // Save the new token + user (role is now 'customer')
+      await saveToken(res.data.token);
+      await saveUser(res.data.user);
+    } catch {
+      // Even if the API fails, force a re-auth so the UI doesn't stay stuck
+    } finally {
+      handleRefreshAuth();
+    }
+  }, [handleRefreshAuth]);
+
+  // Called from PendingVerification "Go to Dashboard"
+  // Sends the user to the Profile tab so they can see their pending status.
+  const handleGoToDashboard = useCallback(() => {
+    setStartOnProfile(true);
+    handleRefreshAuth();
+  }, [handleRefreshAuth]);
+
   if (isLoading) {
     return (
       <View style={styles.loader}>
@@ -182,7 +231,7 @@ export default function AppNavigator() {
   }
 
   // ── Routing logic ──────────────────────────────────────────────────────────
-  const { isAuthenticated, user, artisanStep, verificationStatus } = authState;
+  const { isAuthenticated, user, artisanStep } = authState;
 
   // Lock into onboarding ONLY while there are incomplete onboarding steps.
   // artisanStep is one of the step names ('profilePhoto', 'skills', etc.) during onboarding,
@@ -192,6 +241,12 @@ export default function AppNavigator() {
     isAuthenticated &&
     user?.role === 'artisan' &&
     ONBOARDING_STEPS.includes(artisanStep);
+
+  // Only fully verified artisans get the artisan job-management app.
+  // Pending / rejected artisans stay in the customer app so the marketplace
+  // home screen is never disrupted; their Profile tab shows the pending status.
+  const isVerifiedArtisan =
+    isAuthenticated && user?.role === 'artisan' && artisanStep === 'verified';
 
   return (
     <NavigationContainer>
@@ -203,11 +258,13 @@ export default function AppNavigator() {
           </Stack.Screen>
 
         ) : isArtisanOnboarding ? (
-          // ── Artisan not yet verified → lock into onboarding/pending flow
+          // ── Artisan mid-onboarding → lock into onboarding flow
           <Stack.Screen name="ArtisanOnboarding">
             {() => (
               <ArtisanOnboardingNavigator
                 initialStep={artisanStep}
+                onCancelRegistration={handleCancelRegistration}
+                onGoToDashboard={handleGoToDashboard}
                 onVerified={() =>
                   setAuthState((prev) => ({
                     ...prev,
@@ -219,16 +276,25 @@ export default function AppNavigator() {
             )}
           </Stack.Screen>
 
-        ) : user?.role === 'artisan' ? (
-          // ── Verified artisan → artisan app
+        ) : isVerifiedArtisan ? (
+          // ── Fully verified artisan → artisan job-management app
           <Stack.Screen name="ArtisanApp">
-            {() => <ArtisanNavigator onLogout={handleLogout} />}
+            {() => <ArtisanNavigator onLogout={handleLogout} onRefreshAuth={handleRefreshAuth} />}
           </Stack.Screen>
 
         ) : (
-          // ── Customer (or admin) → customer app
+          // ── Customer, pending artisan, or rejected artisan → customer/marketplace app
+          // Pending artisans see their status on the Profile tab; the Home screen
+          // (marketplace) is never replaced or overridden.
           <Stack.Screen name="CustomerApp">
-            {() => <CustomerNavigator onLogout={handleLogout} />}
+            {() => (
+              <CustomerNavigator
+                onLogout={handleLogout}
+                onRefreshAuth={handleRefreshAuth}
+                initialTab={startOnProfile ? 'profile' : 'home'}
+                onInitialTabConsumed={() => setStartOnProfile(false)}
+              />
+            )}
           </Stack.Screen>
         )}
       </Stack.Navigator>

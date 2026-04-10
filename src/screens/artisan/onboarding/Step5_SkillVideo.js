@@ -11,17 +11,22 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { Video, ResizeMode } from 'expo-av';
-import { uploadSkillVideo } from '../../../api/artisanApi';
+import { uploadSkillVideo, skipSkillVideo } from '../../../api/artisanApi';
+import { useOnboarding } from '../../../contexts/OnboardingContext';
 
+const PRIMARY = '#2563EB';
 const TOTAL_STEPS = 5;
 const CURRENT_STEP = 5;
 
 const MAX_VIDEO_DURATION_SECS = 120; // 2 minutes
 
-export default function Step5_SkillVideo({ navigation }) {
+export default function Step5_SkillVideo({ navigation, route }) {
+  const isEdit = route?.params?.isEdit === true;
+  const { onCancelRegistration } = useOnboarding();
+
   const [videoUri, setVideoUri] = useState(null);
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [skipping, setSkipping] = useState(false);
 
   const pickVideo = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -31,7 +36,7 @@ export default function Step5_SkillVideo({ navigation }) {
     }
 
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ["videos"],
+      mediaTypes: ['videos'],
       allowsEditing: true,
       videoMaxDuration: MAX_VIDEO_DURATION_SECS,
       quality: ImagePicker.UIImagePickerControllerQualityType.Medium,
@@ -40,7 +45,6 @@ export default function Step5_SkillVideo({ navigation }) {
     if (!result.canceled && result.assets?.length > 0) {
       const asset = result.assets[0];
 
-      // Warn if video is very large (common issue on Nigerian networks)
       if (asset.fileSize && asset.fileSize > 50 * 1024 * 1024) {
         Alert.alert(
           'Video Too Large',
@@ -65,7 +69,7 @@ export default function Step5_SkillVideo({ navigation }) {
     }
 
     const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ["videos"],
+      mediaTypes: ['videos'],
       videoMaxDuration: MAX_VIDEO_DURATION_SECS,
       quality: ImagePicker.UIImagePickerControllerQualityType.Medium,
     });
@@ -82,32 +86,73 @@ export default function Step5_SkillVideo({ navigation }) {
     }
 
     setUploading(true);
-    setUploadProgress(0);
 
     try {
       await uploadSkillVideo(videoUri);
-      navigation.navigate('PendingVerification');
+      if (isEdit) {
+        navigation.navigate('ArtisanTabs');
+      } else {
+        navigation.navigate('PendingVerification');
+      }
     } catch (err) {
+      const isTimeout = err?.isTimeout;
       const isNetwork = err?.isNetworkError;
-      Alert.alert(
-        'Upload Failed',
-        isNetwork
-          ? 'No internet connection. Please switch to WiFi and try again.'
-          : err?.message || 'Video upload failed. Please try again.',
-        [
-          { text: 'Retry', onPress: handleSubmit },
-          { text: 'Cancel' },
-        ]
-      );
+
+      let message;
+      if (isTimeout) {
+        message = 'Upload timed out. The video may be too large for your current connection speed. Try switching to WiFi or recording a shorter clip (under 30 seconds).';
+      } else if (isNetwork) {
+        message = 'No internet connection. Please check your network and try again.';
+      } else {
+        message = err?.message || 'Video upload failed. Please try again.';
+      }
+
+      Alert.alert('Upload Failed', message, [
+        { text: 'Retry', onPress: handleSubmit },
+        { text: 'Cancel' },
+      ]);
     } finally {
       setUploading(false);
     }
   };
 
+  const handleSkip = () => {
+    Alert.alert(
+      'Skip Skill Video?',
+      'Profiles with skill video evidence tend to receive significantly more job requests from customers. Are you sure you want to skip?',
+      [
+        { text: 'Add Video', style: 'cancel' },
+        {
+          text: 'Continue Anyway',
+          onPress: async () => {
+            if (isEdit) {
+              navigation.goBack();
+              return;
+            }
+            setSkipping(true);
+            try {
+              await skipSkillVideo();
+              navigation.navigate('PendingVerification');
+            } catch (err) {
+              Alert.alert('Error', err?.message || 'Could not skip step. Please try again.');
+            } finally {
+              setSkipping(false);
+            }
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <ProgressBar current={CURRENT_STEP} total={TOTAL_STEPS} />
+        <ProgressBar current={CURRENT_STEP} total={TOTAL_STEPS} onCancel={!isEdit && onCancelRegistration ? () => {
+          Alert.alert('Cancel Registration?', 'This will cancel your artisan registration and return you to your customer account.', [
+            { text: 'Stay', style: 'cancel' },
+            { text: 'Cancel Registration', style: 'destructive', onPress: () => onCancelRegistration?.() },
+          ]);
+        } : null} />
 
         <Text style={styles.title}>Skill Video</Text>
         <Text style={styles.subtitle}>
@@ -149,9 +194,9 @@ export default function Step5_SkillVideo({ navigation }) {
         {/* Upload progress indicator */}
         {uploading && (
           <View style={styles.uploadingBox}>
-            <ActivityIndicator color="#FF6B00" />
+            <ActivityIndicator color={PRIMARY} />
             <Text style={styles.uploadingText}>
-              Uploading video... Please stay connected to the internet.
+              Uploading video… This may take a few minutes on mobile data. Please stay connected.
             </Text>
           </View>
         )}
@@ -171,28 +216,52 @@ export default function Step5_SkillVideo({ navigation }) {
 
       <View style={styles.footer}>
         <TouchableOpacity
-          style={[styles.submitBtn, (!videoUri || uploading) && styles.submitBtnDisabled]}
+          style={[styles.submitBtn, (!videoUri || uploading || skipping) && styles.submitBtnDisabled]}
           onPress={handleSubmit}
-          disabled={!videoUri || uploading}
+          disabled={!videoUri || uploading || skipping}
         >
           {uploading ? (
             <ActivityIndicator color="#FFF" />
           ) : (
-            <Text style={styles.submitBtnText}>Submit for Verification</Text>
+            <Text style={styles.submitBtnText}>
+              {isEdit ? 'Save & Continue' : 'Submit for Verification'}
+            </Text>
           )}
         </TouchableOpacity>
-        <Text style={styles.submitNote}>
-          After submission, an admin will review your profile within 24–48 hours.
-        </Text>
+
+        <TouchableOpacity
+          style={styles.skipBtn}
+          onPress={handleSkip}
+          disabled={uploading || skipping}
+        >
+          {skipping ? (
+            <ActivityIndicator color={PRIMARY} size="small" />
+          ) : (
+            <Text style={styles.skipBtnText}>Skip for Now</Text>
+          )}
+        </TouchableOpacity>
+
+        {!isEdit && (
+          <Text style={styles.submitNote}>
+            After submission, an admin will review your profile within 24–48 hours.
+          </Text>
+        )}
       </View>
     </SafeAreaView>
   );
 }
 
-function ProgressBar({ current, total }) {
+function ProgressBar({ current, total, onCancel }) {
   return (
     <View style={styles.progressContainer}>
-      <Text style={styles.progressText}>Step {current} of {total}</Text>
+      <View style={styles.progressTopRow}>
+        <Text style={styles.progressText}>Step {current} of {total}</Text>
+        {onCancel && (
+          <TouchableOpacity onPress={onCancel}>
+            <Text style={styles.cancelLink}>Cancel</Text>
+          </TouchableOpacity>
+        )}
+      </View>
       <View style={styles.progressTrack}>
         {Array.from({ length: total }).map((_, i) => (
           <View key={i} style={[styles.progressSegment, i < current && styles.progressSegmentActive]} />
@@ -206,10 +275,12 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFF' },
   scroll: { padding: 24, paddingBottom: 40 },
   progressContainer: { marginBottom: 24 },
-  progressText: { fontSize: 13, color: '#999', marginBottom: 8 },
+  progressTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  progressText: { fontSize: 13, color: '#999' },
+  cancelLink: { fontSize: 13, color: '#EF4444', fontWeight: '600' },
   progressTrack: { flexDirection: 'row', gap: 6 },
   progressSegment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#E5E5E5' },
-  progressSegmentActive: { backgroundColor: '#FF6B00' },
+  progressSegmentActive: { backgroundColor: PRIMARY },
   title: { fontSize: 24, fontWeight: '700', color: '#1A1A1A', marginBottom: 8 },
   subtitle: { fontSize: 15, color: '#666', marginBottom: 24, lineHeight: 22 },
   videoPlaceholder: {
@@ -228,39 +299,47 @@ const styles = StyleSheet.create({
   videoPreview: { marginBottom: 16 },
   video: { width: '100%', height: 220, borderRadius: 12, backgroundColor: '#000' },
   rePickBtn: { marginTop: 8, alignSelf: 'center' },
-  rePickBtnText: { color: '#FF6B00', fontSize: 13, fontWeight: '600' },
+  rePickBtnText: { color: PRIMARY, fontSize: 13, fontWeight: '600' },
   pickRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   pickBtn: {
     flex: 1,
     padding: 14,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: '#FF6B00',
+    borderColor: PRIMARY,
     alignItems: 'center',
   },
-  pickBtnText: { color: '#FF6B00', fontWeight: '600', fontSize: 15 },
+  pickBtnText: { color: PRIMARY, fontWeight: '600', fontSize: 15 },
   uploadingBox: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    backgroundColor: '#FFF3EC',
+    backgroundColor: '#EFF6FF',
     borderRadius: 10,
     padding: 14,
     marginBottom: 16,
   },
-  uploadingText: { flex: 1, fontSize: 13, color: '#FF6B00', lineHeight: 18 },
+  uploadingText: { flex: 1, fontSize: 13, color: PRIMARY, lineHeight: 18 },
   guideBox: {
     backgroundColor: '#F9FAFB',
     borderRadius: 10,
     padding: 16,
     borderLeftWidth: 4,
-    borderLeftColor: '#FF6B00',
+    borderLeftColor: PRIMARY,
   },
   guideTitle: { fontSize: 13, fontWeight: '700', color: '#333', marginBottom: 8 },
   guideItem: { fontSize: 13, color: '#555', marginBottom: 5, lineHeight: 18 },
-  footer: { padding: 24, paddingTop: 0 },
-  submitBtn: { backgroundColor: '#FF6B00', padding: 16, borderRadius: 12, alignItems: 'center', marginBottom: 10 },
-  submitBtnDisabled: { backgroundColor: '#FFCBA4' },
+  footer: { padding: 24, paddingTop: 0, gap: 10 },
+  submitBtn: { backgroundColor: PRIMARY, padding: 16, borderRadius: 12, alignItems: 'center' },
+  submitBtnDisabled: { backgroundColor: '#93C5FD' },
   submitBtnText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
+  skipBtn: {
+    padding: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+  },
+  skipBtnText: { color: '#6B7280', fontWeight: '600', fontSize: 15 },
   submitNote: { fontSize: 12, color: '#999', textAlign: 'center', lineHeight: 18 },
 });

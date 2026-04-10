@@ -6,23 +6,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { sendOTP } from '../../api/authApi';
-
-// Role option data
-const ROLES = [
-  {
-    value: 'customer',
-    label: 'Customer',
-    icon: '👤',
-  },
-  {
-    value: 'artisan',
-    label: 'Artisan',
-    icon: '🔧',
-  },
-];
+import BackButton from '../../components/BackButton';
 
 export default function RegisterScreen({ navigation, onAuthSuccess }) {
-  const [role, setRole] = useState('customer');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [agreed, setAgreed] = useState(false);
@@ -54,11 +40,12 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
     try {
       await sendOTP(normalized);
       // Navigate to OTP screen, passing registration data
+      // Everyone registers as a customer; artisan onboarding is triggered on-demand
       navigation.navigate('OTP', {
         mode: 'register',
         phone: normalized,
         name: name.trim(),
-        role,
+        role: 'customer',
         onAuthSuccess,
       });
     } catch (err) {
@@ -80,42 +67,17 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
           showsVerticalScrollIndicator={false}
         >
           {/* Back arrow */}
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backRow}>
-            <Text style={styles.backArrow}>←</Text>
+          <View style={styles.backRow}>
+            <BackButton onPress={() => navigation.goBack()} />
             <Text style={styles.appName}>FixNG</Text>
-            <View style={{ width: 24 }} />
-          </TouchableOpacity>
+            <View style={{ width: 28 }} />
+          </View>
 
           {/* Title */}
           <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>
             Join the community of trusted professionals{'\n'}and clients.
           </Text>
-
-          {/* Role selector */}
-          <Text style={styles.sectionLabel}>SELECT YOUR ROLE</Text>
-          <View style={styles.roleRow}>
-            {ROLES.map((r) => (
-              <TouchableOpacity
-                key={r.value}
-                style={[styles.roleCard, role === r.value && styles.roleCardActive]}
-                onPress={() => setRole(r.value)}
-                activeOpacity={0.8}
-              >
-                {role === r.value && (
-                  <View style={styles.checkBadge}>
-                    <Text style={styles.checkIcon}>✓</Text>
-                  </View>
-                )}
-                <View style={[styles.roleIconCircle, role === r.value && styles.roleIconCircleActive]}>
-                  <Text style={styles.roleEmoji}>{r.icon}</Text>
-                </View>
-                <Text style={[styles.roleLabel, role === r.value && styles.roleLabelActive]}>
-                  {r.label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
 
           {/* Full Name */}
           <Text style={styles.fieldLabel}>Full Name</Text>
@@ -215,8 +177,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 16,
   },
-  backArrow: { fontSize: 22, color: '#1A1A1A' },
-  appName: { fontSize: 16, fontWeight: '700', color: '#1A1A1A' },
+  appName: { fontSize: 20, fontWeight: '900', color: '#1A1A1A', letterSpacing: -0.5 },
 
   title: {
     fontSize: 30, fontWeight: '800', color: '#1E232C',

@@ -27,10 +27,14 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (!error.response) {
-      // Network error — very common in Nigeria
+      // ECONNABORTED = Axios request timeout; other codes = genuine connectivity loss
+      const isTimeout = error.code === 'ECONNABORTED';
       return Promise.reject({
-        message: 'No internet connection. Please check your network and try again.',
-        isNetworkError: true,
+        message: isTimeout
+          ? 'Request timed out. Please try again on a faster connection or switch to WiFi.'
+          : 'No internet connection. Please check your network and try again.',
+        isNetworkError: !isTimeout,
+        isTimeout,
       });
     }
     return Promise.reject(error.response.data || { message: 'Something went wrong.' });

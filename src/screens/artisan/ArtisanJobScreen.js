@@ -7,8 +7,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getMe } from '../../api/authApi';
 import { getMyJobs, getAvailableJobs, acceptJob, declineJob, markCompleted } from '../../api/jobApi';
+import BackButton from '../../components/BackButton';
 
-const PRIMARY = '#2563EB';
+const PRIMARY = '#2563EB'; 
 const GREEN = '#16A34A';
 const ACCEPT_GREEN = '#15803D';
 
@@ -122,6 +123,18 @@ export default function ArtisanJobScreen({ navigation }) {
   const isPending = verificationStatus === 'pending';
   const isRejected = verificationStatus === 'rejected';
 
+  const skippedId = artisanProfile?.skippedSteps?.verificationId === true;
+  const skippedVideo = artisanProfile?.skippedSteps?.skillVideo === true;
+  const hasIncomplete = skippedId || skippedVideo;
+
+  const handleEditProfile = () => {
+    if (skippedId) {
+      navigation.navigate('Step4_VerificationID', { isEdit: true });
+    } else if (skippedVideo) {
+      navigation.navigate('Step5_SkillVideo', { isEdit: true });
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
@@ -143,18 +156,19 @@ export default function ArtisanJobScreen({ navigation }) {
       >
         {/* ── Header ── */}
         <View style={styles.header}>
-          <View>
-            <Text style={styles.welcomeLabel}>WELCOME BACK, {firstName}</Text>
-            <Text style={styles.pageTitle}>Job Dashboard</Text>
+          <View style={styles.headerTop}>
+            <BackButton onPress={() => navigation.goBack()} />
+            {isVerified && (
+              <View style={styles.verifiedBadge}>
+                <Text style={styles.verifiedIcon}>✓</Text>
+                <Text style={styles.verifiedText}>
+                  Verified {skill || 'Artisan'}
+                </Text>
+              </View>
+            )}
           </View>
-          {isVerified && (
-            <View style={styles.verifiedBadge}>
-              <Text style={styles.verifiedIcon}>✓</Text>
-              <Text style={styles.verifiedText}>
-                Verified {skill || 'Artisan'}
-              </Text>
-            </View>
-          )}
+          <Text style={styles.welcomeLabel}>WELCOME BACK, {firstName}</Text>
+          <Text style={styles.pageTitle}>Job Dashboard</Text>
         </View>
 
         {/* ── Verification status banner ── */}
@@ -178,6 +192,31 @@ export default function ArtisanJobScreen({ navigation }) {
                 Your application was not approved. Please contact support for assistance.
               </Text>
             </View>
+          </View>
+        )}
+
+        {/* ── Incomplete registration banner ── */}
+        {hasIncomplete && (
+          <View style={styles.incompleteBanner}>
+            <View style={styles.incompleteBannerLeft}>
+              <Text style={styles.incompleteIcon}>⚠️</Text>
+              <View style={styles.incompleteBody}>
+                <Text style={styles.incompleteTitle}>Complete Your Registration</Text>
+                <Text style={styles.incompleteText}>
+                  {skippedId && skippedVideo
+                    ? 'Missing: Verification ID & Skill Video'
+                    : skippedId
+                    ? 'Missing: Verification ID'
+                    : 'Missing: Skill Video'}
+                </Text>
+                <Text style={styles.incompleteSubText}>
+                  Upload the missing items to become eligible for the Verified badge and full platform access.
+                </Text>
+              </View>
+            </View>
+            <TouchableOpacity style={styles.editProfileBtn} onPress={handleEditProfile}>
+              <Text style={styles.editProfileBtnText}>Edit Profile</Text>
+            </TouchableOpacity>
           </View>
         )}
 
@@ -381,6 +420,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
     borderBottomWidth: 1, borderBottomColor: '#EEF0F5',
   },
+  headerTop: {
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', marginBottom: 12,
+  },
   welcomeLabel: {
     fontSize: 12, fontWeight: '700', color: '#8391A1',
     letterSpacing: 0.8, marginBottom: 4,
@@ -409,6 +452,25 @@ const styles = StyleSheet.create({
   pendingBody: { flex: 1 },
   pendingTitle: { fontSize: 13, fontWeight: '800', color: '#92400E', marginBottom: 3 },
   pendingText: { fontSize: 12, color: '#78350F', lineHeight: 17 },
+
+  // ── Incomplete registration banner ──
+  incompleteBanner: {
+    marginHorizontal: 16, marginTop: 8, marginBottom: 4,
+    backgroundColor: '#FEF2F2',
+    borderRadius: 14, padding: 14,
+    borderWidth: 1.5, borderColor: '#FECACA',
+  },
+  incompleteBannerLeft: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12 },
+  incompleteIcon: { fontSize: 20, marginTop: 1 },
+  incompleteBody: { flex: 1 },
+  incompleteTitle: { fontSize: 14, fontWeight: '800', color: '#991B1B', marginBottom: 2 },
+  incompleteText: { fontSize: 13, fontWeight: '700', color: '#DC2626', marginBottom: 4 },
+  incompleteSubText: { fontSize: 12, color: '#7F1D1D', lineHeight: 16 },
+  editProfileBtn: {
+    backgroundColor: '#DC2626', borderRadius: 10,
+    paddingVertical: 10, paddingHorizontal: 16, alignSelf: 'stretch', alignItems: 'center',
+  },
+  editProfileBtnText: { color: '#FFF', fontWeight: '800', fontSize: 14 },
 
   // ── Sections ──
   sectionHeader: {

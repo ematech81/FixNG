@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { verifyRegister, verifyLoginOTP, sendOTP } from '../../api/authApi';
 import { saveToken, saveUser } from '../../utils/storage';
+import BackButton from '../../components/BackButton';
 
 const OTP_LENGTH = 6;
 const RESEND_COUNTDOWN = 60; // seconds
@@ -128,11 +129,11 @@ export default function OTPScreen({ route, navigation }) {
         style={{ flex: 1 }}
       >
         {/* Header */}
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backRow}>
-          <Text style={styles.backArrow}>←</Text>
+        <View style={styles.backRow}>
+          <BackButton onPress={() => navigation.goBack()} />
           <Text style={styles.appName}>FixNG</Text>
-          <View style={{ width: 24 }} />
-        </TouchableOpacity>
+          <View style={{ width: 28 }} />
+        </View>
 
         <View style={styles.body}>
           <Text style={styles.title}>OTP Verification</Text>
@@ -205,8 +206,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 24, paddingVertical: 16,
   },
-  backArrow: { fontSize: 22, color: '#1A1A1A' },
-  appName: { fontSize: 16, fontWeight: '700', color: '#1A1A1A' },
+  appName: { fontSize: 20, fontWeight: '900', color: '#1A1A1A', letterSpacing: -0.5 },
 
   body: { flex: 1, paddingHorizontal: 24, paddingTop: 20 },
 

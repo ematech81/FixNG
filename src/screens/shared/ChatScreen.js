@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { getChatHistory, sendMessage, sendImageMessage } from '../../api/chatApi';
+import BackButton from '../../components/BackButton';
 import { getUser } from '../../utils/storage';
 import { connectSocket } from '../../hooks/useSocket';
 
@@ -159,9 +160,7 @@ export default function ChatScreen({ route, navigation }) {
     <SafeAreaView style={styles.container}>
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backBtn}>← Back</Text>
-        </TouchableOpacity>
+        <BackButton onPress={() => navigation.goBack()} />
         <View style={styles.headerCenter}>
           <Text style={styles.headerName}>{otherPartyName || 'Chat'}</Text>
           <Text style={styles.headerJob}>{jobCategory}</Text>
@@ -245,7 +244,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#FFF',
     borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
   },
-  backBtn: { color: '#FF6B00', fontSize: 15, fontWeight: '600', width: 60 },
   headerCenter: { alignItems: 'center' },
   headerName: { fontSize: 16, fontWeight: '700', color: '#1A1A1A' },
   headerJob: { fontSize: 12, color: '#888' },

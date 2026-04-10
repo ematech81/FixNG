@@ -8,6 +8,7 @@ import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { ARTISAN_SKILLS } from '../../constants/skills';
 import { createJob } from '../../api/jobApi';
+import BackButton from '../../components/BackButton';
 
 const URGENCY_OPTIONS = [
   {
@@ -189,9 +190,7 @@ export default function CreateJobScreen({ navigation }) {
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
           {/* Header */}
           <View style={styles.header}>
-            <TouchableOpacity onPress={() => navigation.goBack()}>
-              <Text style={styles.backBtn}>← Back</Text>
-            </TouchableOpacity>
+            <BackButton onPress={() => navigation.goBack()} />
             <Text style={styles.headerTitle}>Post a Job</Text>
             <View style={{ width: 60 }} />
           </View>
@@ -344,7 +343,6 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24,
   },
-  backBtn: { color: '#FF6B00', fontSize: 15, fontWeight: '600' },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A1A' },
   label: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 8, marginTop: 16 },
   dropdownTrigger: {

@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getMyJobs } from '../../api/jobApi';
+import BackButton from '../../components/BackButton';
 
 const STATUS_TABS = ['all', 'pending', 'accepted', 'in-progress', 'completed', 'disputed'];
 
@@ -71,7 +72,10 @@ export default function MyJobsScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
-      <Text style={styles.title}>My Jobs</Text>
+      <View style={styles.header}>
+        <BackButton onPress={() => navigation.goBack()} />
+        <Text style={styles.title}>My Jobs</Text>
+      </View>
 
       {/* Status filter tabs */}
       <FlatList
@@ -119,7 +123,12 @@ export default function MyJobsScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F5F5F5' },
-  title: { fontSize: 22, fontWeight: '700', color: '#1A1A1A', paddingHorizontal: 20, paddingTop: 16, marginBottom: 12 },
+  header: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12,
+    backgroundColor: '#F5F5F5',
+  },
+  title: { fontSize: 22, fontWeight: '700', color: '#1A1A1A' },
   tabs: { paddingHorizontal: 16, gap: 8, paddingBottom: 12 },
   tab: {
     paddingHorizontal: 14, paddingVertical: 8,

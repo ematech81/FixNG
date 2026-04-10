@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getJob, acceptJob, declineJob, markArrived, markCompleted, raiseDispute, cancelJob } from '../../api/jobApi';
 import useSocket from '../../hooks/useSocket';
+import BackButton from '../../components/BackButton';
 import { getUser } from '../../utils/storage';
 
 const STATUS_LABELS = {
@@ -192,9 +193,7 @@ export default function JobDetailScreen({ route, navigation }) {
       <ScrollView contentContainerStyle={styles.scroll}>
         {/* Header */}
         <View style={styles.header}>
-          <TouchableOpacity onPress={() => navigation.goBack()}>
-            <Text style={styles.backBtn}>← Back</Text>
-          </TouchableOpacity>
+          <BackButton onPress={() => navigation.goBack()} />
           <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
             <Text style={[styles.statusText, { color: statusConfig.color }]}>
               {statusConfig.label}
@@ -458,7 +457,6 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20,
   },
-  backBtn: { color: '#FF6B00', fontSize: 15, fontWeight: '600' },
   statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   statusText: { fontSize: 13, fontWeight: '700' },
   category: { fontSize: 22, fontWeight: '700', color: '#1A1A1A', marginBottom: 8 },

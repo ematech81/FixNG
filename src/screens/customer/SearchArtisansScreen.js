@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { searchArtisans } from '../../api/discoveryApi';
 import { ARTISAN_SKILLS } from '../../constants/skills';
+import BackButton from '../../components/BackButton';
 
 const BADGE_CONFIG = {
   new: { label: 'New', color: '#9CA3AF', icon: '🌱' },
@@ -16,7 +17,7 @@ const BADGE_CONFIG = {
 
 const DISTANCE_OPTIONS = [5, 10, 20, 50];
 
-export default function SearchArtisansScreen({ navigation }) {
+export default function SearchArtisansScreen({ navigation, embedded = false }) {
   const [artisans, setArtisans] = useState([]);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -139,11 +140,13 @@ export default function SearchArtisansScreen({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Text style={styles.backBtn}>← Back</Text>
-        </TouchableOpacity>
+        {!embedded ? (
+          <BackButton onPress={() => navigation.goBack()} />
+        ) : (
+          <View style={{ width: 28 }} />
+        )}
         <Text style={styles.headerTitle}>Find Artisans</Text>
-        <View style={{ width: 60 }} />
+        <View style={{ width: 28 }} />
       </View>
 
       {/* Filters */}
@@ -233,7 +236,7 @@ export default function SearchArtisansScreen({ navigation }) {
         renderItem={renderArtisan}
         contentContainerStyle={styles.list}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => handleSearch(true)} tintColor="#FF6B00" />
+          <RefreshControl refreshing={refreshing} onRefresh={() => handleSearch(true)} tintColor="#2563EB" />
         }
         ListEmptyComponent={
           hasSearched && !loading ? (
@@ -266,7 +269,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#FFF',
     borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
   },
-  backBtn: { color: '#FF6B00', fontSize: 15, fontWeight: '600', width: 60 },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A1A' },
   filters: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 8,
@@ -278,9 +280,9 @@ const styles = StyleSheet.create({
     borderRadius: 20, borderWidth: 1.5, borderColor: '#E5E5E5',
     backgroundColor: '#FFF',
   },
-  filterChipActive: { borderColor: '#FF6B00', backgroundColor: '#FFF3EC' },
+  filterChipActive: { borderColor: '#2563EB', backgroundColor: '#EFF6FF' },
   filterChipText: { fontSize: 13, color: '#555', fontWeight: '600' },
-  filterChipTextActive: { color: '#FF6B00' },
+  filterChipTextActive: { color: '#2563EB' },
   categoryDropdown: {
     backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E5E5',
     marginHorizontal: 16, borderRadius: 10, overflow: 'hidden',
@@ -291,9 +293,9 @@ const styles = StyleSheet.create({
   },
   categoryItem: { padding: 13, borderBottomWidth: 1, borderBottomColor: '#F9F9F9' },
   categoryItemText: { fontSize: 14, color: '#444' },
-  categoryItemActive: { color: '#FF6B00', fontWeight: '700' },
+  categoryItemActive: { color: '#2563EB', fontWeight: '700' },
   searchBtn: {
-    margin: 16, backgroundColor: '#FF6B00',
+    margin: 16, backgroundColor: '#2563EB',
     padding: 14, borderRadius: 12, alignItems: 'center',
   },
   searchBtnText: { color: '#FFF', fontWeight: '700', fontSize: 15 },
@@ -307,7 +309,7 @@ const styles = StyleSheet.create({
   avatar: { width: 56, height: 56, borderRadius: 28 },
   avatarPlaceholder: {
     width: 56, height: 56, borderRadius: 28,
-    backgroundColor: '#FF6B00', justifyContent: 'center', alignItems: 'center',
+    backgroundColor: '#2563EB', justifyContent: 'center', alignItems: 'center',
   },
   avatarInitial: { color: '#FFF', fontSize: 22, fontWeight: '700' },
   artisanInfo: { flex: 1 },
