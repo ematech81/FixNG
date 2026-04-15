@@ -96,13 +96,26 @@ export default function Step3_Location({ navigation }) {
       return;
     }
 
-    const finalCoords = coords || { latitude: 0, longitude: 0 };
-
     setSaving(true);
     try {
+      let finalCoords = coords;
+
+      // If GPS was not used, try geocoding the typed address to get real coordinates
+      if (!finalCoords) {
+        try {
+          const query = `${address.trim()}, ${state}, Nigeria`;
+          const results = await Location.geocodeAsync(query);
+          if (results?.length > 0) {
+            finalCoords = { latitude: results[0].latitude, longitude: results[0].longitude };
+          }
+        } catch {
+          // Geocoding failed — backend will use Nigeria-centre fallback
+        }
+      }
+
       await updateLocation({
-        latitude: finalCoords.latitude,
-        longitude: finalCoords.longitude,
+        latitude: finalCoords?.latitude ?? null,
+        longitude: finalCoords?.longitude ?? null,
         address: address.trim(),
         state,
         lga: lga.trim(),

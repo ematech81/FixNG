@@ -6,21 +6,26 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getMyJobs } from '../../api/jobApi';
+import { getUser } from '../../utils/storage';
 
 const PRIMARY = '#2563EB';
 
 const STATUS_META = {
-  open:      { label: 'Open',       color: '#6B7280', bg: '#F3F4F6' },
-  accepted:  { label: 'In Progress',color: '#1D4ED8', bg: '#EFF6FF' },
-  arrived:   { label: 'Arrived',    color: '#059669', bg: '#ECFDF5' },
-  completed: { label: 'Completed',  color: '#16A34A', bg: '#DCFCE7' },
-  disputed:  { label: 'Disputed',   color: '#DC2626', bg: '#FEE2E2' },
-  cancelled: { label: 'Cancelled',  color: '#9CA3AF', bg: '#F9FAFB' },
+  pending:      { label: 'Pending',     color: '#D97706', bg: '#FFFBEB' },
+  accepted:     { label: 'Accepted',    color: '#1D4ED8', bg: '#EFF6FF' },
+  'in-progress':{ label: 'In Progress', color: '#7C3AED', bg: '#F5F3FF' },
+  completed:    { label: 'Completed',   color: '#16A34A', bg: '#DCFCE7' },
+  disputed:     { label: 'Disputed',    color: '#DC2626', bg: '#FEE2E2' },
+  cancelled:    { label: 'Cancelled',   color: '#9CA3AF', bg: '#F9FAFB' },
 };
+
+// Statuses where a chat thread exists
+const CHAT_STATUSES = ['accepted', 'in-progress', 'completed', 'disputed'];
 
 export default function MessagesScreen({ navigation }) {
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState('customer');
 
   useFocusEffect(
     useCallback(() => {
@@ -31,11 +36,19 @@ export default function MessagesScreen({ navigation }) {
   const fetchJobs = async () => {
     setLoading(true);
     try {
-      // Fetch active (non-completed, non-cancelled) jobs that have an artisan assigned
-      const res = await getMyJobs({ role: 'customer' });
+      const u = await getUser();
+      const role = u?.role || 'customer';
+      setUserRole(role);
+
+      const res = await getMyJobs();
       const all = res.data.data || [];
-      // Show jobs that have an artisan assigned (i.e., can have a chat)
-      const chatJobs = all.filter((j) => j.assignedArtisanId);
+
+      // For customers: jobs they posted that have an assigned artisan
+      // For artisans:  jobs they accepted (assignedArtisanId = them), always have a customer
+      const chatJobs = role === 'artisan'
+        ? all.filter((j) => CHAT_STATUSES.includes(j.status))
+        : all.filter((j) => j.assignedArtisanId && CHAT_STATUSES.includes(j.status));
+
       setJobs(chatJobs);
     } catch {
       setJobs([]);
@@ -44,48 +57,57 @@ export default function MessagesScreen({ navigation }) {
     }
   };
 
+  // The "other party" in the conversation depends on who is viewing
+  const getOtherParty = (job) => {
+    if (userRole === 'artisan') {
+      return job.customerId?.name || 'Customer';
+    }
+    return job.assignedArtisanId?.name || 'Artisan';
+  };
+
   const handleJobPress = (job) => {
     navigation.navigate('JobDetail', { jobId: job._id });
   };
 
   const handleChatPress = (job) => {
-    navigation.navigate('Chat', { jobId: job._id, artisanName: job.artisanName || 'Artisan' });
+    navigation.navigate('Chat', {
+      jobId: job._id,
+      jobCategory: job.category,
+      otherPartyName: getOtherParty(job),
+    });
   };
 
   const renderJob = ({ item }) => {
-    const meta = STATUS_META[item.status] || STATUS_META.open;
-    const artisanName = item.artisanName || 'Artisan';
-    const initial = artisanName[0].toUpperCase();
+    const meta = STATUS_META[item.status] || STATUS_META.pending;
+    const otherParty = getOtherParty(item);
+    const initial = otherParty[0].toUpperCase();
     const timeAgo = getTimeAgo(item.updatedAt || item.createdAt);
+    const canChat = CHAT_STATUSES.includes(item.status);
 
     return (
       <TouchableOpacity style={styles.card} onPress={() => handleJobPress(item)} activeOpacity={0.8}>
         {/* Avatar */}
         <View style={styles.avatarCircle}>
-          {item.artisanPhoto ? (
-            <Image source={{ uri: item.artisanPhoto }} style={styles.avatarImg} />
-          ) : (
-            <Text style={styles.avatarInitial}>{initial}</Text>
-          )}
+          <Text style={styles.avatarInitial}>{initial}</Text>
         </View>
 
         {/* Content */}
         <View style={styles.cardBody}>
           <View style={styles.cardTop}>
-            <Text style={styles.artisanName} numberOfLines={1}>{artisanName}</Text>
+            <Text style={styles.otherPartyName} numberOfLines={1}>{otherParty}</Text>
             <Text style={styles.timeAgo}>{timeAgo}</Text>
           </View>
           <Text style={styles.jobCategory} numberOfLines={1}>
-            {item.category} · {item.address || 'Lagos'}
+            {item.category} · {item.location?.address || item.location?.state || 'Nigeria'}
           </Text>
           <View style={styles.cardBottom}>
             <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
               <Text style={[styles.statusText, { color: meta.color }]}>{meta.label}</Text>
             </View>
-            {item.status !== 'completed' && item.status !== 'cancelled' && (
+            {canChat && (
               <TouchableOpacity
                 style={styles.chatBtn}
-                onPress={() => handleChatPress(item)}
+                onPress={(e) => { e.stopPropagation?.(); handleChatPress(item); }}
               >
                 <Text style={styles.chatBtnText}>💬 Chat</Text>
               </TouchableOpacity>
@@ -112,7 +134,9 @@ export default function MessagesScreen({ navigation }) {
           <Text style={styles.emptyIcon}>💬</Text>
           <Text style={styles.emptyTitle}>No conversations yet</Text>
           <Text style={styles.emptySubtitle}>
-            Once an artisan accepts your job,{'\n'}your chat will appear here.
+            {userRole === 'artisan'
+              ? 'Accept a job to start chatting\nwith the customer.'
+              : 'Once an artisan accepts your job,\nyour chat will appear here.'}
           </Text>
         </View>
       ) : (
@@ -178,7 +202,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', marginBottom: 2,
   },
-  artisanName: { fontSize: 15, fontWeight: '700', color: '#1E232C', flex: 1, marginRight: 6 },
+  otherPartyName: { fontSize: 15, fontWeight: '700', color: '#1E232C', flex: 1, marginRight: 6 },
   timeAgo: { fontSize: 11, color: '#9CA3AF' },
   jobCategory: { fontSize: 13, color: '#6B7280', marginBottom: 8 },
 

@@ -20,9 +20,6 @@ import SearchArtisansScreen from '../screens/customer/SearchArtisansScreen';
 import RateJobScreen from '../screens/customer/RateJobScreen';
 
 // Artisan
-import ArtisanTabScreen from '../screens/artisan/ArtisanTabScreen';
-import AvailableJobsScreen from '../screens/artisan/AvailableJobsScreen';
-// import ArtisanJobScreen from '../screens/artisan/AvailableJobsScreen';
 
 
 // Shared
@@ -30,16 +27,21 @@ import MyJobsScreen from '../screens/shared/MyJobsScreen';
 import JobDetailScreen from '../screens/shared/JobDetailScreen';
 import ArtisanProfileScreen from '../screens/shared/ArtisanProfileScreen';
 import ChatScreen from '../screens/shared/ChatScreen';
+import NotificationsScreen   from '../screens/shared/NotificationsScreen';
+import SubscriptionScreen    from '../screens/shared/SubscriptionScreen';
+import MyReviewsScreen       from '../screens/shared/MyReviewsScreen';
+import PrivacySecurityScreen from '../screens/shared/PrivacySecurityScreen';
 
 // Artisan onboarding
-import Step4_VerificationID from '../screens/artisan/onboarding/Step4_VerificationID';
-import Step5_SkillVideo from '../screens/artisan/onboarding/Step5_SkillVideo';
 import ArtisanJobScreen from '../screens/artisan/ArtisanJobScreen';
+
+// Admin
+import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
 
 const Stack = createStackNavigator();
 const AuthStack = createStackNavigator();
 const CustomerStack = createStackNavigator();
-const ArtisanStack = createStackNavigator();
+const AdminStack = createStackNavigator();
 
 // Determines which onboarding step to resume from
 const getNextStep = (completedSteps) => {
@@ -91,34 +93,27 @@ function CustomerNavigator({ onLogout, onRefreshAuth, initialTab, onInitialTabCo
       <CustomerStack.Screen name="JobDetail" component={JobDetailScreen} />
       <CustomerStack.Screen name="Chat" component={ChatScreen} />
       <CustomerStack.Screen name="RateJob" component={RateJobScreen} />
+      <CustomerStack.Screen name="Notifications"    component={NotificationsScreen} />
+      <CustomerStack.Screen name="Subscription"     component={SubscriptionScreen} />
+      <CustomerStack.Screen name="MyReviews"        component={MyReviewsScreen} />
+      <CustomerStack.Screen name="PrivacySecurity"  component={PrivacySecurityScreen} />
       {/* Pending artisans can access the job dashboard while awaiting verification */}
       <CustomerStack.Screen name="JobScreen" component={ArtisanJobScreen} />
     </CustomerStack.Navigator>
   );
 }
 
-// ─── Artisan Stack ────────────────────────────────────────────────────────────
-function ArtisanNavigator({ onLogout, onRefreshAuth }) {
+// ─── Admin Stack ─────────────────────────────────────────────────────────────
+function AdminNavigator({ onLogout }) {
   return (
-    <ArtisanStack.Navigator screenOptions={{ headerShown: false }}>
-      {/* Tab root — Home / Jobs / Messages / Profile */}
-      <ArtisanStack.Screen name="ArtisanTabs">
-        {(props) => <ArtisanTabScreen {...props} onLogout={onLogout} onRefreshAuth={onRefreshAuth} />}
-      </ArtisanStack.Screen>
-      {/* Detail screens pushed on top of tabs */}
-      <ArtisanStack.Screen name="AvailableJobs" component={AvailableJobsScreen} />
-      <ArtisanStack.Screen name="JobScreen" component={ArtisanJobScreen} />
-      <ArtisanStack.Screen name="MyJobs" component={MyJobsScreen} />
-      <ArtisanStack.Screen name="JobDetail" component={JobDetailScreen} />
-      <ArtisanStack.Screen name="Chat" component={ChatScreen} />
-      <ArtisanStack.Screen name="ArtisanProfile" component={ArtisanProfileScreen} />
-      <ArtisanStack.Screen name="SearchArtisans" component={SearchArtisansScreen} />
-      {/* Profile completion — accessible from "Edit Profile" on the dashboard */}
-      <ArtisanStack.Screen name="Step4_VerificationID" component={Step4_VerificationID} />
-      <ArtisanStack.Screen name="Step5_SkillVideo" component={Step5_SkillVideo} />
-    </ArtisanStack.Navigator>
+    <AdminStack.Navigator screenOptions={{ headerShown: false }}>
+      <AdminStack.Screen name="AdminDashboard">
+        {(props) => <AdminDashboardScreen {...props} onLogout={onLogout} />}
+      </AdminStack.Screen>
+    </AdminStack.Navigator>
   );
 }
+
 
 // ─── Root Navigator ───────────────────────────────────────────────────────────
 export default function AppNavigator() {
@@ -172,7 +167,8 @@ export default function AppNavigator() {
   };
 
   // Called after successful login / registration
-  const handleAuthSuccess = ({ user, artisanProfile }) => {
+  const handleAuthSuccess = async ({ user, artisanProfile }) => {
+    await saveUser(user); // keep storage in sync so ProfileScreen reads correct role
     if (user.role === 'artisan') {
       let step = null;
       if (!artisanProfile?.onboardingComplete) {
@@ -236,17 +232,17 @@ export default function AppNavigator() {
   // Lock into onboarding ONLY while there are incomplete onboarding steps.
   // artisanStep is one of the step names ('profilePhoto', 'skills', etc.) during onboarding,
   // and 'pending' | 'verified' | 'rejected' once onboarding is complete.
+  const isAdmin = isAuthenticated && user?.role === 'admin';
+
   const ONBOARDING_STEPS = ['profilePhoto', 'skills', 'location', 'verificationId', 'skillVideo'];
   const isArtisanOnboarding =
     isAuthenticated &&
     user?.role === 'artisan' &&
     ONBOARDING_STEPS.includes(artisanStep);
 
-  // Only fully verified artisans get the artisan job-management app.
-  // Pending / rejected artisans stay in the customer app so the marketplace
-  // home screen is never disrupted; their Profile tab shows the pending status.
-  const isVerifiedArtisan =
-    isAuthenticated && user?.role === 'artisan' && artisanStep === 'verified';
+  // All artisans (pending, verified, rejected) stay in CustomerNavigator so the
+  // marketplace home is never replaced. Verified artisans access the job dashboard
+  // via a button on their Profile tab instead.
 
   return (
     <NavigationContainer>
@@ -255,6 +251,12 @@ export default function AppNavigator() {
           // ── Not logged in → Auth stack
           <Stack.Screen name="Auth">
             {() => <AuthNavigator onAuthSuccess={handleAuthSuccess} />}
+          </Stack.Screen>
+
+        ) : isAdmin ? (
+          // ── Admin → admin dashboard
+          <Stack.Screen name="AdminApp">
+            {() => <AdminNavigator onLogout={handleLogout} />}
           </Stack.Screen>
 
         ) : isArtisanOnboarding ? (
@@ -276,16 +278,10 @@ export default function AppNavigator() {
             )}
           </Stack.Screen>
 
-        ) : isVerifiedArtisan ? (
-          // ── Fully verified artisan → artisan job-management app
-          <Stack.Screen name="ArtisanApp">
-            {() => <ArtisanNavigator onLogout={handleLogout} onRefreshAuth={handleRefreshAuth} />}
-          </Stack.Screen>
-
         ) : (
-          // ── Customer, pending artisan, or rejected artisan → customer/marketplace app
-          // Pending artisans see their status on the Profile tab; the Home screen
-          // (marketplace) is never replaced or overridden.
+          // ── Everyone else: customers, pending/verified/rejected artisans → marketplace app
+          // The Profile tab shows status-aware buttons; verified artisans navigate
+          // to the job dashboard from there without replacing the home screen.
           <Stack.Screen name="CustomerApp">
             {() => (
               <CustomerNavigator

@@ -157,30 +157,30 @@ export default function ChatScreen({ route, navigation }) {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <BackButton onPress={() => navigation.goBack()} />
-        <View style={styles.headerCenter}>
-          <Text style={styles.headerName}>{otherPartyName || 'Chat'}</Text>
-          <Text style={styles.headerJob}>{jobCategory}</Text>
+    <KeyboardAvoidingView
+      style={{ flex: 1 }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+    >
+      <SafeAreaView style={styles.container} edges={['top']}>
+        {/* Header */}
+        <View style={styles.header}>
+          <BackButton onPress={() => navigation.goBack()} />
+          <View style={styles.headerCenter}>
+            <Text style={styles.headerName}>{otherPartyName || 'Chat'}</Text>
+            <Text style={styles.headerJob}>{jobCategory}</Text>
+          </View>
+          <View style={{ width: 60 }} />
         </View>
-        <View style={{ width: 60 }} />
-      </View>
 
-      {/* Phone masking notice */}
-      <View style={styles.notice}>
-        <Text style={styles.noticeText}>
-          📱 Phone numbers are hidden to keep communication in-app
-        </Text>
-      </View>
+        {/* Phone masking notice */}
+        <View style={styles.notice}>
+          <Text style={styles.noticeText}>
+            📱 Phone numbers are hidden to keep communication in-app
+          </Text>
+        </View>
 
-      {/* Messages */}
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
+        {/* Messages */}
         <FlatList
           ref={flatListRef}
           data={messages}
@@ -225,8 +225,8 @@ export default function ChatScreen({ route, navigation }) {
             )}
           </TouchableOpacity>
         </View>
-      </KeyboardAvoidingView>
-    </SafeAreaView>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 

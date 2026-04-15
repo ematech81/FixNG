@@ -55,9 +55,10 @@ export default function JobDetailScreen({ route, navigation }) {
     }
   };
 
-  const isCustomer = currentUser && job?.customerId?._id === currentUser.id;
-  const isArtisan = currentUser && job?.assignedArtisanId?._id === currentUser.id;
-  const role = currentUser?.role;
+  // Robust ID comparison: handle ObjectId objects, strings, and both id/_id variants
+  const currentUserId = currentUser?.id?.toString() || currentUser?._id?.toString();
+  const isCustomer = !!currentUserId && job?.customerId?._id?.toString() === currentUserId;
+  const isArtisan = !!currentUserId && job?.assignedArtisanId?._id?.toString() === currentUserId;
 
   // ── Actions ───────────────────────────────────────────────────────────────
 
@@ -325,35 +326,23 @@ export default function JobDetailScreen({ route, navigation }) {
         </View>
       ) : (
         <View style={styles.actions}>
-          {/* Artisan actions */}
-          {role === 'artisan' && job.status === 'pending' && (
-            <View style={styles.actionRow}>
-              <TouchableOpacity style={styles.declineBtn} onPress={handleDecline}>
-                <Text style={styles.declineBtnText}>Decline</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.acceptBtn} onPress={() => setAcceptModal(true)}>
-                <Text style={styles.acceptBtnText}>Accept Job</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-          {role === 'artisan' && job.status === 'accepted' && isArtisan && (
-            <TouchableOpacity style={styles.primaryBtn} onPress={handleArrived}>
-              <Text style={styles.primaryBtnText}>📍 I Have Arrived</Text>
+
+          {/* ── Customer actions ───────────────────────────────────────────── */}
+          {isCustomer && job.assignedArtisanId &&
+           ['accepted', 'in-progress', 'completed', 'disputed'].includes(job.status) && (
+            <TouchableOpacity
+              style={styles.chatActionBtn}
+              onPress={() => navigation.navigate('Chat', {
+                jobId: job._id,
+                jobCategory: job.category,
+                otherPartyName: job.assignedArtisanId.name,
+              })}
+            >
+              <Text style={styles.chatActionBtnText}>💬 Message Artisan</Text>
             </TouchableOpacity>
           )}
-          {role === 'artisan' && job.status === 'in-progress' && isArtisan && (
-            <View style={styles.actionRow}>
-              <TouchableOpacity style={styles.declineBtn} onPress={() => setDisputeModal(true)}>
-                <Text style={styles.declineBtnText}>Raise Dispute</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.acceptBtn} onPress={handleComplete}>
-                <Text style={styles.acceptBtnText}>Mark Complete</Text>
-              </TouchableOpacity>
-            </View>
-          )}
 
-          {/* Customer actions */}
-          {role === 'customer' && job.status === 'completed' && isCustomer && (
+          {isCustomer && job.status === 'completed' && !job.rating?.score && (
             <TouchableOpacity
               style={styles.primaryBtn}
               onPress={() => navigation.navigate('RateJob', { jobId })}
@@ -361,7 +350,16 @@ export default function JobDetailScreen({ route, navigation }) {
               <Text style={styles.primaryBtnText}>⭐ Rate Artisan</Text>
             </TouchableOpacity>
           )}
-          {role === 'customer' && ['pending', 'accepted'].includes(job.status) && isCustomer && (
+
+          {isCustomer && job.status === 'completed' && job.rating?.score && (
+            <View style={styles.ratedBadge}>
+              <Text style={styles.ratedBadgeText}>
+                ⭐ You rated this job {job.rating.score}/5
+              </Text>
+            </View>
+          )}
+
+          {isCustomer && ['pending', 'accepted'].includes(job.status) && (
             <View style={styles.actionRow}>
               <TouchableOpacity style={styles.declineBtn} onPress={handleCancel}>
                 <Text style={styles.declineBtnText}>Cancel Job</Text>
@@ -371,6 +369,47 @@ export default function JobDetailScreen({ route, navigation }) {
                   <Text style={styles.disputeActionBtnText}>Raise Dispute</Text>
                 </TouchableOpacity>
               )}
+            </View>
+          )}
+
+          {/* ── Artisan actions ────────────────────────────────────────────── */}
+          {isArtisan && job.customerId &&
+           ['accepted', 'in-progress', 'completed', 'disputed'].includes(job.status) && (
+            <TouchableOpacity
+              style={styles.chatActionBtn}
+              onPress={() => navigation.navigate('Chat', {
+                jobId: job._id,
+                jobCategory: job.category,
+                otherPartyName: job.customerId.name,
+              })}
+            >
+              <Text style={styles.chatActionBtnText}>💬 Message Customer</Text>
+            </TouchableOpacity>
+          )}
+
+          {isArtisan && job.status === 'pending' && (
+            <View style={styles.actionRow}>
+              <TouchableOpacity style={styles.declineBtn} onPress={handleDecline}>
+                <Text style={styles.declineBtnText}>Decline</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.acceptBtn} onPress={() => setAcceptModal(true)}>
+                <Text style={styles.acceptBtnText}>Accept Job</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+          {isArtisan && job.status === 'accepted' && (
+            <TouchableOpacity style={styles.primaryBtn} onPress={handleArrived}>
+              <Text style={styles.primaryBtnText}>📍 I Have Arrived</Text>
+            </TouchableOpacity>
+          )}
+          {isArtisan && job.status === 'in-progress' && (
+            <View style={styles.actionRow}>
+              <TouchableOpacity style={styles.declineBtn} onPress={() => setDisputeModal(true)}>
+                <Text style={styles.declineBtnText}>Raise Dispute</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.acceptBtn} onPress={handleComplete}>
+                <Text style={styles.acceptBtnText}>Mark Complete</Text>
+              </TouchableOpacity>
             </View>
           )}
         </View>
@@ -493,6 +532,18 @@ const styles = StyleSheet.create({
   disputeBy: { fontSize: 12, color: '#777', marginBottom: 4 },
   disputeReason: { fontSize: 14, color: '#444', lineHeight: 20 },
   disputeResolution: { fontSize: 13, color: '#22C55E', marginTop: 6, fontWeight: '600' },
+  chatActionBtn: {
+    backgroundColor: '#FFF3EC', borderRadius: 12, padding: 14,
+    alignItems: 'center', marginBottom: 10,
+    borderWidth: 1.5, borderColor: '#FF6B00',
+  },
+  chatActionBtnText: { color: '#FF6B00', fontWeight: '700', fontSize: 15 },
+  ratedBadge: {
+    backgroundColor: '#FFFBEB', borderRadius: 12, padding: 14,
+    alignItems: 'center', marginBottom: 10,
+    borderWidth: 1, borderColor: '#FDE68A',
+  },
+  ratedBadgeText: { color: '#92400E', fontWeight: '600', fontSize: 14 },
   actingBar: { padding: 24, alignItems: 'center' },
   actions: { padding: 16, paddingBottom: 24 },
   actionRow: { flexDirection: 'row', gap: 10 },

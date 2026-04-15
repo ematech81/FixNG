@@ -1,22 +1,82 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity,
-  ActivityIndicator, RefreshControl, Image,
+  ActivityIndicator, RefreshControl, Image, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { searchArtisans } from '../../api/discoveryApi';
+import { getMyJobs } from '../../api/jobApi';
+import { getUnreadCount } from '../../api/notificationApi';
 import { getUser } from '../../utils/storage';
 import { DUMMY_PRO_ARTISANS, DUMMY_NEARBY_ARTISANS } from '../../constants/dummyProfiles';
 
-const PRIMARY = '#2563EB';
+// ── Design Tokens ──────────────────────────────────────────────────────────────
+const COLORS = {
+  primary:       '#2563EB',
+  primaryLight:  '#EFF6FF',
+  primaryMid:    '#BFDBFE',
+  accent:        '#0EA5E9',
+  surface:       '#FFFFFF',
+  background:    '#F8FAFF',
+  cardBorder:    '#F1F5F9',
+  textPrimary:   '#0F172A',
+  textSecondary: '#64748B',
+  textMuted:     '#94A3B8',
+  gold:          '#F59E0B',
+  goldLight:     '#FFFBEB',
+  green:         '#16A34A',
+  greenLight:    '#F0FDF4',
+  amber:         '#D97706',
+  amberLight:    '#FFFBEB',
+  grey:          '#6B7280',
+  greyLight:     '#F3F4F6',
+  divider:       '#F1F5F9',
+  shadow:        '#1E40AF',
+};
 
 const BADGE_CONFIG = {
-  new:      { color: '#6B7280', label: 'New',      bg: '#F3F4F6' },
-  verified: { color: '#16A34A', label: 'Verified', bg: '#F0FDF4' },
-  trusted:  { color: '#D97706', label: 'Trusted',  bg: '#FFFBEB' },
+  new:      { color: COLORS.grey,  label: 'New',      bg: COLORS.greyLight  },
+  verified: { color: COLORS.green, label: 'Verified', bg: COLORS.greenLight  },
+  trusted:  { color: COLORS.amber, label: 'Trusted',  bg: COLORS.amberLight  },
 };
+
+// ── Category Quick-Filters ────────────────────────────────────────────────────
+// id must match the exact skill string stored in ArtisanProfile.skills (backend)
+const CATEGORIES = [
+  { id: 'all',                      label: 'All',          icon: '⚡' },
+  { id: 'Plumber',                  label: 'Plumbing',     icon: '🔧' },
+  { id: 'Electrician',              label: 'Electrical',   icon: '💡' },
+  { id: 'Carpenter',                label: 'Carpentry',    icon: '🪚' },
+  { id: 'Painter',                  label: 'Painting',     icon: '🖌️' },
+  { id: 'Tiler',                    label: 'Tiling',       icon: '🏠' },
+  { id: 'Bricklayer',               label: 'Bricklaying',  icon: '🧱' },
+  { id: 'Welder',                   label: 'Welding',      icon: '⚙️' },
+  { id: 'AC Technician',            label: 'AC Repair',    icon: '❄️' },
+  { id: 'Generator Repair',         label: 'Generator',    icon: '🔌' },
+  { id: 'Auto Mechanic',            label: 'Auto',         icon: '🚗' },
+  { id: 'Phone / Laptop Repair',    label: 'Phone/Laptop', icon: '📱' },
+  { id: 'Tailor',                   label: 'Tailoring',    icon: '✂️' },
+  { id: 'Barber',                   label: 'Barbing',      icon: '💈' },
+  { id: 'Hairdresser',              label: 'Hair',         icon: '💇' },
+  { id: 'Makeup Artist',            label: 'Makeup',       icon: '💄' },
+  { id: 'Chef / Cook',              label: 'Cooking',      icon: '🍳' },
+  { id: 'Cleaner',                  label: 'Cleaning',     icon: '🧹' },
+  { id: 'Laundry',                  label: 'Laundry',      icon: '👕' },
+  { id: 'Security Guard',           label: 'Security',     icon: '🛡️' },
+  { id: 'Driver',                   label: 'Driving',      icon: '🚘' },
+  { id: 'Photographer',             label: 'Photography',  icon: '📷' },
+  { id: 'Videographer',             label: 'Videography',  icon: '🎥' },
+  { id: 'Graphic Designer',         label: 'Design',       icon: '🎨' },
+  { id: 'Web Developer',            label: 'Web Dev',      icon: '💻' },
+  { id: 'POP / Ceiling Work',       label: 'POP/Ceiling',  icon: '🏗️' },
+  { id: 'Fumigation',               label: 'Fumigation',   icon: '🪲' },
+  { id: 'Solar Installation',       label: 'Solar',        icon: '☀️' },
+  { id: 'CCTV / Security Systems',  label: 'CCTV',         icon: '📹' },
+  { id: 'Interior Decorator',       label: 'Interior',     icon: '🛋️' },
+  { id: 'Event Planner',            label: 'Events',       icon: '🎉' },
+];
 
 export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
   const [user, setUser] = useState(null);
@@ -27,10 +87,16 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
   const [loading, setLoading] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [filterLoading, setFilterLoading] = useState(false);
   const [locationLabel, setLocationLabel] = useState('Your Area');
+  const [activeCategory, setActiveCategory] = useState('all');
+  const [pendingJobCount, setPendingJobCount] = useState(0);
+  const [showPendingBanner, setShowPendingBanner] = useState(true);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
 
   const coordsRef = useRef(null);
 
+  // ── All original logic preserved exactly ──────────────────────────────────
   useEffect(() => {
     getUser().then(setUser);
     initLocation();
@@ -38,7 +104,24 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
 
   useFocusEffect(useCallback(() => {
     loadAll();
+    checkPendingRequests();
+    getUnreadCount().then((res) => setUnreadNotifCount(res.data.count || 0)).catch(() => {});
   }, [])); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Check if this artisan has any direct pending job requests
+  const checkPendingRequests = async () => {
+    try {
+      const u = await getUser();
+      if (u?.role !== 'artisan') return; // only relevant for artisans
+      const res = await getMyJobs();
+      const jobs = res.data.data || [];
+      const count = jobs.filter((j) => j.status === 'pending').length;
+      setPendingJobCount(count);
+      if (count > 0) setShowPendingBanner(true);
+    } catch {
+      // silent — banner is non-critical
+    }
+  };
 
   const initLocation = async () => {
     try {
@@ -61,7 +144,10 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
     } catch { /* keep default */ }
   };
 
-  const loadAll = async (isRefresh = false) => {
+  const loadAll = async (isRefresh = false, categoryOverride) => {
+    const cat = categoryOverride !== undefined ? categoryOverride : activeCategory;
+    const categoryParam = cat !== 'all' ? { category: cat } : {};
+
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
 
@@ -72,21 +158,23 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
 
     try {
       const [topRes, nearbyRes] = await Promise.all([
-        searchArtisans({ limit: 20 }),
-        searchArtisans({ ...geoParams, limit: 20, page: 1 }),
+        searchArtisans({ limit: 20, ...categoryParam }),
+        searchArtisans({ ...geoParams, limit: 20, page: 1, ...categoryParam }),
       ]);
       const topData  = topRes.data.data   || [];
       const nearData = nearbyRes.data.data || [];
-      setTopArtisans(topData.length   > 0 ? topData   : DUMMY_PRO_ARTISANS);
-      setNearbyArtisans(nearData.length > 0 ? nearData : DUMMY_NEARBY_ARTISANS);
+      // Only show dummies when no category filter is active
+      setTopArtisans(topData.length > 0 ? topData : (cat === 'all' ? DUMMY_PRO_ARTISANS : []));
+      setNearbyArtisans(nearData.length > 0 ? nearData : (cat === 'all' ? DUMMY_NEARBY_ARTISANS : []));
       setHasMoreNearby(nearData.length === 20);
       setNearbyPage(1);
     } catch {
-      setTopArtisans(DUMMY_PRO_ARTISANS);
-      setNearbyArtisans(DUMMY_NEARBY_ARTISANS);
+      setTopArtisans(cat === 'all' ? DUMMY_PRO_ARTISANS : []);
+      setNearbyArtisans(cat === 'all' ? DUMMY_NEARBY_ARTISANS : []);
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setFilterLoading(false);
     }
   };
 
@@ -97,9 +185,10 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
     const geoParams = coords
       ? { latitude: coords.latitude, longitude: coords.longitude, maxDistance: 20 }
       : {};
+    const categoryParam = activeCategory !== 'all' ? { category: activeCategory } : {};
     try {
       const nextPage = nearbyPage + 1;
-      const res = await searchArtisans({ ...geoParams, limit: 20, page: nextPage });
+      const res = await searchArtisans({ ...geoParams, limit: 20, page: nextPage, ...categoryParam });
       const more = res.data.data || [];
       setNearbyArtisans((prev) => [...prev, ...more]);
       setHasMoreNearby(more.length === 20);
@@ -116,64 +205,222 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
     }
   };
 
+  const handleCategorySelect = (catId) => {
+    if (catId === activeCategory) return;
+    setActiveCategory(catId);
+    setFilterLoading(true);
+    loadAll(false, catId);
+  };
+
   const goToSearch = () => onSwitchTab?.('search');
+  // ── End of original logic ─────────────────────────────────────────────────
+
+  const firstName = (user?.name || '').split(' ')[0] || 'there';
+  const initials  = (user?.name || 'U')[0].toUpperCase();
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* ── Top bar ── */}
+
+      {/* ════════════════════════════════════════
+          TOP BAR
+      ════════════════════════════════════════ */}
       <View style={styles.topBar}>
-        <Text style={styles.appName}>FixNG</Text>
-        <TouchableOpacity onPress={() => onSwitchTab?.('profile')} activeOpacity={0.8}>
-          <View style={styles.avatarCircle}>
-            <Text style={styles.avatarInitial}>
-              {(user?.name || 'U')[0].toUpperCase()}
-            </Text>
-          </View>
-        </TouchableOpacity>
+        {/* Left: Brand */}
+        <View style={styles.topBarLeft}>
+          <View style={styles.brandDot} />
+          <Text style={styles.appName}>FixNG</Text>
+        </View>
+
+        {/* Right: Bell + Avatar */}
+        <View style={styles.topBarRight}>
+          {/* Notification bell */}
+          <TouchableOpacity
+            onPress={() => navigation.navigate('Notifications')}
+            activeOpacity={0.8}
+            style={styles.bellBtn}
+          >
+            <Text style={styles.bellIcon}>🔔</Text>
+            {unreadNotifCount > 0 && (
+              <View style={styles.bellBadge}>
+                <Text style={styles.bellBadgeText}>
+                  {unreadNotifCount > 99 ? '99+' : String(unreadNotifCount)}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* Avatar */}
+          <TouchableOpacity
+            onPress={() => onSwitchTab?.('profile')}
+            activeOpacity={0.8}
+            style={styles.avatarBtn}
+          >
+            <View style={styles.avatarRing}>
+              <View style={styles.avatarCircle}>
+                <Text style={styles.avatarInitial}>{initials}</Text>
+              </View>
+            </View>
+            <View style={styles.onlineDot} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => loadAll(true)} tintColor={PRIMARY} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => loadAll(true)}
+            tintColor={COLORS.primary}
+            colors={[COLORS.primary]}
+          />
         }
-        // style={{ backgroundColor: '#aeeff4' }}
       >
-        {/* ── Location row ── */}
-        <TouchableOpacity style={styles.locationRow} activeOpacity={0.7}>
-          <Text style={styles.locationPin}>📍</Text>
-          <View>
-            <Text style={styles.locationMeta}>YOUR LOCATION</Text>
-            <View style={styles.locationNameRow}>
-              <Text style={styles.locationName}>{locationLabel}</Text>
-              <Text style={styles.locationChevron}> ˅</Text>
-            </View>
+
+        {/* ════════════════════════════════════════
+            HERO GREETING SECTION
+        ════════════════════════════════════════ */}
+        <View style={styles.heroSection}>
+          {/* Greeting */}
+          <View style={styles.greetingBlock}>
+            <Text style={styles.greetingSub}>Good day 👋</Text>
+            <Text style={styles.greetingName}>Hello, {firstName}</Text>
+            <Text style={styles.greetingTagline}>
+              Find trusted artisans near you
+            </Text>
           </View>
-        </TouchableOpacity>
 
-        {/* ── Search bar ── */}
-        <TouchableOpacity style={styles.searchBar} onPress={goToSearch} activeOpacity={0.8}>
-          <Text style={styles.searchIcon}>🔍</Text>
-          <Text style={styles.searchPlaceholder}>Find a plumber, electrician...</Text>
-        </TouchableOpacity>
-
-        {/* ── Section A: Trusted Professionals — horizontal scroll ── */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Trusted Professionals</Text>
-          <TouchableOpacity onPress={goToSearch}>
-            <Text style={styles.viewMore}>View More</Text>
+          {/* Location Pill */}
+          <TouchableOpacity style={styles.locationPill} activeOpacity={0.7}>
+            <View style={styles.locationPillIcon}>
+              <Text style={{ fontSize: 12 }}>📍</Text>
+            </View>
+            <View style={styles.locationPillText}>
+              <Text style={styles.locationMeta}>LOCATION</Text>
+              <Text style={styles.locationName} numberOfLines={1}>
+                {locationLabel}
+              </Text>
+            </View>
+            <Text style={styles.locationChevron}>›</Text>
           </TouchableOpacity>
         </View>
 
-        {loading ? (
+        {/* ════════════════════════════════════════
+            SEARCH BAR
+        ════════════════════════════════════════ */}
+        <View style={styles.searchWrapper}>
+          <TouchableOpacity
+            style={styles.searchBar}
+            onPress={goToSearch}
+            activeOpacity={0.9}
+          >
+            <View style={styles.searchIconWrap}>
+              <Text style={{ fontSize: 15 }}>🔍</Text>
+            </View>
+            <Text style={styles.searchPlaceholder}>
+              Find a plumber, electrician...
+            </Text>
+            <View style={styles.searchArrow}>
+              <Text style={styles.searchArrowText}>›</Text>
+            </View>
+          </TouchableOpacity>
+        </View>
+
+        {/* ════════════════════════════════════════
+            ARTISAN PENDING REQUEST BANNER
+        ════════════════════════════════════════ */}
+        {showPendingBanner && pendingJobCount > 0 && (
+          <View style={styles.pendingBanner}>
+            <View style={styles.pendingBannerLeft}>
+              <View style={styles.pendingBannerDot} />
+              <View style={styles.pendingBannerBody}>
+                <Text style={styles.pendingBannerTitle}>
+                  {pendingJobCount === 1
+                    ? 'You have a new job request!'
+                    : `You have ${pendingJobCount} new job requests!`}
+                </Text>
+                <Text style={styles.pendingBannerSub}>
+                  A customer is waiting for your response.
+                </Text>
+              </View>
+            </View>
+            <View style={styles.pendingBannerActions}>
+              <TouchableOpacity
+                style={styles.pendingViewBtn}
+                onPress={() => navigation.navigate('JobScreen')}
+              >
+                <Text style={styles.pendingViewBtnText}>View Now</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.pendingCloseBtn}
+                onPress={() => setShowPendingBanner(false)}
+              >
+                <Text style={styles.pendingCloseBtnText}>✕</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* ════════════════════════════════════════
+            CATEGORY QUICK FILTERS
+        ════════════════════════════════════════ */}
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={true}
+          contentContainerStyle={styles.categoryScroll}
+        >
+          {CATEGORIES.map((cat) => {
+            const isActive = activeCategory === cat.id;
+            return (
+              <TouchableOpacity
+                key={cat.id}
+                style={[styles.categoryChip, isActive && styles.categoryChipActive]}
+                onPress={() => handleCategorySelect(cat.id)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.categoryIcon}>{cat.icon}</Text>
+                <Text style={[
+                  styles.categoryLabel,
+                  isActive && styles.categoryLabelActive,
+                ]}>
+                  {cat.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+
+        {/* ════════════════════════════════════════
+            SECTION A: TRUSTED PROFESSIONALS
+        ════════════════════════════════════════ */}
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionTitleGroup}>
+            <View style={styles.sectionAccentBar} />
+            <Text style={styles.sectionTitle}>Trusted Professionals</Text>
+          </View>
+          <TouchableOpacity onPress={goToSearch} style={styles.viewMoreBtn}>
+            <Text style={styles.viewMoreText}>See All</Text>
+            <Text style={styles.viewMoreArrow}> →</Text>
+          </TouchableOpacity>
+        </View>
+
+        {loading || filterLoading ? (
           <View style={styles.loadingBox}>
-            <ActivityIndicator color={PRIMARY} />
+            <ActivityIndicator color={COLORS.primary} size="large" />
+            <Text style={styles.loadingText}>
+              {filterLoading ? `Filtering by ${activeCategory}…` : 'Finding professionals...'}
+            </Text>
           </View>
         ) : topArtisans.length === 0 ? (
-          <TouchableOpacity style={styles.emptyHScroll} onPress={goToSearch}>
-            <Text style={styles.emptyHScrollText}>No verified artisans yet — tap to search →</Text>
-          </TouchableOpacity>
+          <View style={styles.emptyHScroll}>
+            <Text style={styles.emptyIcon}>🔍</Text>
+            <Text style={styles.emptyHScrollText}>
+              {activeCategory === 'all'
+                ? 'No verified artisans yet — tap to search'
+                : `No ${activeCategory} artisans found`}
+            </Text>
+          </View>
         ) : (
           <FlatList
             horizontal
@@ -185,38 +432,50 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
               <TrustedProfessionalsCard
                 artisan={item}
                 onPress={() => goToProfile(item)}
-                cardStyle={styles.hCard}
               />
             )}
           />
         )}
 
-        {/* ── Section B: Nearby Artisans ── */}
-        <View style={[styles.sectionHeader, { marginTop: 32 }]}>
-          <Text style={styles.sectionTitle}>Nearby Artisans</Text>
-          <TouchableOpacity style={styles.filterBtnWrap} onPress={goToSearch}>
-            <Text style={styles.filterBtnText}>≡ Filter</Text>
+        {/* ════════════════════════════════════════
+            SECTION B: NEARBY ARTISANS
+        ════════════════════════════════════════ */}
+        <View style={[styles.sectionHeader, styles.nearbySectionHeader]}>
+          <View style={styles.sectionTitleGroup}>
+            <View style={[styles.sectionAccentBar, { backgroundColor: COLORS.accent }]} />
+            <Text style={styles.sectionTitle}>Nearby Artisans</Text>
+          </View>
+          <TouchableOpacity style={styles.filterBtn} onPress={goToSearch}>
+            <Text style={styles.filterIcon}>⚙</Text>
+            <Text style={styles.filterBtnText}>Filter</Text>
           </TouchableOpacity>
         </View>
 
-        {!loading && nearbyArtisans.length === 0 ? (
+        {!loading && !filterLoading && nearbyArtisans.length === 0 ? (
           <View style={styles.emptyNearby}>
-            <Text style={styles.emptyNearbyIcon}>🔧</Text>
+            <View style={styles.emptyNearbyIconWrap}>
+              <Text style={styles.emptyNearbyIcon}>🔧</Text>
+            </View>
+            <Text style={styles.emptyNearbyTitle}>No Artisans Found</Text>
             <Text style={styles.emptyNearbyText}>
-              No artisans found nearby.{'\n'}Try expanding your search area.
+              {activeCategory === 'all'
+                ? `We couldn't find artisans near you.\nTry expanding your search area.`
+                : `No ${activeCategory} artisans found nearby.\nTry a different category.`}
             </Text>
             <TouchableOpacity style={styles.emptyNearbyBtn} onPress={goToSearch}>
               <Text style={styles.emptyNearbyBtnText}>Search Artisans</Text>
             </TouchableOpacity>
           </View>
         ) : (
-          nearbyArtisans.map((artisan) => (
-            <ArtisanCard
-              key={artisan.id}
-              artisan={artisan}
-              onPress={() => goToProfile(artisan)}
-            />
-          ))
+          <View style={styles.nearbyList}>
+            {nearbyArtisans.map((artisan) => (
+              <ArtisanCard
+                key={artisan.id}
+                artisan={artisan}
+                onPress={() => goToProfile(artisan)}
+              />
+            ))}
+          </View>
         )}
 
         {/* Load More */}
@@ -225,319 +484,999 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
             style={styles.loadMoreBtn}
             onPress={loadMoreNearby}
             disabled={loadingMore}
+            activeOpacity={0.8}
           >
-            {loadingMore
-              ? <ActivityIndicator color={PRIMARY} size="small" />
-              : <Text style={styles.loadMoreText}>Load More</Text>}
+            {loadingMore ? (
+              <ActivityIndicator color={COLORS.primary} size="small" />
+            ) : (
+              <View style={styles.loadMoreInner}>
+                <Text style={styles.loadMoreText}>Load More Artisans</Text>
+                <Text style={styles.loadMoreArrow}> ↓</Text>
+              </View>
+            )}
           </TouchableOpacity>
         )}
 
-        <View style={{ height: 24}} />
+        <View style={{ height: 32 }} />
       </ScrollView>
     </SafeAreaView>
   );
 }
 
-// ── Shared Artisan Card ────────────────────────────────────────────────────────
-// Used in BOTH the horizontal (Trusted Professionals) and vertical (Nearby Artisans) sections.
-function TrustedProfessionalsCard({ artisan, onPress, cardStyle }) {
+// ══════════════════════════════════════════════════════════════════════════════
+// TRUSTED PROFESSIONALS CARD  (horizontal scroll)
+// ══════════════════════════════════════════════════════════════════════════════
+function TrustedProfessionalsCard({ artisan, onPress }) {
   const badge  = BADGE_CONFIG[artisan.badgeLevel] || BADGE_CONFIG.new;
   const rating = artisan.stats?.averageRating;
   const jobs   = artisan.stats?.completedJobs || 0;
 
   return (
     <TouchableOpacity
-      style={[card.container, cardStyle, card.containerProf]}
+      style={proCard.container}
       onPress={onPress}
-      activeOpacity={0.8}
+      activeOpacity={0.92}
     >
-      {/* ── Top row: avatar + info + badge ── */}
-      <View style={card.topRow}>
-        {/* Avatar */}
-        <View style={card.avatarWrap}>
+      {/* Gradient-style header strip */}
+      <View style={proCard.headerStrip}>
+        {/* Badge pill top-right */}
+        <View style={[proCard.badgePill, { backgroundColor: badge.bg }]}>
+          <Text style={[proCard.badgeLabel, { color: badge.color }]}>
+            {badge.label}
+          </Text>
+        </View>
+      </View>
+
+      {/* Avatar — overlapping the strip */}
+      <View style={proCard.avatarBlock}>
+        <View style={proCard.avatarRing}>
           {artisan.profilePhoto ? (
-            <Image source={{ uri: artisan.profilePhoto }} style={card.avatar} />
+            <Image source={{ uri: artisan.profilePhoto }} style={proCard.avatar} />
           ) : (
-            <View style={card.avatarFallback}>
-              <Text style={card.avatarInitial}>
+            <View style={proCard.avatarFallback}>
+              <Text style={proCard.avatarInitial}>
                 {(artisan.name || 'A')[0].toUpperCase()}
               </Text>
             </View>
           )}
-          {artisan.badgeLevel !== 'new' && (
-            <View style={[
-              card.verifiedDot,
-              { backgroundColor: artisan.badgeLevel === 'trusted' ? '#D97706' : '#16A34A' },
-            ]}>
-              <Text style={card.verifiedDotText}>
-                {artisan.badgeLevel === 'trusted' ? '★' : '✓'}
-              </Text>
-            </View>
-          )}
         </View>
-
-        {/* Info */}
-        <View style={card.info}>
-          <View style={card.nameRow}>
-            <Text style={card.name} numberOfLines={1}>{artisan.name}</Text>
-            <View style={[card.badgePill, { backgroundColor: badge.bg }]}>
-              <Text style={[card.badgeLabel, { color: badge.color }]}>{badge.label}</Text>
-            </View>
+        {artisan.badgeLevel !== 'new' && (
+          <View style={[
+            proCard.verifiedDot,
+            {
+              backgroundColor:
+                artisan.badgeLevel === 'trusted' ? COLORS.amber : COLORS.green,
+            },
+          ]}>
+            <Text style={proCard.verifiedDotText}>
+              {artisan.badgeLevel === 'trusted' ? '★' : '✓'}
+            </Text>
           </View>
-
-          <Text style={card.skills} numberOfLines={1}>
-            {(artisan.skills || []).join(' • ')}
-          </Text>
-
-          <View style={card.statsRow}>
-            {rating > 0 && <Text style={card.rating}>⭐ {rating.toFixed(1)}</Text>}
-            <Text style={card.jobs}>{jobs} jobs done</Text>
-            {artisan.distanceKm != null && (
-              <Text style={card.dist}>📍 {artisan.distanceKm}km</Text>
-            )}
-          </View>
-        </View>
+        )}
       </View>
 
-      {/* ── Bottom row: Book Now button (full width) ── */}
-      <TouchableOpacity style={card.ProfessionalbookBtn} onPress={onPress} activeOpacity={0.85}>
-        <Text style={card.bookBtnText}>Book Now</Text>
+      {/* Skills (primary) & name (secondary) */}
+      <Text style={proCard.skills} numberOfLines={1}>
+        {(artisan.skills || []).join(' · ')}
+      </Text>
+      <Text style={proCard.name} numberOfLines={1}>{artisan.name}</Text>
+
+      {/* Stats row */}
+      <View style={proCard.statsRow}>
+        {rating > 0 && (
+          <View style={proCard.statChip}>
+            <Text style={proCard.statChipText}>⭐ {rating.toFixed(1)}</Text>
+          </View>
+        )}
+        <View style={proCard.statChip}>
+          <Text style={proCard.statChipText}>{jobs} jobs</Text>
+        </View>
+        {artisan.distanceKm != null && (
+          <View style={proCard.statChip}>
+            <Text style={[proCard.statChipText, { color: COLORS.primary }]}>
+              📍 {artisan.distanceKm}km
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Book Now CTA */}
+      <TouchableOpacity style={proCard.bookBtn} onPress={onPress} activeOpacity={0.85}>
+        <Text style={proCard.bookBtnText}>Book Now</Text>
       </TouchableOpacity>
     </TouchableOpacity>
   );
 }
 
-
-
-
-function ArtisanCard({ artisan, onPress, cardStyle }) {
+// ══════════════════════════════════════════════════════════════════════════════
+// NEARBY ARTISAN CARD  (vertical list)
+// ══════════════════════════════════════════════════════════════════════════════
+function ArtisanCard({ artisan, onPress }) {
   const badge  = BADGE_CONFIG[artisan.badgeLevel] || BADGE_CONFIG.new;
   const rating = artisan.stats?.averageRating;
   const jobs   = artisan.stats?.completedJobs || 0;
 
   return (
-    <TouchableOpacity
-      style={[card.container, cardStyle]}
-      onPress={onPress}
-      activeOpacity={0.8}
+
+    <ScrollView
+    showsHorizontalScrollIndicator={true}
     >
-      {/* ── Top row: avatar + info + badge ── */}
-      <View style={card.topRow}>
-        {/* Avatar */}
-        <View style={card.avatarWrap}>
-          {artisan.profilePhoto ? (
-            <Image source={{ uri: artisan.profilePhoto }} style={card.avatar} />
-          ) : (
-            <View style={card.avatarFallback}>
-              <Text style={card.avatarInitial}>
-                {(artisan.name || 'A')[0].toUpperCase()}
-              </Text>
-            </View>
-          )}
-          {artisan.badgeLevel !== 'new' && (
-            <View style={[
-              card.verifiedDot,
-              { backgroundColor: artisan.badgeLevel === 'trusted' ? '#D97706' : '#16A34A' },
-            ]}>
-              <Text style={card.verifiedDotText}>
-                {artisan.badgeLevel === 'trusted' ? '★' : '✓'}
-              </Text>
-            </View>
-          )}
+    <TouchableOpacity
+      style={nearbyCard.container}
+      onPress={onPress}
+      activeOpacity={0.92}
+    >
+      {/* Left: Avatar */}
+      <View style={nearbyCard.avatarWrap}>
+        {artisan.profilePhoto ? (
+          <Image source={{ uri: artisan.profilePhoto }} style={nearbyCard.avatar} />
+        ) : (
+          <View style={nearbyCard.avatarFallback}>
+            <Text style={nearbyCard.avatarInitial}>
+              {(artisan.name || 'A')[0].toUpperCase()}
+            </Text>
+          </View>
+        )}
+        {artisan.badgeLevel !== 'new' && (
+          <View style={[
+            nearbyCard.verifiedDot,
+            {
+              backgroundColor:
+                artisan.badgeLevel === 'trusted' ? COLORS.amber : COLORS.green,
+            },
+          ]}>
+            <Text style={nearbyCard.verifiedDotText}>
+              {artisan.badgeLevel === 'trusted' ? '★' : '✓'}
+            </Text>
+          </View>
+        )}
+      </View>
+
+      {/* Middle: Info */}
+      <View style={nearbyCard.info}>
+        {/* Skills (primary) */}
+        <Text style={nearbyCard.skills} numberOfLines={1}>
+          {(artisan.skills || []).join(' · ')}
+        </Text>
+
+        {/* Name + Badge (secondary) */}
+        <View style={nearbyCard.nameRow}>
+          <Text style={nearbyCard.name} numberOfLines={1}>{artisan.name}</Text>
+          <View style={[nearbyCard.badgePill, { backgroundColor: badge.bg }]}>
+            <Text style={[nearbyCard.badgeLabel, { color: badge.color }]}>
+              {badge.label}
+            </Text>
+          </View>
         </View>
 
-        {/* Info */}
-        <View style={card.info}>
-          <View style={card.nameRow}>
-            <Text style={card.name} numberOfLines={1}>{artisan.name}</Text>
-            <View style={[card.badgePill, { backgroundColor: badge.bg }]}>
-              <Text style={[card.badgeLabel, { color: badge.color }]}>{badge.label}</Text>
-            </View>
-          </View>
-
-          <Text style={card.skills} numberOfLines={1}>
-            {(artisan.skills || []).join(' • ')}
-          </Text>
-
-          <View style={card.statsRow}>
-            {rating > 0 && <Text style={card.rating}>⭐ {rating.toFixed(1)}</Text>}
-            <Text style={card.jobs}>{jobs} jobs done</Text>
-            {artisan.distanceKm != null && (
-              <Text style={card.dist}>📍 {artisan.distanceKm}km</Text>
-            )}
-          </View>
+        {/* Stats */}
+        <View style={nearbyCard.statsRow}>
+          {rating > 0 && (
+            <Text style={nearbyCard.rating}>⭐ {rating.toFixed(1)}</Text>
+          )}
+          <Text style={nearbyCard.dividerDot}>·</Text>
+          <Text style={nearbyCard.jobs}>{jobs} jobs</Text>
+          {artisan.distanceKm != null && (
+            <>
+              <Text style={nearbyCard.dividerDot}>·</Text>
+              <Text style={nearbyCard.dist}>📍 {artisan.distanceKm}km</Text>
+            </>
+          )}
         </View>
       </View>
 
-      {/* ── Bottom row: Book Now button (full width) ── */}
-      <TouchableOpacity style={card.bookBtn} onPress={onPress} activeOpacity={0.85}>
-        <Text style={card.ArtisanBookBtnText}>Book Now</Text>
+      {/* Right: Book button */}
+      <TouchableOpacity
+        style={nearbyCard.bookBtn}
+        onPress={onPress}
+        activeOpacity={0.85}
+      >
+        <Text style={nearbyCard.bookBtnText}>Book</Text>
       </TouchableOpacity>
     </TouchableOpacity>
+  </ScrollView>
   );
 }
 
-// ── Styles ─────────────────────────────────────────────────────────────────────
+// ══════════════════════════════════════════════════════════════════════════════
+// STYLES
+// ══════════════════════════════════════════════════════════════════════════════
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FB' },
-  scroll: { paddingBottom: 10 },
 
+  // ── Screen ──────────────────────────────────────────────────────────────────
+  container: {
+    flex: 1,
+    backgroundColor: COLORS.background,
+  },
+  scroll: {
+    paddingBottom: 16,
+  },
+
+  // ── Top Bar ─────────────────────────────────────────────────────────────────
   topBar: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 12,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1, borderBottomColor: '#EEF0F5',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    backgroundColor: COLORS.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: COLORS.divider,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.shadow,
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+      },
+      android: { elevation: 2 },
+    }),
   },
-  appName: { fontSize: 20, fontWeight: '900', color: PRIMARY, letterSpacing: -0.5 },
-  avatarCircle: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: '#E0E7FF', justifyContent: 'center', alignItems: 'center',
+  topBarLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  avatarInitial: { fontSize: 16, fontWeight: '700', color: PRIMARY },
-
-  locationRow: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    paddingHorizontal: 20, paddingVertical: 14,
+  topBarRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
-  locationPin: { fontSize: 20 },
-  locationMeta: { fontSize: 12, fontWeight: '700', color: '#8391A1', letterSpacing: 0.5 },
-  locationNameRow: { flexDirection: 'row', alignItems: 'center' },
-  locationName: { fontSize: 17, fontWeight: '700', color: '#1E232C' },
-  locationChevron: { fontSize: 13, color: '#8391A1', fontWeight: '700' },
-
-  searchBar: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    marginHorizontal: 20, backgroundColor: '#EEF0F5',
-    borderRadius: 14, paddingHorizontal: 16, paddingVertical: 14,
-    marginBottom: 24,
+  bellBtn: { position: 'relative', padding: 4 },
+  bellIcon: { fontSize: 22 },
+  bellBadge: {
+    position: 'absolute', top: 0, right: 0,
+    backgroundColor: '#EF4444', borderRadius: 8,
+    minWidth: 16, height: 16,
+    alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 3,
+    borderWidth: 1.5, borderColor: COLORS.surface,
   },
-  searchIcon: { fontSize: 16 },
-  searchPlaceholder: { fontSize: 14, color: '#8391A1', flex: 1 },
-
-  sectionHeader: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 10, marginBottom: 14,
+  bellBadgeText: { color: '#FFF', fontSize: 8, fontWeight: '800' },
+  brandDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: COLORS.primary,
   },
-  sectionTitle: { fontSize: 17, fontWeight: '800', color: '#1E232C' },
-  viewMore: { fontSize: 14, fontWeight: '700', color: PRIMARY },
-  filterBtnWrap: {
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: 8, backgroundColor: '#F0F4FF',
+  appName: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: COLORS.primary,
+    letterSpacing: -0.8,
   },
-  filterBtnText: { fontSize: 13, color: PRIMARY, fontWeight: '700' },
-
-  loadingBox: { paddingVertical: 40, alignItems: 'center' },
-
-  // Horizontal scroll
-  hScrollContent: { paddingHorizontal: 20, paddingBottom: 4 },
-  // Each card in the horizontal scroll is fixed-width with a right margin
-  hCard: { width: 300, marginRight: 14, marginHorizontal: 0 },
-
-  emptyHScroll: {
-    marginHorizontal: 20, backgroundColor: '#F0F4FF',
-    borderRadius: 14, padding: 20, alignItems: 'center',
+  avatarBtn: {
+    position: 'relative',
   },
-  emptyHScrollText: { fontSize: 14, color: PRIMARY, fontWeight: '600', textAlign: 'center' },
-
-  emptyNearby: {
-    marginHorizontal: 20, marginBottom: 16,
-    alignItems: 'center', paddingVertical: 30,
-  },
-  emptyNearbyIcon: { fontSize: 40, marginBottom: 12 },
-  emptyNearbyText: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 22, marginBottom: 16 },
-  emptyNearbyBtn: { backgroundColor: PRIMARY, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10 },
-  emptyNearbyBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
-
-  loadMoreBtn: {
-    margin: 16, padding: 14, borderRadius: 12,
-    backgroundColor: '#F0F4FF', alignItems: 'center', minHeight: 48,
+  avatarRing: {
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    borderWidth: 2,
+    borderColor: COLORS.primaryMid,
     justifyContent: 'center',
+    alignItems: 'center',
   },
-  loadMoreText: { fontSize: 14, fontWeight: '700', color: PRIMARY },
+  avatarCircle: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: COLORS.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarInitial: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.primary,
+  },
+  onlineDot: {
+    position: 'absolute',
+    bottom: 1,
+    right: 1,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: COLORS.green,
+    borderWidth: 2,
+    borderColor: COLORS.surface,
+  },
+
+  // ── Hero Section ─────────────────────────────────────────────────────────────
+  heroSection: {
+    backgroundColor: COLORS.surface,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 24,
+    borderBottomLeftRadius: 28,
+    borderBottomRightRadius: 28,
+    marginBottom: 20,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.shadow,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.07,
+        shadowRadius: 12,
+      },
+      android: { elevation: 3 },
+    }),
+  },
+  greetingBlock: {
+    marginBottom: 16,
+  },
+  greetingSub: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textMuted,
+    marginBottom: 2,
+    letterSpacing: 0.2,
+  },
+  greetingName: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: COLORS.textPrimary,
+    letterSpacing: -0.5,
+    marginBottom: 4,
+  },
+  greetingTagline: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    fontWeight: '400',
+  },
+  locationPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: 14,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    gap: 10,
+    alignSelf: 'flex-start',
+    maxWidth: '100%',
+  },
+  locationPillIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    backgroundColor: COLORS.primaryMid,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  locationPillText: {
+    flex: 1,
+  },
+  locationMeta: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: COLORS.primary,
+    letterSpacing: 1,
+    marginBottom: 1,
+  },
+  locationName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.textPrimary,
+  },
+  locationChevron: {
+    fontSize: 20,
+    color: COLORS.primary,
+    fontWeight: '600',
+    marginTop: -2,
+  },
+
+  // ── Search Bar ───────────────────────────────────────────────────────────────
+  searchWrapper: {
+    paddingHorizontal: 20,
+    marginBottom: 20,
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 18,
+    paddingHorizontal: 6,
+    paddingVertical: 6,
+    gap: 12,
+    borderWidth: 1.5,
+    borderColor: COLORS.divider,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+      },
+      android: { elevation: 2 },
+    }),
+  },
+  searchIconWrap: {
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: COLORS.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  searchPlaceholder: {
+    flex: 1,
+    fontSize: 14,
+    color: COLORS.textMuted,
+    fontWeight: '500',
+  },
+  searchArrow: {
+    width: 36,
+    height: 36,
+    borderRadius: 12,
+    backgroundColor: COLORS.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 2,
+  },
+  searchArrowText: {
+    fontSize: 20,
+    color: COLORS.surface,
+    fontWeight: '700',
+    marginTop: -2,
+  },
+
+  // ── Artisan Pending Request Banner ───────────────────────────────────────────
+  pendingBanner: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    backgroundColor: COLORS.greenLight,
+    borderRadius: 16,
+    padding: 14,
+    borderWidth: 1.5,
+    borderColor: '#86EFAC',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 10,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.green,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 6,
+      },
+      android: { elevation: 2 },
+    }),
+  },
+  pendingBannerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 },
+  pendingBannerDot: {
+    width: 10, height: 10, borderRadius: 5,
+    backgroundColor: COLORS.green, flexShrink: 0,
+  },
+  pendingBannerBody: { flex: 1 },
+  pendingBannerTitle: { fontSize: 14, fontWeight: '800', color: '#14532D', marginBottom: 2 },
+  pendingBannerSub: { fontSize: 12, color: '#166534', lineHeight: 17 },
+  pendingBannerActions: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
+  pendingViewBtn: {
+    backgroundColor: COLORS.green,
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+  },
+  pendingViewBtnText: { fontSize: 13, fontWeight: '800', color: COLORS.surface },
+  pendingCloseBtn: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: '#DCFCE7',
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1, borderColor: '#86EFAC',
+  },
+  pendingCloseBtnText: { fontSize: 12, fontWeight: '800', color: '#15803D' },
+
+  // ── Category Chips ───────────────────────────────────────────────────────────
+  categoryScroll: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    gap: 8,
+  },
+  categoryChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderRadius: 50,
+    backgroundColor: COLORS.surface,
+    borderWidth: 1.5,
+    borderColor: COLORS.divider,
+    marginRight: 8,
+  },
+  categoryChipActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  categoryIcon: {
+    fontSize: 14,
+  },
+  categoryLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  categoryLabelActive: {
+    color: COLORS.surface,
+  },
+
+  // ── Section Headers ──────────────────────────────────────────────────────────
+  sectionHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 16,
+  },
+  nearbySectionHeader: {
+    marginTop: 28,
+  },
+  sectionTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sectionAccentBar: {
+    width: 4,
+    height: 20,
+    borderRadius: 2,
+    backgroundColor: COLORS.primary,
+  },
+  sectionTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    letterSpacing: -0.3,
+  },
+  viewMoreBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  viewMoreText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  viewMoreArrow: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  filterBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 10,
+    backgroundColor: COLORS.primaryLight,
+    borderWidth: 1,
+    borderColor: COLORS.primaryMid,
+  },
+  filterIcon: {
+    fontSize: 12,
+    color: COLORS.primary,
+  },
+  filterBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+
+  // ── Loading State ────────────────────────────────────────────────────────────
+  loadingBox: {
+    paddingVertical: 48,
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    fontSize: 13,
+    color: COLORS.textMuted,
+    fontWeight: '500',
+  },
+
+  // ── Horizontal Scroll ────────────────────────────────────────────────────────
+  hScrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 4,
+    gap: 14,
+  },
+
+  // ── Empty States ─────────────────────────────────────────────────────────────
+  emptyIcon: {
+    fontSize: 32,
+    marginBottom: 8,
+  },
+  emptyHScroll: {
+    marginHorizontal: 20,
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: 18,
+    padding: 24,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.primaryMid,
+    borderStyle: 'dashed',
+  },
+  emptyHScrollText: {
+    fontSize: 14,
+    color: COLORS.primary,
+    fontWeight: '600',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  emptyNearby: {
+    marginHorizontal: 20,
+    marginBottom: 16,
+    alignItems: 'center',
+    paddingVertical: 40,
+    backgroundColor: COLORS.surface,
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  emptyNearbyIconWrap: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: COLORS.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 14,
+  },
+  emptyNearbyIcon: {
+    fontSize: 32,
+  },
+  emptyNearbyTitle: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: COLORS.textPrimary,
+    marginBottom: 6,
+  },
+  emptyNearbyText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 20,
+    paddingHorizontal: 24,
+  },
+  emptyNearbyBtn: {
+    backgroundColor: COLORS.primary,
+    paddingHorizontal: 28,
+    paddingVertical: 13,
+    borderRadius: 14,
+  },
+  emptyNearbyBtnText: {
+    color: COLORS.surface,
+    fontWeight: '700',
+    fontSize: 14,
+  },
+
+  // ── Nearby List ──────────────────────────────────────────────────────────────
+  nearbyList: {
+    paddingHorizontal: 20,
+    gap: 12,
+  },
+
+  // ── Load More ────────────────────────────────────────────────────────────────
+  loadMoreBtn: {
+    marginHorizontal: 20,
+    marginTop: 16,
+    paddingVertical: 15,
+    borderRadius: 16,
+    backgroundColor: COLORS.surface,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1.5,
+    borderColor: COLORS.primaryMid,
+    minHeight: 52,
+  },
+  loadMoreInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  loadMoreText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  loadMoreArrow: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
 });
 
-// ── Shared card styles (identical for both sections) ──────────────────────────
-const card = StyleSheet.create({
+// ── Trusted Professionals Card Styles ─────────────────────────────────────────
+const proCard = StyleSheet.create({
   container: {
-    // marginHorizontal: 20,
-    marginBottom: 14,
-    backgroundColor: '#FFF',
-    // borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#4706f8',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    padding: 20,
-    gap: 18,
-    width: '100%',
-    // height: 200,
+    width: 220,
+    backgroundColor: COLORS.surface,
+    borderRadius: 24,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.shadow,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.10,
+        shadowRadius: 16,
+      },
+      android: { elevation: 5 },
+    }),
   },
-  containerProf: {
+  headerStrip: {
+    height: 72,
+    backgroundColor: COLORS.primary,
+    alignItems: 'flex-end',
+    paddingTop: 12,
+    paddingRight: 12,
+  },
+  badgePill: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 20,
   },
-
-  // ── Top row ──
-  topRow: {
+  badgeLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.3,
+  },
+  avatarBlock: {
+    alignItems: 'center',
+    marginTop: -30,
+    marginBottom: 10,
+    position: 'relative',
+  },
+  avatarRing: {
+    width: 68,
+    height: 68,
+    borderRadius: 34,
+    borderWidth: 3,
+    borderColor: COLORS.surface,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.12,
+        shadowRadius: 6,
+      },
+      android: { elevation: 3 },
+    }),
+  },
+  avatar: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+  },
+  avatarFallback: {
+    width: 62,
+    height: 62,
+    borderRadius: 31,
+    backgroundColor: COLORS.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  avatarInitial: {
+    fontSize: 26,
+    fontWeight: '900',
+    color: COLORS.primary,
+  },
+  verifiedDot: {
+    position: 'absolute',
+    bottom: 0,
+    right: '50%',
+    marginRight: -38,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.surface,
+  },
+  verifiedDotText: {
+    fontSize: 9,
+    color: COLORS.surface,
+    fontWeight: '900',
+  },
+  skills: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.primary,
+    textAlign: 'center',
+    paddingHorizontal: 12,
+    marginBottom: 2,
+    letterSpacing: -0.1,
+  },
+  name: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
+    textAlign: 'center',
+    paddingHorizontal: 12,
+    marginBottom: 12,
+  },
+  statsRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 16,
+    justifyContent: 'center',
+    flexWrap: 'wrap',
+    gap: 6,
+    paddingHorizontal: 12,
+    marginBottom: 14,
+  },
+  statChip: {
+    backgroundColor: COLORS.background,
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+  },
+  statChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: COLORS.textSecondary,
+  },
+  bookBtn: {
+    marginHorizontal: 14,
+    marginBottom: 14,
+    backgroundColor: COLORS.primary,
+    borderRadius: 14,
+    paddingVertical: 11,
+    alignItems: 'center',
+  },
+  bookBtnText: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: COLORS.surface,
+    letterSpacing: 0.2,
+  },
+});
+
+// ── Nearby Artisan Card Styles ─────────────────────────────────────────────────
+const nearbyCard = StyleSheet.create({
+  container: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: COLORS.surface,
+    borderRadius: 20,
+    padding: 14,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: COLORS.divider,
+    ...Platform.select({
+      ios: {
+        shadowColor: COLORS.shadow,
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 10,
+      },
+      android: { elevation: 2 },
+    }),
   },
 
   // Avatar
-  avatarWrap: { position: 'relative' },
-  avatar: { width: 80, height: 80, borderRadius: 20 },
+  avatarWrap: {
+    position: 'relative',
+    flexShrink: 0,
+  },
+  avatar: {
+    width: 58,
+    height: 58,
+    borderRadius: 16,
+  },
   avatarFallback: {
-    width: 80, height: 80, borderRadius: 20,
-    backgroundColor: '#E0E7FF',
-    justifyContent: 'center', alignItems: 'center',
+    width: 58,
+    height: 58,
+    borderRadius: 16,
+    backgroundColor: COLORS.primaryLight,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
-  avatarInitial: { fontSize: 32, fontWeight: '800', color: PRIMARY },
+  avatarInitial: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: COLORS.primary,
+  },
   verifiedDot: {
-    position: 'absolute', bottom: -4, right: -4,
-    width: 22, height: 22, borderRadius: 11,
-    justifyContent: 'center', alignItems: 'center',
-    borderWidth: 2, borderColor: '#FFF',
+    position: 'absolute',
+    bottom: -4,
+    right: -4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: COLORS.surface,
   },
-  verifiedDotText: { fontSize: 10, color: '#FFF', fontWeight: '800' },
+  verifiedDotText: {
+    fontSize: 9,
+    color: COLORS.surface,
+    fontWeight: '900',
+  },
 
   // Info
-  info: { flex: 1, paddingTop: 2 },
+  info: {
+    flex: 1,
+    gap: 3,
+  },
   nameRow: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginBottom: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
-  name: { fontSize: 16, fontWeight: '800', color: '#1E232C', flex: 1, marginRight: 8 },
+  skills: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: COLORS.primary,
+    // color: COLORS.textPrimary,
+    letterSpacing: -0.3,
+    lineHeight: 20,
+  },
+  name: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: COLORS.textSecondary,
+    flex: 1,
+  },
   badgePill: {
-    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 20,
+    flexShrink: 0,
   },
-  badgeLabel: { fontSize: 11, fontWeight: '700' },
+  badgeLabel: {
+    fontSize: 10,
+    fontWeight: '800',
+    letterSpacing: 0.2,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    flexWrap: 'wrap',
+    marginTop: 2,
+  },
+  rating: {
+    fontSize: 12,
+    color: COLORS.gold,
+    fontWeight: '700',
+  },
+  dividerDot: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    fontWeight: '700',
+  },
+  jobs: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontWeight: '500',
+  },
+  dist: {
+    fontSize: 12,
+    color: COLORS.primary,
+    fontWeight: '600',
+  },
 
-  skills: { fontSize: 13, color: '#6B7280', marginBottom: 8, lineHeight: 18 },
-
-  statsRow: { flexDirection: 'row', alignItems: 'center', gap: 12, flexWrap: 'wrap' },
-  rating: { fontSize: 13, color: '#F59E0B', fontWeight: '700' },
-  jobs:   { fontSize: 13, color: '#6B7280' },
-  dist:   { fontSize: 13, color: PRIMARY, fontWeight: '600' },
-
-  // ── Book Now button — full width at bottom ──
+  // Book button
   bookBtn: {
-    // backgroundColor: PRIMARY,
-    borderRadius: 14,
-    paddingVertical: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: COLORS.primaryLight,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    borderWidth: 1.5,
+    borderColor: COLORS.primaryMid,
+    flexShrink: 0,
   },
-  ArtisanBookBtnText: { fontSize: 17, fontWeight: '800', color: PRIMARY },
-
-  ProfessionalbookBtn: {
-    backgroundColor: PRIMARY,
-    borderRadius: 14,
-    paddingVertical: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
+  bookBtnText: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: COLORS.primary,
   },
-  bookBtnText: { fontSize: 15, fontWeight: '800', color: "#ffffff" },
 });

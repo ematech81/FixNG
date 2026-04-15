@@ -168,7 +168,7 @@ export default function CustomerDashboard({ navigation, onLogout }) {
         {recentJobs.length > 0 && (
           <TouchableOpacity
             style={styles.viewAllBtn}
-            onPress={() => navigation.navigate('MyJobs')}
+            onPress={() => navigation.navigate('MyJobs')} 
           >
             <Text style={styles.viewAllBtnText}>View All Jobs →</Text>
           </TouchableOpacity>

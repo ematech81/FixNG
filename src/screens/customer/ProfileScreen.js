@@ -1,7 +1,7 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, Image, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -11,23 +11,25 @@ import { becomeArtisan, getOnboardingStatus } from '../../api/artisanApi';
 
 const PRIMARY = '#2563EB';
 
+// Update TOS_URL once you have published to GitHub Pages (see docs/terms.html)
+const TOS_URL = 'https://YOUR_GITHUB_USERNAME.github.io/YOUR_REPO/terms.html';
+
 const CUSTOMER_MENU_ITEMS = [
-  { icon: '📋', label: 'My Jobs', screen: 'MyJobs' },
-  { icon: '⭐', label: 'My Reviews', screen: null },
-  { icon: '🔔', label: 'Notifications', screen: null },
-  { icon: '🔒', label: 'Privacy & Security', screen: null },
-  { icon: '❓', label: 'Help & Support', screen: null },
-  { icon: '⚖️', label: 'Terms of Service', screen: null },
+  { icon: '📋', label: 'My Jobs',            screen: 'MyJobs'           },
+  { icon: '⭐', label: 'My Reviews',         screen: 'MyReviews'        },
+  { icon: '🔔', label: 'Notifications',      screen: 'Notifications'    },
+  { icon: '🔒', label: 'Privacy & Security', screen: 'PrivacySecurity'  },
+  { icon: '❓', label: 'Help & Support',     screen: null               },
+  { icon: '⚖️', label: 'Terms of Service',  url:    TOS_URL            },
 ];
 
 const ARTISAN_MENU_ITEMS = [
-  { icon: '🔧', label: 'Job Dashboard', screen: null }, // handled separately via onSwitchTab
-  { icon: '📋', label: 'My Jobs', screen: 'MyJobs' },
-  { icon: '⭐', label: 'My Reviews', screen: null }, 
-  { icon: '🔔', label: 'Notifications', screen: null },
-  { icon: '🔒', label: 'Privacy & Security', screen: null },
-  { icon: '❓', label: 'Help & Support', screen: null },
-  { icon: '⚖️', label: 'Terms of Service', screen: null },
+  { icon: '📋', label: 'My Jobs',            screen: 'MyJobs'           },
+  { icon: '⭐', label: 'My Reviews',         screen: 'MyReviews'        },
+  { icon: '🔔', label: 'Notifications',      screen: 'Notifications'    },
+  { icon: '🔒', label: 'Privacy & Security', screen: 'PrivacySecurity'  },
+  { icon: '❓', label: 'Help & Support',     screen: null               },
+  { icon: '⚖️', label: 'Terms of Service',  url:    TOS_URL            },
 ];
 
 // Maps artisan verificationStatus → badge config for the profile card
@@ -69,11 +71,13 @@ const ARTISAN_STATUS_CONFIG = {
 export default function ProfileScreen({ navigation, onLogout, onRefreshAuth, onSwitchToJobs, onSwitchTab }) {
   const [user, setUser] = useState(null);
   const [stats, setStats] = useState({ total: 0, completed: 0, active: 0 });
+  const [activeJob, setActiveJob] = useState(null); // most recent active job for "Track" button
   const [loadingStats, setLoadingStats] = useState(true);
   const [becomingArtisan, setBecomingArtisan] = useState(false);
   // Artisan-specific state (only fetched when user.role === 'artisan')
   const [artisanStatus, setArtisanStatus] = useState(null); // verificationStatus string
   const [loadingArtisanStatus, setLoadingArtisanStatus] = useState(false);
+  const [profilePhotoUrl, setProfilePhotoUrl] = useState(null);
 
   useFocusEffect(
     useCallback(() => {
@@ -90,17 +94,20 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth, onS
     }
   };
 
+  const ACTIVE_STATUSES = ['pending', 'accepted', 'in-progress', 'disputed'];
+
   const fetchStats = async (u) => {
     setLoadingStats(true);
     try {
-      const roleParam = u?.role === 'artisan' ? 'artisan' : 'customer';
-      const res = await getMyJobs({ role: roleParam });
+      const res = await getMyJobs();
       const jobs = res.data.data || [];
       const completed = jobs.filter((j) => j.status === 'completed').length;
-      const active = jobs.filter(
-        (j) => j.status === 'accepted' || j.status === 'arrived' || j.status === 'open'
-      ).length;
+      const active = jobs.filter((j) => ACTIVE_STATUSES.includes(j.status)).length;
       setStats({ total: jobs.length, completed, active });
+
+      // Most recent active job — drives the "Track Your Job" button
+      const mostRecent = jobs.find((j) => ACTIVE_STATUSES.includes(j.status));
+      setActiveJob(mostRecent || null);
     } catch {
       // silent
     } finally {
@@ -112,7 +119,10 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth, onS
     setLoadingArtisanStatus(true);
     try {
       const res = await getOnboardingStatus();
-      setArtisanStatus(res.data.data?.verificationStatus || 'incomplete');
+      const data = res.data.data;
+      const status = data?.verificationStatus || 'incomplete';
+      setArtisanStatus(status);
+      if (data?.profilePhoto?.url) setProfilePhotoUrl(data.profilePhoto.url);
     } catch {
       // silent — keep null
     } finally {
@@ -169,7 +179,11 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth, onS
         {/* Avatar + Name */}
         <View style={styles.profileCard}>
           <View style={[styles.avatarCircle, isArtisan && statusConfig && { borderWidth: 3, borderColor: statusConfig.color }]}>
-            <Text style={styles.avatarInitial}>{initial}</Text>
+            {profilePhotoUrl ? (
+              <Image source={{ uri: profilePhotoUrl }} style={styles.avatarImage} />
+            ) : (
+              <Text style={styles.avatarInitial}>{initial}</Text>
+            )}
           </View>
           <Text style={styles.userName}>{user?.name || '—'}</Text>
           <Text style={styles.userPhone}>{user?.phone || ''}</Text>
@@ -206,21 +220,37 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth, onS
 
         {/* ── Dynamic artisan CTA — state-driven ── */}
         {isArtisanVerified ? (
-          // Verified → View Public Profile
-          <TouchableOpacity
-            style={styles.publicProfileBtn}
-            onPress={() => navigation.navigate('ArtisanProfile', { artisanId: user._id || user.id })}
-            activeOpacity={0.85}
-          >
-            <View style={styles.publicProfileLeft}>
-              <Text style={styles.publicProfileIcon}>👁️</Text>
-              <View>
-                <Text style={styles.publicProfileTitle}>View Your Public Profile</Text>
-                <Text style={styles.publicProfileSubtitle}>See what customers see when they find you</Text>
+          // Verified → View Public Profile + Go to Job Dashboard
+          <>
+            <TouchableOpacity
+              style={styles.publicProfileBtn}
+              onPress={() => navigation.navigate('ArtisanProfile', { artisanId: user._id || user.id })}
+              activeOpacity={0.85}
+            >
+              <View style={styles.publicProfileLeft}>
+                <Text style={styles.publicProfileIcon}>👁️</Text>
+                <View>
+                  <Text style={styles.publicProfileTitle}>View Your Public Profile</Text>
+                  <Text style={styles.publicProfileSubtitle}>See what customers see when they find you</Text>
+                </View>
               </View>
-            </View>
-            <Text style={styles.publicProfileArrow}>›</Text>
-          </TouchableOpacity>
+              <Text style={styles.publicProfileArrow}>›</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.jobDashboardBtn}
+              onPress={() => navigation.navigate('JobScreen')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.jobDashboardLeft}>
+                <Text style={styles.jobDashboardIcon}>🔧</Text>
+                <View>
+                  <Text style={styles.jobDashboardTitle}>Go to Job Dashboard</Text>
+                  <Text style={styles.jobDashboardSubtitle}>View and manage available job requests</Text>
+                </View>
+              </View>
+              <Text style={styles.jobDashboardArrow}>›</Text>
+            </TouchableOpacity>
+          </>
         ) : isArtisanPending ? (
           // Pending → Verification Pending (switches to home/marketplace tab)
           <TouchableOpacity
@@ -258,6 +288,42 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth, onS
           </TouchableOpacity>
         ) : null}
 
+        {/* ── Track Your Job — visible only when there is an active job ── */}
+        {activeJob && (
+          <TouchableOpacity
+            style={styles.trackJobBtn}
+            onPress={() => navigation.navigate('JobDetail', { jobId: activeJob._id })}
+            activeOpacity={0.85}
+          >
+            <View style={styles.trackJobLeft}>
+              <Text style={styles.trackJobIcon}>📍</Text>
+              <View>
+                <Text style={styles.trackJobTitle}>Track Your Job</Text>
+                <Text style={styles.trackJobSubtitle} numberOfLines={1}>
+                  {activeJob.category} · {activeJob.status.replace('-', ' ')}
+                </Text>
+              </View>
+            </View>
+            <Text style={styles.trackJobArrow}>›</Text>
+          </TouchableOpacity>
+        )}
+
+        {/* ── Subscription upgrade banner ── */}
+        <TouchableOpacity
+          style={styles.subBanner}
+          onPress={() => navigation.navigate('Subscription')}
+          activeOpacity={0.88}
+        >
+          <View style={styles.subBannerLeft}>
+            <Text style={styles.subBannerIcon}>⚡</Text>
+            <View>
+              <Text style={styles.subBannerTitle}>Upgrade Your Plan</Text>
+              <Text style={styles.subBannerSub}>Pro & Elite plans from ₦3,500/mo</Text>
+            </View>
+          </View>
+          <Text style={styles.subBannerArrow}>›</Text>
+        </TouchableOpacity>
+
         {/* Menu items */}
         <View style={styles.menuCard}>
           {menuItems.map((item, i) => (
@@ -265,11 +331,8 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth, onS
               key={item.label}
               style={[styles.menuItem, i < menuItems.length - 1 && styles.menuItemBorder]}
               onPress={() => {
-                if (item.label === 'Job Dashboard') {
-                  onSwitchToJobs?.();
-                } else if (item.screen) {
-                  navigation.navigate(item.screen);
-                }
+                if (item.url)    Linking.openURL(item.url);
+                else if (item.screen) navigation.navigate(item.screen);
               }}
               activeOpacity={0.7}
             >
@@ -326,6 +389,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E0E7FF', justifyContent: 'center', alignItems: 'center',
     marginBottom: 14,
   },
+  avatarImage: { width: 80, height: 80, borderRadius: 40 },
   avatarInitial: { fontSize: 34, fontWeight: '800', color: PRIMARY },
   userName: { fontSize: 20, fontWeight: '800', color: '#1E232C', marginBottom: 4 },
   userPhone: { fontSize: 14, color: '#6B7280', marginBottom: 20 },
@@ -389,6 +453,34 @@ const styles = StyleSheet.create({
   publicProfileSubtitle: { fontSize: 12, color: '#6B7280' },
   publicProfileArrow: { fontSize: 24, color: '#16A34A', fontWeight: '700' },
 
+  // Track Your Job button (visible when there is an active job)
+  trackJobBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginHorizontal: 16, marginBottom: 16,
+    backgroundColor: '#FFF7ED', borderRadius: 16,
+    paddingHorizontal: 20, paddingVertical: 16,
+    borderWidth: 1.5, borderColor: '#FED7AA',
+  },
+  trackJobLeft: { flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 },
+  trackJobIcon: { fontSize: 26 },
+  trackJobTitle: { fontSize: 15, fontWeight: '800', color: '#C2410C', marginBottom: 2 },
+  trackJobSubtitle: { fontSize: 12, color: '#6B7280', textTransform: 'capitalize' },
+  trackJobArrow: { fontSize: 24, color: '#C2410C', fontWeight: '700' },
+
+  // Go to Job Dashboard button (verified artisans)
+  jobDashboardBtn: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    marginHorizontal: 16, marginBottom: 16,
+    backgroundColor: '#EFF6FF', borderRadius: 16,
+    paddingHorizontal: 20, paddingVertical: 16,
+    borderWidth: 1.5, borderColor: '#BFDBFE',
+  },
+  jobDashboardLeft: { flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 },
+  jobDashboardIcon: { fontSize: 26 },
+  jobDashboardTitle: { fontSize: 15, fontWeight: '800', color: '#2563EB', marginBottom: 2 },
+  jobDashboardSubtitle: { fontSize: 12, color: '#6B7280' },
+  jobDashboardArrow: { fontSize: 24, color: '#2563EB', fontWeight: '700' },
+
   // Verification Pending button
   pendingBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -426,4 +518,16 @@ const styles = StyleSheet.create({
   logoutText: { fontSize: 15, fontWeight: '700', color: '#DC2626' },
 
   version: { textAlign: 'center', fontSize: 12, color: '#C4C9D4' },
+
+  // Subscription banner
+  subBanner: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#1E293B', borderRadius: 14,
+    paddingVertical: 14, paddingHorizontal: 16, marginBottom: 14,
+  },
+  subBannerLeft:   { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  subBannerIcon:   { fontSize: 22 },
+  subBannerTitle:  { fontSize: 14, fontWeight: '800', color: '#F8FAFC', marginBottom: 2 },
+  subBannerSub:    { fontSize: 12, color: '#94A3B8' },
+  subBannerArrow:  { color: '#94A3B8', fontSize: 20 },
 });

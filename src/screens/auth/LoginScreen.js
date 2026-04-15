@@ -95,11 +95,11 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
           {/* App icon */}
           <View style={styles.iconWrapper}>
             <View style={styles.iconBox}>
-              {/* <Image
+              <Image
                 source={require('../../../assets/icon.png')}
                 style={styles.iconImg}
                 resizeMode="contain"
-              /> */}
+              />
             </View>
           </View>
 

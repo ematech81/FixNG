@@ -171,6 +171,22 @@ export default function ArtisanJobScreen({ navigation }) {
           <Text style={styles.pageTitle}>Job Dashboard</Text>
         </View>
 
+        {/* ── Subscription upgrade banner ── */}
+        {isVerified && (
+          <TouchableOpacity
+            style={styles.subPromo}
+            onPress={() => navigation.navigate('Subscription')}
+            activeOpacity={0.88}
+          >
+            <Text style={styles.subPromoEmoji}>⚡</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.subPromoTitle}>Unlock Pro & Elite Plans</Text>
+              <Text style={styles.subPromoSub}>Get priority placement & unlimited requests — from ₦3,500/mo</Text>
+            </View>
+            <Text style={styles.subPromoArrow}>›</Text>
+          </TouchableOpacity>
+        )}
+
         {/* ── Verification status banner ── */}
         {isPending && (
           <View style={styles.pendingBanner}>
@@ -606,4 +622,16 @@ const styles = StyleSheet.create({
   safetyBody: { flex: 1 },
   safetyTitle: { fontSize: 14, fontWeight: '800', color: '#92400E', marginBottom: 4 },
   safetyText: { fontSize: 13, color: '#78350F', lineHeight: 18 },
+
+  // Subscription promo banner
+  subPromo: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#1E293B', borderRadius: 14,
+    paddingVertical: 14, paddingHorizontal: 16,
+    marginHorizontal: 16, marginBottom: 12,
+  },
+  subPromoEmoji: { fontSize: 22 },
+  subPromoTitle: { fontSize: 13, fontWeight: '800', color: '#F8FAFC', marginBottom: 2 },
+  subPromoSub:   { fontSize: 11, color: '#94A3B8' },
+  subPromoArrow: { color: '#94A3B8', fontSize: 20 },
 });

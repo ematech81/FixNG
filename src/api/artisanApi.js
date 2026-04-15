@@ -64,6 +64,8 @@ export const uploadSkillVideo = (videoUri) => {
   });
 };
 
+export const updateBio = (bio) => api.post('/artisan/bio', { bio });
+
 export const getSkillsList = () => api.get('/artisan/skills-list');
 
 // Skip optional onboarding steps

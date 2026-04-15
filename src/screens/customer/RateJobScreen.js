@@ -57,7 +57,7 @@ export default function RateJobScreen({ route, navigation }) {
       Alert.alert(
         'Review Submitted!',
         'Thank you for rating your artisan. Your review helps build trust on FixNG.',
-        [{ text: 'Done', onPress: () => navigation.navigate('CustomerDashboard') }]
+        [{ text: 'Done', onPress: () => navigation.goBack() }]
       );
     } catch (err) {
       const msg = err?.response?.data?.message || 'Failed to submit review.';
@@ -136,7 +136,7 @@ export default function RateJobScreen({ route, navigation }) {
 
         <TouchableOpacity
           style={styles.skipBtn}
-          onPress={() => navigation.navigate('CustomerDashboard')}
+          onPress={() => navigation.goBack()}
         >
           <Text style={styles.skipBtnText}>Skip for now</Text>
         </TouchableOpacity>

@@ -11,6 +11,7 @@ export const createJob = (jobData, imageUris = []) => {
   if (jobData.address) formData.append('address', jobData.address);
   if (jobData.state) formData.append('state', jobData.state);
   if (jobData.lga) formData.append('lga', jobData.lga);
+  if (jobData.artisanId) formData.append('artisanId', jobData.artisanId);
 
   imageUris.forEach((uri) => {
     const filename = uri.split('/').pop();

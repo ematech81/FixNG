@@ -29,4 +29,5 @@ export const ARTISAN_SKILLS = [
   'CCTV / Security Systems',
   'Interior Decorator',
   'Event Planner',
+  'Others',
 ];
