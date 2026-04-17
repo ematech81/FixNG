@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
   ActivityIndicator, RefreshControl, Alert,
@@ -10,6 +10,8 @@ import {
   getNotifications, markRead, markAllRead,
   deleteNotification, clearAll,
 } from '../../api/notificationApi';
+import { connectSocket } from '../../hooks/useSocket';
+import { getUser } from '../../utils/storage';
 
 // ── Design tokens ──────────────────────────────────────────────────────────────
 const C = {
@@ -69,6 +71,34 @@ export default function NotificationsScreen({ navigation }) {
   const [loadingMore, setLoadingMore]     = useState(false);
 
   useFocusEffect(useCallback(() => { fetchNotifications(1, false); }, []));
+
+  // Real-time: prepend incoming notifications without requiring a manual refresh
+  useEffect(() => {
+    let detach = null;
+
+    getUser().then((u) => {
+      const uid = u?._id || u?.id;
+      if (!uid) return;
+
+      connectSocket(uid).then((socket) => {
+        const handleNotification = (notif) => {
+          // Map socket payload (id) to REST shape (_id) so renders consistently
+          const normalized = { ...notif, _id: notif.id || notif._id, read: false };
+          setNotifications((prev) => {
+            const exists = prev.find((n) => n._id?.toString() === normalized._id?.toString());
+            if (exists) return prev;
+            return [normalized, ...prev];
+          });
+          setUnreadCount((c) => c + 1);
+        };
+
+        socket.on('notification', handleNotification);
+        detach = () => socket.off('notification', handleNotification);
+      });
+    });
+
+    return () => detach?.();
+  }, []);
 
   const fetchNotifications = async (p = 1, isRefresh = false) => {
     if (isRefresh) setRefreshing(true);

@@ -10,7 +10,7 @@ import { searchArtisans } from '../../api/discoveryApi';
 import { getMyJobs } from '../../api/jobApi';
 import { getUnreadCount } from '../../api/notificationApi';
 import { getUser } from '../../utils/storage';
-import { DUMMY_PRO_ARTISANS, DUMMY_NEARBY_ARTISANS } from '../../constants/dummyProfiles';
+import { DUMMY_NEARBY_ARTISANS } from '../../constants/dummyProfiles';
 
 // ── Design Tokens ──────────────────────────────────────────────────────────────
 const COLORS = {
@@ -80,23 +80,30 @@ const CATEGORIES = [
 
 export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
   const [user, setUser] = useState(null);
-  const [topArtisans, setTopArtisans] = useState([]);
+
+  // Trusted Professionals (isPro only) — horizontal scroll
+  const [trustedArtisans, setTrustedArtisans]         = useState([]);
+  const [trustedPage, setTrustedPage]                 = useState(1);
+  const [hasMoreTrusted, setHasMoreTrusted]           = useState(false);
+  const [loadingMoreTrusted, setLoadingMoreTrusted]   = useState(false);
+
+  // Nearby artisans — vertical list
   const [nearbyArtisans, setNearbyArtisans] = useState([]);
-  const [nearbyPage, setNearbyPage] = useState(1);
-  const [hasMoreNearby, setHasMoreNearby] = useState(false);
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [refreshing, setRefreshing] = useState(false);
+  const [nearbyPage, setNearbyPage]         = useState(1);
+  const [hasMoreNearby, setHasMoreNearby]   = useState(false);
+  const [loadingMore, setLoadingMore]       = useState(false);
+
+  const [loading, setLoading]           = useState(true);
+  const [refreshing, setRefreshing]     = useState(false);
   const [filterLoading, setFilterLoading] = useState(false);
   const [locationLabel, setLocationLabel] = useState('Your Area');
   const [activeCategory, setActiveCategory] = useState('all');
-  const [pendingJobCount, setPendingJobCount] = useState(0);
-  const [showPendingBanner, setShowPendingBanner] = useState(true);
-  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [pendingJobCount, setPendingJobCount]       = useState(0);
+  const [showPendingBanner, setShowPendingBanner]   = useState(true);
+  const [unreadNotifCount, setUnreadNotifCount]     = useState(0);
 
   const coordsRef = useRef(null);
 
-  // ── All original logic preserved exactly ──────────────────────────────────
   useEffect(() => {
     getUser().then(setUser);
     initLocation();
@@ -108,19 +115,16 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
     getUnreadCount().then((res) => setUnreadNotifCount(res.data.count || 0)).catch(() => {});
   }, [])); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Check if this artisan has any direct pending job requests
   const checkPendingRequests = async () => {
     try {
       const u = await getUser();
-      if (u?.role !== 'artisan') return; // only relevant for artisans
+      if (u?.role !== 'artisan') return;
       const res = await getMyJobs();
       const jobs = res.data.data || [];
       const count = jobs.filter((j) => j.status === 'pending').length;
       setPendingJobCount(count);
       if (count > 0) setShowPendingBanner(true);
-    } catch {
-      // silent — banner is non-critical
-    }
+    } catch { /* silent */ }
   };
 
   const initLocation = async () => {
@@ -157,25 +161,45 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
       : {};
 
     try {
-      const [topRes, nearbyRes] = await Promise.all([
-        searchArtisans({ limit: 20, ...categoryParam }),
+      const [trustedRes, nearbyRes] = await Promise.all([
+        // Trusted section: only subscribed (isPro) artisans
+        searchArtisans({ isPro: true, limit: 20, page: 1, ...categoryParam }),
         searchArtisans({ ...geoParams, limit: 20, page: 1, ...categoryParam }),
       ]);
-      const topData  = topRes.data.data   || [];
-      const nearData = nearbyRes.data.data || [];
-      // Only show dummies when no category filter is active
-      setTopArtisans(topData.length > 0 ? topData : (cat === 'all' ? DUMMY_PRO_ARTISANS : []));
+      const trustedData = trustedRes.data.data  || [];
+      const nearData    = nearbyRes.data.data   || [];
+
+      setTrustedArtisans(trustedData);
+      setHasMoreTrusted(trustedData.length === 20);
+      setTrustedPage(1);
+
       setNearbyArtisans(nearData.length > 0 ? nearData : (cat === 'all' ? DUMMY_NEARBY_ARTISANS : []));
       setHasMoreNearby(nearData.length === 20);
       setNearbyPage(1);
     } catch {
-      setTopArtisans(cat === 'all' ? DUMMY_PRO_ARTISANS : []);
+      setTrustedArtisans([]);
       setNearbyArtisans(cat === 'all' ? DUMMY_NEARBY_ARTISANS : []);
     } finally {
       setLoading(false);
       setRefreshing(false);
       setFilterLoading(false);
     }
+  };
+
+  const loadMoreTrusted = async () => {
+    if (loadingMoreTrusted || !hasMoreTrusted) return;
+    setLoadingMoreTrusted(true);
+    const cat = activeCategory;
+    const categoryParam = cat !== 'all' ? { category: cat } : {};
+    try {
+      const nextPage = trustedPage + 1;
+      const res = await searchArtisans({ isPro: true, limit: 20, page: nextPage, ...categoryParam });
+      const more = res.data.data || [];
+      setTrustedArtisans((prev) => [...prev, ...more]);
+      setHasMoreTrusted(more.length === 20);
+      setTrustedPage(nextPage);
+    } catch { /* silent */ }
+    finally { setLoadingMoreTrusted(false); }
   };
 
   const loadMoreNearby = async () => {
@@ -412,22 +436,29 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
               {filterLoading ? `Filtering by ${activeCategory}…` : 'Finding professionals...'}
             </Text>
           </View>
-        ) : topArtisans.length === 0 ? (
+        ) : trustedArtisans.length === 0 ? (
           <View style={styles.emptyHScroll}>
-            <Text style={styles.emptyIcon}>🔍</Text>
+            <Text style={styles.emptyIcon}>⭐</Text>
             <Text style={styles.emptyHScrollText}>
               {activeCategory === 'all'
-                ? 'No verified artisans yet — tap to search'
-                : `No ${activeCategory} artisans found`}
+                ? 'No Trusted artisans yet — check back soon'
+                : `No Trusted ${activeCategory} artisans found`}
             </Text>
           </View>
         ) : (
           <FlatList
             horizontal
-            data={topArtisans}
-            keyExtractor={(item) => `top-${item.id}`}
+            data={trustedArtisans}
+            keyExtractor={(item) => `trusted-${item.id}`}
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.hScrollContent}
+            onEndReached={loadMoreTrusted}
+            onEndReachedThreshold={0.4}
+            ListFooterComponent={
+              loadingMoreTrusted
+                ? <ActivityIndicator color={COLORS.primary} style={{ marginHorizontal: 16, alignSelf: 'center' }} />
+                : null
+            }
             renderItem={({ item }) => (
               <TrustedProfessionalsCard
                 artisan={item}
@@ -518,7 +549,13 @@ function TrustedProfessionalsCard({ artisan, onPress }) {
       activeOpacity={0.92}
     >
       {/* Gradient-style header strip */}
-      <View style={proCard.headerStrip}>
+      <View style={[proCard.headerStrip, artisan.isPro && proCard.headerStripPro]}>
+        {/* Trusted badge (top-left) */}
+        {artisan.isPro && (
+          <View style={proCard.proLabel}>
+            <Text style={proCard.proLabelText}>✓ TRUSTED</Text>
+          </View>
+        )}
         {/* Badge pill top-right */}
         <View style={[proCard.badgePill, { backgroundColor: badge.bg }]}>
           <Text style={[proCard.badgeLabel, { color: badge.color }]}>
@@ -639,13 +676,20 @@ function ArtisanCard({ artisan, onPress }) {
           {(artisan.skills || []).join(' · ')}
         </Text>
 
-        {/* Name + Badge (secondary) */}
+        {/* Name + Badges (secondary) */}
         <View style={nearbyCard.nameRow}>
           <Text style={nearbyCard.name} numberOfLines={1}>{artisan.name}</Text>
-          <View style={[nearbyCard.badgePill, { backgroundColor: badge.bg }]}>
-            <Text style={[nearbyCard.badgeLabel, { color: badge.color }]}>
-              {badge.label}
-            </Text>
+          <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
+            {artisan.isPro && (
+              <View style={nearbyCard.proBadge}>
+                <Text style={nearbyCard.proBadgeText}>✓ Trusted</Text>
+              </View>
+            )}
+            <View style={[nearbyCard.badgePill, { backgroundColor: badge.bg }]}>
+              <Text style={[nearbyCard.badgeLabel, { color: badge.color }]}>
+                {badge.label}
+              </Text>
+            </View>
           </View>
         </View>
 
@@ -1209,10 +1253,20 @@ const proCard = StyleSheet.create({
   headerStrip: {
     height: 72,
     backgroundColor: COLORS.primary,
-    alignItems: 'flex-end',
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
     paddingTop: 12,
-    paddingRight: 12,
+    paddingHorizontal: 12,
   },
+  headerStripPro: {
+    backgroundColor: '#B45309', // warm gold for Pro artisans
+  },
+  proLabel: {
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.25)',
+  },
+  proLabelText: { fontSize: 10, fontWeight: '800', color: '#FFF', letterSpacing: 0.4 },
   badgePill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -1347,7 +1401,7 @@ const nearbyCard = StyleSheet.create({
     borderRadius: 20,
     padding: 14,
     gap: 12,
-    borderWidth: 1,
+    borderWidth: 2,
     borderColor: COLORS.divider,
     ...Platform.select({
       ios: {
@@ -1356,7 +1410,7 @@ const nearbyCard = StyleSheet.create({
         shadowOpacity: 0.06,
         shadowRadius: 10,
       },
-      android: { elevation: 2 },
+      android: { elevation: 3 },
     }),
   },
 
@@ -1436,6 +1490,11 @@ const nearbyCard = StyleSheet.create({
     fontWeight: '800',
     letterSpacing: 0.2,
   },
+  proBadge: {
+    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 12,
+    backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#F59E0B', flexShrink: 0,
+  },
+  proBadgeText: { fontSize: 10, fontWeight: '800', color: '#B45309' },
   statsRow: {
     flexDirection: 'row',
     alignItems: 'center',

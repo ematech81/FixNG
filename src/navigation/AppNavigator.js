@@ -31,6 +31,7 @@ import NotificationsScreen   from '../screens/shared/NotificationsScreen';
 import SubscriptionScreen    from '../screens/shared/SubscriptionScreen';
 import MyReviewsScreen       from '../screens/shared/MyReviewsScreen';
 import PrivacySecurityScreen from '../screens/shared/PrivacySecurityScreen';
+import HelpSupportScreen    from '../screens/shared/HelpSupportScreen';
 
 // Artisan onboarding
 import ArtisanJobScreen from '../screens/artisan/ArtisanJobScreen';
@@ -97,6 +98,7 @@ function CustomerNavigator({ onLogout, onRefreshAuth, initialTab, onInitialTabCo
       <CustomerStack.Screen name="Subscription"     component={SubscriptionScreen} />
       <CustomerStack.Screen name="MyReviews"        component={MyReviewsScreen} />
       <CustomerStack.Screen name="PrivacySecurity"  component={PrivacySecurityScreen} />
+      <CustomerStack.Screen name="HelpSupport"      component={HelpSupportScreen} />
       {/* Pending artisans can access the job dashboard while awaiting verification */}
       <CustomerStack.Screen name="JobScreen" component={ArtisanJobScreen} />
     </CustomerStack.Navigator>

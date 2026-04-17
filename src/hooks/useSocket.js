@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { getToken } from '../utils/storage';
+import { ApiIPAddress } from '../utils/AppIPAdress';
 
-const SOCKET_URL = 'http://10.0.2.2:5000'; // same as API base, no /api
+// Derived from the same IP as the REST API — strip /api suffix so both point to the same server
+const SOCKET_URL = ApiIPAddress.replace('/api', '');
 
 let socketInstance = null;
 
@@ -10,7 +12,10 @@ let socketInstance = null;
 export const getSocket = () => socketInstance;
 
 export const connectSocket = async (userId) => {
-  if (socketInstance?.connected) return socketInstance;
+  // Reuse existing socket regardless of connection state — Socket.IO handles reconnection.
+  // Creating a new socket when the old one is briefly disconnected produces orphaned
+  // connections where event listeners are registered on dead socket objects.
+  if (socketInstance) return socketInstance;
 
   socketInstance = io(SOCKET_URL, {
     query: { userId },

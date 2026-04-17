@@ -178,8 +178,8 @@ export default function ArtisanProfileScreen({ route, navigation }) {
         ════════════════════════════════════════ */}
         <View style={styles.heroCard}>
 
-          {/* Coloured header strip */}
-          <View style={styles.heroStrip} />
+          {/* Coloured header strip — gold for Trusted artisans */}
+          <View style={[styles.heroStrip, profile.isPro && styles.heroStripTrusted]} />
 
           {/* Avatar */}
           <View style={styles.avatarBlock}>
@@ -208,6 +208,17 @@ export default function ArtisanProfileScreen({ route, navigation }) {
 
           {/* Name */}
           <Text style={styles.heroName}>{profile.name}</Text>
+
+          {/* Trusted Artisan banner — only for subscribed artisans */}
+          {profile.isPro && (
+            <View style={styles.trustedBanner}>
+              <Text style={styles.trustedBannerIcon}>✓</Text>
+              <View>
+                <Text style={styles.trustedBannerTitle}>Trusted</Text>
+                
+              </View>
+            </View>
+          )}
 
           {/* Specialty + location */}
           <View style={styles.heroMetaRow}>
@@ -695,6 +706,38 @@ const styles = StyleSheet.create({
     height: 80,
     backgroundColor: COLORS.primary,
     marginBottom: 0,
+  },
+  heroStripTrusted: {
+    backgroundColor: '#B45309', // warm gold for Trusted artisans
+  },
+  trustedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: COLORS.amberLight,
+    borderWidth: 1.5,
+    borderColor: COLORS.amberMid,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginHorizontal: 20,
+    marginBottom: 12,
+  },
+  trustedBannerIcon: {
+    fontSize: 20,
+    color: COLORS.amber,
+    fontWeight: '900',
+  },
+  trustedBannerTitle: {
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#92400E',
+    marginBottom: 1,
+  },
+  trustedBannerSub: {
+    fontSize: 11,
+    color: COLORS.amber,
+    fontWeight: '500',
   },
   avatarBlock: {
     alignItems: 'center',
@@ -1209,7 +1252,7 @@ const styles = StyleSheet.create({
   // ── Sticky Bottom Bar ─────────────────────────────────────────────────────────
   stickyBar: {
     position: 'absolute',
-    bottom: 0,
+    bottom: 25,
     left: 0,
     right: 0,
     flexDirection: 'row',

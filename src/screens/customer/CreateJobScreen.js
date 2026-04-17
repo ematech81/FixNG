@@ -10,6 +10,8 @@ import { ARTISAN_SKILLS } from '../../constants/skills';
 import { createJob } from '../../api/jobApi';
 import { getUser } from '../../utils/storage';
 import BackButton from '../../components/BackButton';
+import VoiceNoteRecorder from '../../components/VoiceNoteRecorder';
+import VoiceNotePlayer from '../../components/VoiceNotePlayer';
 
 const URGENCY_OPTIONS = [
   {
@@ -53,6 +55,12 @@ export default function CreateJobScreen({ route, navigation }) {
   const [showCategories, setShowCategories] = useState(false);
   const [categorySearch, setCategorySearch] = useState('');
   const [currentUserName, setCurrentUserName] = useState('');
+
+  // Voice description state
+  const [descMode, setDescMode] = useState('voice'); // 'text' | 'voice'
+  const [voiceUri, setVoiceUri] = useState(null);
+  const [voiceDuration, setVoiceDuration] = useState(0);
+  const [showVoiceRec, setShowVoiceRec] = useState(false);
 
   useEffect(() => {
     getUser().then((u) => setCurrentUserName(u?.name?.split(' ')[0] || ''));
@@ -182,10 +190,20 @@ export default function CreateJobScreen({ route, navigation }) {
       Alert.alert('Category Required', 'Please select the type of artisan you need.');
       return;
     }
-    if (!description.trim() || description.trim().length < 20) {
-      Alert.alert('Description Too Short', 'Please describe the job in at least 20 characters.');
-      return;
+
+    if (descMode === 'text') {
+      if (!description.trim() || description.trim().length < 20) {
+        Alert.alert('Description Too Short', 'Please describe the job in at least 20 characters.');
+        return;
+      }
+    } else {
+      // Voice mode — must have recorded
+      if (!voiceUri) {
+        Alert.alert('Voice Note Required', 'Please record a voice note to describe the job, or switch to text mode.');
+        return;
+      }
     }
+
     if (!location && urgency !== 'remote') {
       Alert.alert('Location Required', 'Please detect your location so artisans can find you.');
       return;
@@ -208,11 +226,15 @@ export default function CreateJobScreen({ route, navigation }) {
   const submitJob = async () => {
     setSubmitting(true);
     const loc = location ?? LAGOS_DEFAULT; // remote jobs fall back to Lagos centre
+    // When in voice mode, use a placeholder text so the backend required field is satisfied
+    const finalDescription = descMode === 'voice' && voiceUri
+      ? (description.trim() || 'Voice note attached — tap to listen')
+      : description.trim();
     try {
       const res = await createJob(
         {
           category,
-          description: description.trim(),
+          description: finalDescription,
           urgency,
           latitude: loc.latitude,
           longitude: loc.longitude,
@@ -220,7 +242,8 @@ export default function CreateJobScreen({ route, navigation }) {
           state: loc.state || null,
           artisanId: artisanId || undefined,
         },
-        images
+        images,
+        voiceUri ? { uri: voiceUri, duration: voiceDuration } : null
       );
 
       const { jobId, artisansNotified, targetArtisanName } = res.data.data;
@@ -314,18 +337,72 @@ export default function CreateJobScreen({ route, navigation }) {
             </>
           )}
 
-          {/* Description */}
-          <Text style={styles.label}>Describe the Job *</Text>
-          <TextInput
-            style={styles.textArea}
-            placeholder="e.g. My kitchen tap is leaking badly and water is dripping underneath the sink. I need it fixed urgently."
-            value={description}
-            onChangeText={setDescription}
-            multiline
-            numberOfLines={5}
-            maxLength={1000}
-          />
-          <Text style={styles.charCount}>{description.length}/1000</Text>
+          {/* Description — text or voice mode */}
+          <View style={styles.descHeaderRow}>
+            <Text style={styles.label}>Describe the Job *</Text>
+            <View style={styles.descToggle}>
+              <TouchableOpacity
+                style={[styles.descToggleBtn, descMode === 'text' && styles.descToggleBtnActive]}
+                onPress={() => setDescMode('text')}
+              >
+                <Text style={[styles.descToggleTxt, descMode === 'text' && styles.descToggleTxtActive]}>✏ Text</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.descToggleBtn, descMode === 'voice' && styles.descToggleBtnActive]}
+                onPress={() => setDescMode('voice')}
+              >
+                <Text style={[styles.descToggleTxt, descMode === 'voice' && styles.descToggleTxtActive]}>🎤 Voice</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+
+          {descMode === 'text' ? (
+            <>
+              <TextInput
+                style={styles.textArea}
+                placeholder="e.g. My kitchen tap is leaking badly and water is dripping underneath the sink. I need it fixed urgently."
+                value={description}
+                onChangeText={setDescription}
+                multiline
+                numberOfLines={5}
+                maxLength={1000}
+              />
+              <Text style={styles.charCount}>{description.length}/1000</Text>
+            </>
+          ) : (
+            <View style={styles.voiceDescBox}>
+              {!voiceUri ? (
+                <>
+                  <Text style={styles.voiceDescHint}>
+                    Record a voice note describing what you need done. Artisans will listen before accepting.
+                  </Text>
+                  <TouchableOpacity style={styles.voiceRecordBtn} onPress={() => setShowVoiceRec(true)}>
+                    <Text style={styles.voiceRecordIcon}>🎤</Text>
+                    <Text style={styles.voiceRecordTxt}>Tap to Record</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  <Text style={styles.voiceDescLabel}>Voice note recorded</Text>
+                  <VoiceNotePlayer uri={voiceUri} duration={voiceDuration} isMine={false} />
+                  <TouchableOpacity
+                    style={styles.voiceReRecordBtn}
+                    onPress={() => { setVoiceUri(null); setVoiceDuration(0); setShowVoiceRec(true); }}
+                  >
+                    <Text style={styles.voiceReRecordTxt}>Re-record</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+            </View>
+          )}
+
+          {/* Inline voice recorder (shows below toggle when showVoiceRec) */}
+          {showVoiceRec && (
+            <VoiceNoteRecorder
+              onSend={(uri, dur) => { setVoiceUri(uri); setVoiceDuration(dur); setShowVoiceRec(false); }}
+              onCancel={() => setShowVoiceRec(false)}
+            />
+          )}
 
           {/* Urgency */}
           <Text style={styles.label}>Urgency *</Text>
@@ -484,7 +561,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24,
   },
   headerTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A1A' },
-  label: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 8, marginTop: 16 },
+  label: { fontSize: 14, fontWeight: '700', color: '#333', marginBottom: 8, marginTop: 16, paddingLeft: 4 },
   categoryLocked: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     borderWidth: 1.5, borderColor: '#BFDBFE', borderRadius: 10,
@@ -520,6 +597,28 @@ const styles = StyleSheet.create({
     textAlignVertical: 'top', minHeight: 110, backgroundColor: '#FAFAFA',
   },
   charCount: { fontSize: 12, color: '#BBB', textAlign: 'right', marginTop: 4 },
+
+  // Voice description toggle
+  descHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, },
+  descToggle: { flexDirection: 'row', borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#E5E7EB', marginRight: 5 },
+  descToggleBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#F3F4F6' },
+  descToggleBtnActive: { backgroundColor: '#FF6B00' },
+  descToggleTxt: { fontSize: 14, fontWeight: '600', color: '#666' },
+  descToggleTxtActive: { color: '#FFF' },
+  voiceDescBox: {
+    borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB',
+    padding: 16, backgroundColor: '#FAFAFA', marginBottom: 4, alignItems: 'center',
+  },
+  voiceDescHint: { fontSize: 13, color: '#888', textAlign: 'center', marginBottom: 14 },
+  voiceRecordBtn: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, backgroundColor: '#FF6B00',
+  },
+  voiceRecordIcon: { fontSize: 18 },
+  voiceRecordTxt: { fontSize: 14, fontWeight: '700', color: '#FFF' },
+  voiceDescLabel: { fontSize: 12, color: '#888', marginBottom: 8 },
+  voiceReRecordBtn: { marginTop: 10 },
+  voiceReRecordTxt: { fontSize: 13, color: '#FF6B00', fontWeight: '600' },
   urgencyStack: { gap: 10 },
   urgencyRow: {
     flexDirection: 'row', alignItems: 'center', gap: 14,

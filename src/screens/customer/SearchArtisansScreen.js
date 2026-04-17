@@ -23,7 +23,8 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
   const [refreshing, setRefreshing] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('');
-  const [selectedDistance, setSelectedDistance] = useState(20);
+  const [selectedDistance, setSelectedDistance] = useState(null); // null = no distance filter
+  const [onlyTrusted, setOnlyTrusted] = useState(false);
   const [minRating, setMinRating] = useState(0);
   const [categorySearch, setCategorySearch] = useState('');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
@@ -57,9 +58,11 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
 
       const params = {
         category: selectedCategory || undefined,
-        maxDistance: selectedDistance,
         minRating: minRating || undefined,
       };
+
+      if (selectedDistance) params.maxDistance = selectedDistance;
+      if (onlyTrusted) params.isPro = true;
 
       if (coords) {
         params.latitude = coords.latitude;
@@ -82,7 +85,7 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
 
     return (
       <TouchableOpacity
-        style={styles.artisanCard}
+        style={[styles.artisanCard, item.isPro && styles.artisanCardPro]}
         onPress={() => navigation.navigate('ArtisanProfile', { artisanId: item.id })}
         activeOpacity={0.8}
       >
@@ -101,10 +104,17 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
           <View style={styles.artisanInfo}>
             <View style={styles.nameRow}>
               <Text style={styles.artisanName}>{item.name}</Text>
-              <View style={styles.badgePill}>
-                <Text style={[styles.badgeText, { color: badge.color }]}>
-                  {badge.icon} {badge.label}
-                </Text>
+              <View style={styles.badgeRow}>
+                {item.isPro && (
+                  <View style={styles.proBadge}>
+                    <Text style={styles.proBadgeText}>✓ Trusted</Text>
+                  </View>
+                )}
+                <View style={styles.badgePill}>
+                  <Text style={[styles.badgeText, { color: badge.color }]}>
+                    {badge.icon} {badge.label}
+                  </Text>
+                </View>
               </View>
             </View>
 
@@ -161,12 +171,12 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
           </Text>
         </TouchableOpacity>
 
-        {/* Distance */}
+        {/* Distance (optional — tap again to deselect) */}
         {DISTANCE_OPTIONS.map((d) => (
           <TouchableOpacity
             key={d}
             style={[styles.filterChip, selectedDistance === d && styles.filterChipActive]}
-            onPress={() => setSelectedDistance(d)}
+            onPress={() => setSelectedDistance(selectedDistance === d ? null : d)}
           >
             <Text style={[styles.filterChipText, selectedDistance === d && styles.filterChipTextActive]}>
               {d}km
@@ -181,6 +191,16 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
         >
           <Text style={[styles.filterChipText, minRating > 0 && styles.filterChipTextActive]}>
             ⭐ 4+
+          </Text>
+        </TouchableOpacity>
+
+        {/* Trusted filter */}
+        <TouchableOpacity
+          style={[styles.filterChip, onlyTrusted && styles.filterChipTrusted]}
+          onPress={() => setOnlyTrusted((v) => !v)}
+        >
+          <Text style={[styles.filterChipText, onlyTrusted && styles.filterChipTextTrusted]}>
+            ✓ Trusted
           </Text>
         </TouchableOpacity>
       </View>
@@ -281,8 +301,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF',
   },
   filterChipActive: { borderColor: '#2563EB', backgroundColor: '#EFF6FF' },
+  filterChipTrusted: { borderColor: '#B45309', backgroundColor: '#FFFBEB' },
   filterChipText: { fontSize: 13, color: '#555', fontWeight: '600' },
   filterChipTextActive: { color: '#2563EB' },
+  filterChipTextTrusted: { color: '#B45309' },
   categoryDropdown: {
     backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E5E5',
     marginHorizontal: 16, borderRadius: 10, overflow: 'hidden',
@@ -315,9 +337,13 @@ const styles = StyleSheet.create({
   artisanInfo: { flex: 1 },
   nameRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
   artisanName: { fontSize: 16, fontWeight: '700', color: '#1A1A1A', flex: 1 },
+  badgeRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   badgePill: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, backgroundColor: '#F3F4F6' },
   badgeText: { fontSize: 11, fontWeight: '700' },
-  skills: { fontSize: 12, color: '#888', marginBottom: 6 },
+  artisanCardPro: { borderLeftWidth: 3, borderLeftColor: '#F59E0B' },
+  proBadge: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 12, backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#F59E0B' },
+  proBadgeText: { fontSize: 11, fontWeight: '700', color: '#B45309' },
+  skills: { fontSize: 15, fontWeight: '700', color: '#374151', marginBottom: 6 },
   statsRow: { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 4 },
   rating: { fontSize: 13, color: '#F59E0B', fontWeight: '700' },
   completedJobs: { fontSize: 12, color: '#666' },

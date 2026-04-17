@@ -52,12 +52,8 @@ export default function usePushNotifications(userId, onTap) {
     );
 
     return () => {
-      if (notificationListener.current) {
-        Notifications.removeNotificationSubscription(notificationListener.current);
-      }
-      if (responseListener.current) {
-        Notifications.removeNotificationSubscription(responseListener.current);
-      }
+      notificationListener.current?.remove();
+      responseListener.current?.remove();
     };
   }, [userId]); // eslint-disable-line react-hooks/exhaustive-deps
 }

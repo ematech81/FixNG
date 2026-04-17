@@ -4,15 +4,13 @@ import {
   Animated, Easing,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { useFocusEffect } from '@react-navigation/native';
 
 import CustomerHomeScreen   from './CustomerHomeScreen';
 import SearchArtisansScreen from './SearchArtisansScreen';
 import MessagesScreen       from './MessagesScreen';
 import ProfileScreen        from './ProfileScreen';
 import { getUser }              from '../../utils/storage';
-import { connectSocket }        from '../../hooks/useSocket';
-import { getUnreadCount }       from '../../api/notificationApi';
+import { connectSocket, getSocket } from '../../hooks/useSocket';
 import usePushNotifications     from '../../hooks/usePushNotifications';
 
 const PRIMARY = '#2563EB';
@@ -47,15 +45,21 @@ const TABS = [
 export default function CustomerTabScreen({
   navigation, onLogout, onRefreshAuth, initialTab, onInitialTabConsumed,
 }) {
-  const [activeTab, setActiveTab]     = useState(initialTab || 'home');
-  const [userId, setUserId]           = useState(null);
-  const [unreadCount, setUnreadCount] = useState(0);
+  const [activeTab, setActiveTab]         = useState(initialTab || 'home');
+  const [userId, setUserId]               = useState(null);
+  const [unreadMsgCount, setUnreadMsgCount] = useState(0);
+  const activeTabRef                      = useRef(initialTab || 'home');
 
   // Toast state
   const [toast, setToast]         = useState(null); // { title, body, type, jobId }
   const toastY                    = useRef(new Animated.Value(-100)).current;
   const toastTimer                = useRef(null);
   const insets                    = useSafeAreaInsets();
+
+  // Keep activeTabRef in sync so socket handlers never hold stale tab value
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
 
   // ── Bootstrap: load user + connect socket ──────────────────────────────────
   useEffect(() => {
@@ -70,10 +74,7 @@ export default function CustomerTabScreen({
     });
 
     return () => {
-      // Clean up listener on unmount
-      import('../../hooks/useSocket').then(({ getSocket }) => {
-        getSocket()?.off('notification', handleIncomingNotification);
-      });
+      getSocket()?.off('notification', handleIncomingNotification);
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -92,29 +93,20 @@ export default function CustomerTabScreen({
   // Register device for push notifications
   usePushNotifications(userId, handlePushTap);
 
-  // Fetch unread count whenever this screen gains focus (e.g. after visiting Notifications)
-  useFocusEffect(useCallback(() => {
-    refreshUnreadCount();
-  }, []));
-
-  const refreshUnreadCount = async () => {
-    try {
-      const res = await getUnreadCount();
-      setUnreadCount(res.data.count || 0);
-    } catch { /* silent */ }
-  };
-
   // Tell AppNavigator the initialTab has been consumed
   useEffect(() => {
     if (initialTab) onInitialTabConsumed?.();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Incoming real-time notification ────────────────────────────────────────
+  // Single source of truth for the badge: the notification event includes type,
+  // so new_message notifications bump the Messages tab badge here — no separate
+  // new_message socket listener needed (avoids double-counting entirely).
   const handleIncomingNotification = useCallback((notif) => {
-    // Bump badge
-    setUnreadCount((c) => c + 1);
-    // Show toast
     showToast(notif);
+    if (notif.type === 'new_message' && activeTabRef.current !== 'messages') {
+      setUnreadMsgCount((c) => c + 1);
+    }
   }, []);
 
   // ── Toast helpers ──────────────────────────────────────────────────────────
@@ -150,6 +142,7 @@ export default function CustomerTabScreen({
     dismissToast();
     if (toast.type === 'new_message') {
       setActiveTab('messages');
+      setUnreadMsgCount(0);
     } else if (toast.data?.jobId) {
       navigation.navigate('JobDetail', { jobId: toast.data.jobId });
     } else {
@@ -178,7 +171,6 @@ export default function CustomerTabScreen({
             onLogout={onLogout}
             onRefreshAuth={onRefreshAuth}
             onSwitchTab={setActiveTab}
-            onNotificationsRead={refreshUnreadCount}
           />
         );
       default:
@@ -223,8 +215,8 @@ export default function CustomerTabScreen({
       <View style={[styles.tabBar, { paddingBottom: insets.bottom || 10 }]}>
         {TABS.map((tab) => {
           const isActive   = activeTab === tab.key;
-          const showBadge  = tab.key === 'profile' && unreadCount > 0;
-          const badgeLabel = unreadCount > 99 ? '99+' : String(unreadCount);
+          const showBadge  = tab.key === 'messages' && unreadMsgCount > 0;
+          const badgeLabel = unreadMsgCount > 99 ? '99+' : String(unreadMsgCount);
 
           return (
             <TouchableOpacity
@@ -232,8 +224,8 @@ export default function CustomerTabScreen({
               style={styles.tabItem}
               onPress={() => {
                 setActiveTab(tab.key);
-                // Clear badge when navigating to profile (notifications live there)
-                if (tab.key === 'profile') refreshUnreadCount();
+                // Clear message badge when switching to messages tab
+                if (tab.key === 'messages') setUnreadMsgCount(0);
               }}
               activeOpacity={0.75}
             >

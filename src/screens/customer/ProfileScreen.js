@@ -11,25 +11,23 @@ import { becomeArtisan, getOnboardingStatus } from '../../api/artisanApi';
 
 const PRIMARY = '#2563EB';
 
-// Update TOS_URL once you have published to GitHub Pages (see docs/terms.html)
-const TOS_URL = 'https://YOUR_GITHUB_USERNAME.github.io/YOUR_REPO/terms.html';
+const TOS_URL = 'https://ematech81.github.io/FixNGTerms/';
 
 const CUSTOMER_MENU_ITEMS = [
-  { icon: '📋', label: 'My Jobs',            screen: 'MyJobs'           },
-  { icon: '⭐', label: 'My Reviews',         screen: 'MyReviews'        },
-  { icon: '🔔', label: 'Notifications',      screen: 'Notifications'    },
-  { icon: '🔒', label: 'Privacy & Security', screen: 'PrivacySecurity'  },
-  { icon: '❓', label: 'Help & Support',     screen: null               },
-  { icon: '⚖️', label: 'Terms of Service',  url:    TOS_URL            },
+  { icon: '📋', label: 'My Jobs',            screen: 'MyJobs'          },
+  { icon: '🔔', label: 'Notifications',      screen: 'Notifications'   },
+  { icon: '🔒', label: 'Privacy & Security', screen: 'PrivacySecurity' },
+  { icon: '❓', label: 'Help & Support',     screen: 'HelpSupport'     },
+  { icon: '⚖️', label: 'Terms of Service',  url:    TOS_URL           },
 ];
 
 const ARTISAN_MENU_ITEMS = [
-  { icon: '📋', label: 'My Jobs',            screen: 'MyJobs'           },
-  { icon: '⭐', label: 'My Reviews',         screen: 'MyReviews'        },
-  { icon: '🔔', label: 'Notifications',      screen: 'Notifications'    },
-  { icon: '🔒', label: 'Privacy & Security', screen: 'PrivacySecurity'  },
-  { icon: '❓', label: 'Help & Support',     screen: null               },
-  { icon: '⚖️', label: 'Terms of Service',  url:    TOS_URL            },
+  { icon: '📋', label: 'My Jobs',            screen: 'MyJobs'          },
+  { icon: '⭐', label: 'My Reviews',         screen: 'MyReviews'       },
+  { icon: '🔔', label: 'Notifications',      screen: 'Notifications'   },
+  { icon: '🔒', label: 'Privacy & Security', screen: 'PrivacySecurity' },
+  { icon: '❓', label: 'Help & Support',     screen: 'HelpSupport'     },
+  { icon: '⚖️', label: 'Terms of Service',  url:    TOS_URL           },
 ];
 
 // Maps artisan verificationStatus → badge config for the profile card
@@ -308,21 +306,23 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth, onS
           </TouchableOpacity>
         )}
 
-        {/* ── Subscription upgrade banner ── */}
-        <TouchableOpacity
-          style={styles.subBanner}
-          onPress={() => navigation.navigate('Subscription')}
-          activeOpacity={0.88}
-        >
-          <View style={styles.subBannerLeft}>
-            <Text style={styles.subBannerIcon}>⚡</Text>
-            <View>
-              <Text style={styles.subBannerTitle}>Upgrade Your Plan</Text>
-              <Text style={styles.subBannerSub}>Pro & Elite plans from ₦3,500/mo</Text>
+        {/* ── Subscription upgrade banner — artisans only ── */}
+        {isArtisan && (
+          <TouchableOpacity
+            style={styles.subBanner}
+            onPress={() => navigation.navigate('Subscription')}
+            activeOpacity={0.88}
+          >
+            <View style={styles.subBannerLeft}>
+              <Text style={styles.subBannerIcon}>⚡</Text>
+              <View>
+                <Text style={styles.subBannerTitle}>Upgrade Your Plan</Text>
+                <Text style={styles.subBannerSub}>Pro & Elite plans from ₦3,500/mo</Text>
+              </View>
             </View>
-          </View>
-          <Text style={styles.subBannerArrow}>›</Text>
-        </TouchableOpacity>
+            <Text style={styles.subBannerArrow}>›</Text>
+          </TouchableOpacity>
+        )}
 
         {/* Menu items */}
         <View style={styles.menuCard}>

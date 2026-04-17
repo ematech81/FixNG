@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   StatusBar, Alert, Modal, Pressable, Dimensions,
-  ActivityIndicator, RefreshControl, TextInput, Image,
+  ActivityIndicator, RefreshControl, TextInput, Image, FlatList,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -16,6 +16,10 @@ import {
   warnArtisan,
   suspendArtisan,
   getComplaints,
+  listUsers,
+  toggleUserActive,
+  grantPro,
+  revokePro,
 } from '../../api/adminApi';
 
 const PRIMARY = '#2563EB';
@@ -53,6 +57,15 @@ export default function AdminDashboardScreen({ onLogout }) {
   // View Form modal
   const [viewFormData, setViewFormData] = useState(null);
   const [viewFormLoading, setViewFormLoading] = useState(false);
+
+  // User Management
+  const [usersTab, setUsersTab]           = useState('artisans'); // 'artisans' | 'pro' | 'customers'
+  const [users, setUsers]                 = useState([]);
+  const [usersLoading, setUsersLoading]   = useState(false);
+  const [usersPage, setUsersPage]         = useState(1);
+  const [usersHasMore, setUsersHasMore]   = useState(false);
+  const [usersLoadingMore, setUsersLoadingMore] = useState(false);
+  const [userActionLoading, setUserActionLoading] = useState(null); // userId being actioned
 
   useEffect(() => {
     getUser().then(setAdminUser);
@@ -166,6 +179,96 @@ export default function AdminDashboardScreen({ onLogout }) {
     }
   };
 
+  // ── User Management ──────────────────────────────────────────────────────────
+  const loadUsers = useCallback(async (tab, page = 1, append = false) => {
+    if (page === 1) setUsersLoading(true);
+    else setUsersLoadingMore(true);
+    try {
+      const roleMap = { artisans: 'artisan', pro: 'artisan', customers: 'customer' };
+      const params = { role: roleMap[tab], page, limit: 20 };
+      if (tab === 'pro') params.isPro = true;
+      const res = await listUsers(params);
+      const data  = res.data.data  || [];
+      const total = res.data.total || 0;
+      setUsers((prev) => (append ? [...prev, ...data] : data));
+      setUsersPage(page);
+      setUsersHasMore(page * 20 < total);
+    } catch (err) {
+      Alert.alert('Error', err?.message || 'Could not load users.');
+    } finally {
+      setUsersLoading(false);
+      setUsersLoadingMore(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (activePage === 'users') {
+      setUsers([]);
+      loadUsers(usersTab, 1);
+    }
+  }, [activePage, usersTab]);
+
+  const handleToggleActive = async (userId, currentState) => {
+    setUserActionLoading(userId + '_toggle');
+    try {
+      await toggleUserActive(userId);
+      setUsers((prev) =>
+        prev.map((u) => u._id === userId ? { ...u, isActive: !currentState } : u)
+      );
+    } catch (err) {
+      Alert.alert('Error', err?.message || 'Action failed.');
+    } finally {
+      setUserActionLoading(null);
+    }
+  };
+
+  const handleGrantPro = async (userId, name) => {
+    Alert.alert('Grant Trusted Status', `Make ${name} a Trusted artisan?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Grant Trusted',
+        onPress: async () => {
+          setUserActionLoading(userId + '_pro');
+          try {
+            await grantPro(userId);
+            setUsers((prev) =>
+              prev.map((u) => u._id === userId ? { ...u, isPro: true } : u)
+            );
+            Alert.alert('Done', `${name} is now a Trusted artisan.`);
+          } catch (err) {
+            Alert.alert('Error', err?.message || 'Action failed.');
+          } finally {
+            setUserActionLoading(null);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleRevokePro = async (userId, name) => {
+    Alert.alert('Revoke Trusted Status', `Remove Trusted status from ${name}?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Revoke',
+        style: 'destructive',
+        onPress: async () => {
+          setUserActionLoading(userId + '_pro');
+          try {
+            await revokePro(userId);
+            setUsers((prev) =>
+              prev.map((u) => u._id === userId ? { ...u, isPro: false } : u)
+            );
+            Alert.alert('Done', `Trusted status removed from ${name}.`);
+          } catch (err) {
+            Alert.alert('Error', err?.message || 'Action failed.');
+          } finally {
+            setUserActionLoading(null);
+          }
+        },
+      },
+    ]);
+  };
+
   // ── STAT CARDS config (driven by live data) ──────────────────────────────────
   const STAT_CARDS = stats ? [
     {
@@ -176,14 +279,17 @@ export default function AdminDashboardScreen({ onLogout }) {
       label: 'Pending Verifications',
       badge: stats.pendingVerifications > 0 ? 'HIGH PRIORITY' : null,
       badgeColor: PRIMARY, badgeBg: '#DBEAFE', borderColor: PRIMARY,
+      onPress: null,
     },
     {
       id: 'artisans',
       icon: 'people',
-      iconColor: '#6B7280',
+      iconColor: PRIMARY,
       value: stats.totalVerifiedArtisans?.toLocaleString() || '0',
       label: 'Verified Artisans',
-      badge: null, borderColor: '#E5E7EB',
+      badge: 'TAP TO MANAGE', badgeColor: PRIMARY, badgeBg: '#DBEAFE',
+      borderColor: PRIMARY,
+      onPress: () => navigate('users'),
     },
     {
       id: 'jobs',
@@ -192,6 +298,7 @@ export default function AdminDashboardScreen({ onLogout }) {
       value: String(stats.activeJobs),
       label: 'Active Jobs',
       badge: null, borderColor: '#E5E7EB',
+      onPress: null,
     },
     {
       id: 'complaints',
@@ -201,6 +308,7 @@ export default function AdminDashboardScreen({ onLogout }) {
       label: 'Open Complaints',
       badge: stats.openComplaints > 0 ? 'ACTION REQUIRED' : null,
       badgeColor: RED, badgeBg: '#FEE2E2', borderColor: RED,
+      onPress: null,
     },
   ] : [];
 
@@ -235,6 +343,80 @@ export default function AdminDashboardScreen({ onLogout }) {
             <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
         </ScrollView>
+
+      ) : activePage === 'users' ? (
+        <View style={{ flex: 1 }}>
+          {/* Page title */}
+          <View style={styles.pageHeader}>
+            <Text style={styles.pageTitle}>User Management</Text>
+          </View>
+
+          {/* Tabs */}
+          <View style={styles.tabRow}>
+            {[
+              { key: 'artisans',  label: 'Artisans' },
+              { key: 'pro',       label: 'Trusted Artisans' },
+              { key: 'customers', label: 'Customers' },
+            ].map((t) => (
+              <TouchableOpacity
+                key={t.key}
+                style={[styles.tab, usersTab === t.key && styles.tabActive]}
+                onPress={() => setUsersTab(t.key)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.tabText, usersTab === t.key && styles.tabTextActive]}>
+                  {t.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          {/* User list */}
+          {usersLoading ? (
+            <View style={styles.loadingBox2}>
+              <ActivityIndicator color={PRIMARY} size="large" />
+              <Text style={styles.loadingText}>Loading…</Text>
+            </View>
+          ) : users.length === 0 ? (
+            <View style={styles.loadingBox2}>
+              <Ionicons name="people-outline" size={40} color="#D1D5DB" />
+              <Text style={[styles.loadingText, { marginTop: 8 }]}>No users found</Text>
+            </View>
+          ) : (
+            <FlatList
+              data={users}
+              keyExtractor={(u) => u._id}
+              contentContainerStyle={styles.userListContent}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => (
+                <UserCard
+                  user={item}
+                  tab={usersTab}
+                  actionLoading={userActionLoading}
+                  onToggleActive={() => handleToggleActive(item._id, item.isActive)}
+                  onGrantPro={() => handleGrantPro(item._id, item.name)}
+                  onRevokePro={() => handleRevokePro(item._id, item.name)}
+                />
+              )}
+              ListFooterComponent={
+                usersHasMore ? (
+                  <TouchableOpacity
+                    style={styles.loadMoreBtn}
+                    onPress={() => loadUsers(usersTab, usersPage + 1, true)}
+                    disabled={usersLoadingMore}
+                    activeOpacity={0.8}
+                  >
+                    {usersLoadingMore
+                      ? <ActivityIndicator color={PRIMARY} size="small" />
+                      : <Text style={styles.loadMoreText}>Load More</Text>
+                    }
+                  </TouchableOpacity>
+                ) : null
+              }
+            />
+          )}
+        </View>
+
       ) : (
         <ScrollView
           style={styles.scroll}
@@ -336,8 +518,9 @@ export default function AdminDashboardScreen({ onLogout }) {
               <Text style={styles.drawerRole}>Administrator</Text>
             </View>
             <View style={styles.drawerDivider} />
-            <DrawerItem icon="grid-outline"   label="Dashboard" active={activePage === 'dashboard'} onPress={() => navigate('dashboard')} />
-            <DrawerItem icon="person-outline" label="Profile"   active={activePage === 'profile'}   onPress={() => navigate('profile')} />
+            <DrawerItem icon="grid-outline"   label="Dashboard"        active={activePage === 'dashboard'} onPress={() => navigate('dashboard')} />
+            <DrawerItem icon="people-outline" label="User Management"  active={activePage === 'users'}     onPress={() => navigate('users')} />
+            <DrawerItem icon="person-outline" label="Profile"          active={activePage === 'profile'}   onPress={() => navigate('profile')} />
             <View style={styles.drawerDivider} />
             <DrawerItem icon="log-out-outline" label="Log Out" danger onPress={handleLogout} />
           </Pressable>
@@ -479,8 +662,13 @@ function DrawerItem({ icon, label, active, danger, onPress }) {
 }
 
 function StatCard({ stat }) {
+  const Wrapper = stat.onPress ? TouchableOpacity : View;
   return (
-    <View style={[styles.statCard, { borderLeftColor: stat.borderColor }]}>
+    <Wrapper
+      style={[styles.statCard, { borderLeftColor: stat.borderColor }]}
+      onPress={stat.onPress}
+      activeOpacity={0.75}
+    >
       <View style={styles.statCardTop}>
         <Ionicons name={stat.icon} size={28} color={stat.iconColor} />
         {stat.badge && (
@@ -491,7 +679,7 @@ function StatCard({ stat }) {
       </View>
       <Text style={styles.statValue}>{stat.value}</Text>
       <Text style={styles.statLabel}>{stat.label}</Text>
-    </View>
+    </Wrapper>
   );
 }
 
@@ -558,6 +746,103 @@ function EmptyCard({ icon, text }) {
     <View style={styles.emptyCard}>
       <Ionicons name={icon} size={32} color="#D1D5DB" />
       <Text style={styles.emptyText}>{text}</Text>
+    </View>
+  );
+}
+
+function UserCard({ user, tab, actionLoading, onToggleActive, onGrantPro, onRevokePro }) {
+  const isArtisan     = tab === 'artisans' || tab === 'pro';
+  const profession    = user.skills?.length ? user.skills.slice(0, 2).join(' · ') : null;
+  const statusLabel   = user.isSuspended ? 'Suspended'
+                      : !user.isActive   ? 'Disabled'
+                      : user.verificationStatus === 'verified' ? 'Verified'
+                      : user.verificationStatus === 'pending'  ? 'Pending'
+                      : 'Active';
+  const statusColor   = user.isSuspended ? RED
+                      : !user.isActive   ? '#9CA3AF'
+                      : user.verificationStatus === 'verified' ? GREEN
+                      : user.verificationStatus === 'pending'  ? AMBER
+                      : '#6B7280';
+
+  const toggleLoading = actionLoading === user._id + '_toggle';
+  const proLoading    = actionLoading === user._id + '_pro';
+
+  // "Make Pro" is shown for verified artisans (not yet pro), only on artisans tab
+  const canGrantPro   = tab === 'artisans' && user.verificationStatus === 'verified' && !user.isPro;
+  // "Revoke Pro" is shown on pro tab
+  const canRevokePro  = tab === 'pro' && user.isPro;
+
+  return (
+    <View style={styles.userCard}>
+      <View style={styles.userCardTop}>
+        {/* Avatar */}
+        <View style={styles.userAvatar}>
+          <Text style={styles.userAvatarText}>{user.name?.[0]?.toUpperCase() || '?'}</Text>
+        </View>
+
+        {/* Info */}
+        <View style={{ flex: 1 }}>
+          <View style={styles.userNameRow}>
+            <Text style={styles.userName} numberOfLines={1}>{user.name || '—'}</Text>
+            {user.isPro && (
+              <View style={styles.proChip}>
+                <Text style={styles.proChipText}>TRUSTED</Text>
+              </View>
+            )}
+          </View>
+          {profession ? (
+            <Text style={styles.userProfession} numberOfLines={1}>{profession}</Text>
+          ) : (
+            <Text style={styles.userProfession} numberOfLines={1}>{user.phone || ''}</Text>
+          )}
+          <View style={[styles.userStatusChip, { backgroundColor: statusColor + '18' }]}>
+            <Text style={[styles.userStatusText, { color: statusColor }]}>{statusLabel}</Text>
+          </View>
+        </View>
+      </View>
+
+      {/* Actions */}
+      <View style={styles.userCardActions}>
+        {canGrantPro && (
+          <TouchableOpacity
+            style={styles.makeProBtn}
+            onPress={onGrantPro}
+            disabled={!!proLoading}
+            activeOpacity={0.8}
+          >
+            {proLoading
+              ? <ActivityIndicator color="#FFF" size="small" />
+              : <Text style={styles.makeProBtnText}>Make Trusted</Text>
+            }
+          </TouchableOpacity>
+        )}
+        {canRevokePro && (
+          <TouchableOpacity
+            style={styles.revokeProBtn}
+            onPress={onRevokePro}
+            disabled={!!proLoading}
+            activeOpacity={0.8}
+          >
+            {proLoading
+              ? <ActivityIndicator color={AMBER} size="small" />
+              : <Text style={styles.revokeProBtnText}>Revoke Trusted</Text>
+            }
+          </TouchableOpacity>
+        )}
+        <TouchableOpacity
+          style={[styles.toggleActiveBtn, user.isActive && styles.toggleActiveBtnOn]}
+          onPress={onToggleActive}
+          disabled={!!toggleLoading}
+          activeOpacity={0.8}
+        >
+          {toggleLoading
+            ? <ActivityIndicator color={user.isActive ? RED : GREEN} size="small" />
+            : <Text style={[styles.toggleActiveBtnText, user.isActive && styles.toggleActiveBtnTextOn]}>
+                {user.isActive ? 'Disable' : 'Enable'}
+              </Text>
+          }
+        </TouchableOpacity>
+      </View>
     </View>
   );
 }
@@ -768,4 +1053,71 @@ const styles = StyleSheet.create({
     backgroundColor: '#EFF6FF', borderRadius: 10, padding: 14,
   },
   vfVideoText: { fontSize: 14, fontWeight: '600', color: PRIMARY },
+
+  // ── User Management page ──
+  pageHeader: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 4 },
+  pageTitle:  { fontSize: 22, fontWeight: '900', color: '#1E232C' },
+
+  tabRow: {
+    flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, gap: 8,
+  },
+  tab: {
+    flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: 'center',
+    backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB',
+  },
+  tabActive: { backgroundColor: PRIMARY, borderColor: PRIMARY },
+  tabText: { fontSize: 12, fontWeight: '700', color: '#6B7280' },
+  tabTextActive: { color: '#FFF' },
+
+  loadingBox2: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
+
+  userListContent: { paddingHorizontal: 16, paddingBottom: 24 },
+
+  userCard: {
+    backgroundColor: '#FFF', borderRadius: 14, padding: 14, marginBottom: 10,
+    borderWidth: 1, borderColor: '#EEF0F5', elevation: 1,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4,
+  },
+  userCardTop: { flexDirection: 'row', gap: 12, marginBottom: 12 },
+  userAvatar: {
+    width: 46, height: 46, borderRadius: 23, backgroundColor: '#1E232C',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  userAvatarText: { fontSize: 18, fontWeight: '800', color: '#FFF' },
+  userNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+  userName: { fontSize: 15, fontWeight: '800', color: '#1E232C', flexShrink: 1 },
+  proChip: {
+    paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6,
+    backgroundColor: '#FEF3C7',
+  },
+  proChipText: { fontSize: 10, fontWeight: '900', color: '#B45309', letterSpacing: 0.5 },
+  userProfession: { fontSize: 12, color: '#6B7280', marginBottom: 6 },
+  userStatusChip: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
+  userStatusText: { fontSize: 11, fontWeight: '700' },
+
+  userCardActions: { flexDirection: 'row', gap: 8 },
+  makeProBtn: {
+    flex: 1, paddingVertical: 9, borderRadius: 10,
+    backgroundColor: '#B45309', alignItems: 'center',
+  },
+  makeProBtnText: { fontSize: 12, fontWeight: '800', color: '#FFF' },
+  revokeProBtn: {
+    flex: 1, paddingVertical: 9, borderRadius: 10,
+    borderWidth: 1.5, borderColor: AMBER, alignItems: 'center',
+  },
+  revokeProBtnText: { fontSize: 12, fontWeight: '800', color: AMBER },
+  toggleActiveBtn: {
+    flex: 1, paddingVertical: 9, borderRadius: 10,
+    borderWidth: 1.5, borderColor: '#D1D5DB', backgroundColor: '#F9FAFB', alignItems: 'center',
+  },
+  toggleActiveBtnOn: { borderColor: '#FECACA', backgroundColor: '#FEF2F2' },
+  toggleActiveBtnText: { fontSize: 12, fontWeight: '700', color: GREEN },
+  toggleActiveBtnTextOn: { color: RED },
+
+  loadMoreBtn: {
+    marginHorizontal: 16, marginTop: 4, marginBottom: 8,
+    paddingVertical: 14, borderRadius: 12, backgroundColor: '#EFF6FF',
+    alignItems: 'center', borderWidth: 1, borderColor: '#DBEAFE',
+  },
+  loadMoreText: { fontSize: 14, fontWeight: '700', color: PRIMARY },
 });

@@ -1,6 +1,6 @@
 import api from './index';
 
-export const createJob = (jobData, imageUris = []) => {
+export const createJob = (jobData, imageUris = [], voiceNote = null) => {
   const formData = new FormData();
 
   formData.append('category', jobData.category);
@@ -22,6 +22,18 @@ export const createJob = (jobData, imageUris = []) => {
       type: `image/${ext === 'jpg' ? 'jpeg' : ext}`,
     });
   });
+
+  if (voiceNote?.uri) {
+    const ext = voiceNote.uri.split('.').pop()?.toLowerCase() || 'm4a';
+    formData.append('voiceDescription', {
+      uri: voiceNote.uri,
+      name: `voice_desc_${Date.now()}.${ext}`,
+      type: `audio/${ext === 'caf' ? 'x-caf' : ext}`,
+    });
+    if (voiceNote.duration) {
+      formData.append('voiceDuration', String(voiceNote.duration));
+    }
+  }
 
   return api.post('/jobs', formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
