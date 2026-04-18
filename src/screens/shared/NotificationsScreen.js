@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  ActivityIndicator, RefreshControl, Alert,
+  ActivityIndicator, RefreshControl, Alert, Modal, Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
@@ -69,6 +69,7 @@ export default function NotificationsScreen({ navigation }) {
   const [page, setPage]                   = useState(1);
   const [hasMore, setHasMore]             = useState(false);
   const [loadingMore, setLoadingMore]     = useState(false);
+  const [detailModal, setDetailModal]     = useState(null); // notification item or null
 
   useFocusEffect(useCallback(() => { fetchNotifications(1, false); }, []));
 
@@ -135,6 +136,14 @@ export default function NotificationsScreen({ navigation }) {
       setUnreadCount((c) => Math.max(0, c - 1));
     }
     // Deep-link to relevant screen
+    if (item.type === 'profile_rejected') {
+      navigation.navigate('AccountStatus', { type: 'rejected' });
+      return;
+    }
+    if (item.type === 'account_suspended') {
+      navigation.navigate('AccountStatus', { type: 'suspended' });
+      return;
+    }
     const jobId = item.data?.jobId;
     if (jobId) {
       if (item.type === 'new_message') {
@@ -142,7 +151,10 @@ export default function NotificationsScreen({ navigation }) {
       } else {
         navigation.navigate('JobDetail', { jobId });
       }
+      return;
     }
+    // No navigation target — show detail modal so user can read the full message
+    setDetailModal(item);
   };
 
   const handleDelete = (id) => {
@@ -278,6 +290,37 @@ export default function NotificationsScreen({ navigation }) {
           showsVerticalScrollIndicator={false}
         />
       )}
+      {/* ── Notification detail modal ── */}
+      {detailModal && (
+        <Modal
+          visible
+          transparent
+          animationType="fade"
+          onRequestClose={() => setDetailModal(null)}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => setDetailModal(null)}>
+            <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
+              {/* Icon + type label */}
+              <View style={styles.modalIconRow}>
+                <View style={[styles.modalIconBubble, { backgroundColor: cfg(detailModal.type).color + '18' }]}>
+                  <Text style={styles.modalIconText}>{cfg(detailModal.type).icon}</Text>
+                </View>
+                <Text style={[styles.modalTypeLabel, { color: cfg(detailModal.type).color }]}>
+                  {cfg(detailModal.type).label}
+                </Text>
+              </View>
+
+              <Text style={styles.modalTitle}>{detailModal.title}</Text>
+              <Text style={styles.modalBody}>{detailModal.body}</Text>
+              <Text style={styles.modalTime}>{timeAgo(detailModal.createdAt)}</Text>
+
+              <TouchableOpacity style={styles.modalCloseBtn} onPress={() => setDetailModal(null)}>
+                <Text style={styles.modalCloseBtnText}>Dismiss</Text>
+              </TouchableOpacity>
+            </Pressable>
+          </Pressable>
+        </Modal>
+      )}
     </SafeAreaView>
   );
 }
@@ -344,4 +387,28 @@ const styles = StyleSheet.create({
   emptyIcon:  { fontSize: 52, marginBottom: 12 },
   emptyTitle: { fontSize: 18, fontWeight: '700', color: C.textMain, marginBottom: 6 },
   emptyBody:  { fontSize: 14, color: C.textSub, textAlign: 'center' },
+
+  // Detail modal
+  modalOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
+    justifyContent: 'center', alignItems: 'center', padding: 24,
+  },
+  modalSheet: {
+    backgroundColor: C.surface, borderRadius: 20,
+    padding: 24, width: '100%',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12, shadowRadius: 20, elevation: 8,
+  },
+  modalIconRow:    { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
+  modalIconBubble: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
+  modalIconText:   { fontSize: 22 },
+  modalTypeLabel:  { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
+  modalTitle:  { fontSize: 16, fontWeight: '700', color: C.textMain, marginBottom: 8 },
+  modalBody:   { fontSize: 14, color: C.textSub, lineHeight: 21, marginBottom: 12 },
+  modalTime:   { fontSize: 11, color: C.textMuted, marginBottom: 20 },
+  modalCloseBtn: {
+    backgroundColor: C.primary, borderRadius: 12,
+    paddingVertical: 13, alignItems: 'center',
+  },
+  modalCloseBtnText: { color: '#FFF', fontWeight: '700', fontSize: 15 },
 });

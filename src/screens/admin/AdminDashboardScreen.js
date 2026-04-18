@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  StatusBar, Alert, Modal, Pressable, Dimensions,
+  StatusBar, Alert, Modal, Pressable, Dimensions, Platform,
   ActivityIndicator, RefreshControl, TextInput, Image, FlatList,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
@@ -20,6 +21,9 @@ import {
   toggleUserActive,
   grantPro,
   revokePro,
+  warnCustomer,
+  suspendCustomer,
+  unsuspendCustomer,
 } from '../../api/adminApi';
 
 const PRIMARY = '#2563EB';
@@ -57,6 +61,9 @@ export default function AdminDashboardScreen({ onLogout }) {
   // View Form modal
   const [viewFormData, setViewFormData] = useState(null);
   const [viewFormLoading, setViewFormLoading] = useState(false);
+
+  // Full-screen ID image viewer
+  const [idFullScreen, setIdFullScreen] = useState(null); // url string or null
 
   // User Management
   const [usersTab, setUsersTab]           = useState('artisans'); // 'artisans' | 'pro' | 'customers'
@@ -149,13 +156,15 @@ export default function AdminDashboardScreen({ onLogout }) {
     setActionLoading(true);
     try {
       const { type, userId, name, onDone } = actionModal;
-      if (type === 'reject')  await rejectArtisan(userId, actionReason.trim());
-      if (type === 'warn')    await warnArtisan(userId, actionReason.trim());
-      if (type === 'suspend') await suspendArtisan(userId, actionReason.trim());
+      if (type === 'reject')           await rejectArtisan(userId, actionReason.trim());
+      if (type === 'warn')             await warnArtisan(userId, actionReason.trim());
+      if (type === 'suspend')          await suspendArtisan(userId, actionReason.trim());
+      if (type === 'warn_customer')    await warnCustomer(userId, actionReason.trim());
+      if (type === 'suspend_customer') await suspendCustomer(userId, actionReason.trim());
 
       setActionModal(null);
       onDone?.();
-      const labels = { reject: 'rejected', warn: 'warned', suspend: 'suspended' };
+      const labels = { reject: 'rejected', warn: 'warned', suspend: 'suspended', warn_customer: 'warned', suspend_customer: 'suspended' };
       Alert.alert('Done', `${name} has been ${labels[type]}.`);
     } catch (err) {
       Alert.alert('Error', err?.message || 'Action failed.');
@@ -259,6 +268,29 @@ export default function AdminDashboardScreen({ onLogout }) {
               prev.map((u) => u._id === userId ? { ...u, isPro: false } : u)
             );
             Alert.alert('Done', `Trusted status removed from ${name}.`);
+          } catch (err) {
+            Alert.alert('Error', err?.message || 'Action failed.');
+          } finally {
+            setUserActionLoading(null);
+          }
+        },
+      },
+    ]);
+  };
+
+  const handleUnsuspendCustomer = (userId, name) => {
+    Alert.alert('Unsuspend Customer', `Reinstate ${name}'s account?`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Unsuspend',
+        onPress: async () => {
+          setUserActionLoading(userId + '_suspend');
+          try {
+            await unsuspendCustomer(userId);
+            setUsers((prev) =>
+              prev.map((u) => u._id === userId ? { ...u, isSuspended: false, suspensionReason: null } : u)
+            );
+            Alert.alert('Done', `${name}'s account has been reinstated.`);
           } catch (err) {
             Alert.alert('Error', err?.message || 'Action failed.');
           } finally {
@@ -396,6 +428,17 @@ export default function AdminDashboardScreen({ onLogout }) {
                   onToggleActive={() => handleToggleActive(item._id, item.isActive)}
                   onGrantPro={() => handleGrantPro(item._id, item.name)}
                   onRevokePro={() => handleRevokePro(item._id, item.name)}
+                  onWarnCustomer={() =>
+                    openActionModal('warn_customer', item._id, item.name, () =>
+                      setUsers((prev) => prev.map((u) => u._id === item._id ? { ...u, warningCount: (u.warningCount || 0) + 1 } : u))
+                    )
+                  }
+                  onSuspendCustomer={() =>
+                    openActionModal('suspend_customer', item._id, item.name, () =>
+                      setUsers((prev) => prev.map((u) => u._id === item._id ? { ...u, isSuspended: true } : u))
+                    )
+                  }
+                  onUnsuspendCustomer={() => handleUnsuspendCustomer(item._id, item.name)}
                 />
               )}
               ListFooterComponent={
@@ -529,53 +572,82 @@ export default function AdminDashboardScreen({ onLogout }) {
 
       {/* ── Reason input modal (warn / suspend / reject) ── */}
       <Modal visible={!!actionModal} transparent animationType="slide" onRequestClose={() => setActionModal(null)}>
-        <Pressable style={styles.modalOverlay} onPress={() => !actionLoading && setActionModal(null)}>
-          <Pressable style={styles.reasonModal} onPress={(e) => e.stopPropagation()}>
-            <Text style={styles.reasonTitle}>
-              {actionModal?.type === 'warn'    && `Warn ${actionModal.name}`}
-              {actionModal?.type === 'suspend' && `Suspend ${actionModal.name}`}
-              {actionModal?.type === 'reject'  && `Reject ${actionModal.name}`}
-            </Text>
-            <Text style={styles.reasonSubtitle}>
-              This reason will be sent to the user.
-            </Text>
-            <TextInput
-              style={styles.reasonInput}
-              placeholder="Enter reason…"
-              placeholderTextColor="#9CA3AF"
-              multiline
-              numberOfLines={3}
-              value={actionReason}
-              onChangeText={setActionReason}
-              editable={!actionLoading}
-            />
-            <View style={styles.reasonActions}>
-              <TouchableOpacity
-                style={styles.reasonCancelBtn}
-                onPress={() => setActionModal(null)}
-                disabled={actionLoading}
-              >
-                <Text style={styles.reasonCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.reasonSubmitBtn,
-                  actionModal?.type === 'warn'    && { backgroundColor: AMBER },
-                  actionModal?.type === 'suspend' && { backgroundColor: RED },
-                  actionModal?.type === 'reject'  && { backgroundColor: RED },
-                ]}
-                onPress={submitAction}
-                disabled={actionLoading}
-              >
-                {actionLoading
-                  ? <ActivityIndicator color="#FFF" size="small" />
-                  : <Text style={styles.reasonSubmitText}>
-                      {actionModal?.type === 'warn' ? 'Send Warning' : actionModal?.type === 'suspend' ? 'Suspend' : 'Reject'}
-                    </Text>
-                }
-              </TouchableOpacity>
-            </View>
+        <KeyboardAvoidingView
+          style={{ flex: 1 }}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={0}
+        >
+          <Pressable style={styles.modalOverlay} onPress={() => !actionLoading && setActionModal(null)}>
+            <Pressable style={styles.reasonModal} onPress={(e) => e.stopPropagation()}>
+              <Text style={styles.reasonTitle}>
+                {actionModal?.type === 'warn'             && `Warn ${actionModal.name}`}
+                {actionModal?.type === 'suspend'          && `Suspend ${actionModal.name}`}
+                {actionModal?.type === 'reject'           && `Reject ${actionModal.name}`}
+                {actionModal?.type === 'warn_customer'    && `Warn Customer: ${actionModal.name}`}
+                {actionModal?.type === 'suspend_customer' && `Suspend Customer: ${actionModal.name}`}
+              </Text>
+              <Text style={styles.reasonSubtitle}>
+                This reason will be sent to the user.
+              </Text>
+              <TextInput
+                style={styles.reasonInput}
+                placeholder="Enter reason…"
+                placeholderTextColor="#9CA3AF"
+                multiline
+                numberOfLines={3}
+                value={actionReason}
+                onChangeText={setActionReason}
+                editable={!actionLoading}
+              />
+              <View style={styles.reasonActions}>
+                <TouchableOpacity
+                  style={styles.reasonCancelBtn}
+                  onPress={() => setActionModal(null)}
+                  disabled={actionLoading}
+                >
+                  <Text style={styles.reasonCancelText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[
+                    styles.reasonSubmitBtn,
+                    (actionModal?.type === 'warn' || actionModal?.type === 'warn_customer') && { backgroundColor: AMBER },
+                    (actionModal?.type === 'suspend' || actionModal?.type === 'suspend_customer' || actionModal?.type === 'reject') && { backgroundColor: RED },
+                  ]}
+                  onPress={submitAction}
+                  disabled={actionLoading}
+                >
+                  {actionLoading
+                    ? <ActivityIndicator color="#FFF" size="small" />
+                    : <Text style={styles.reasonSubmitText}>
+                        {(actionModal?.type === 'warn' || actionModal?.type === 'warn_customer') ? 'Send Warning'
+                          : (actionModal?.type === 'suspend' || actionModal?.type === 'suspend_customer') ? 'Suspend'
+                          : 'Reject'}
+                      </Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            </Pressable>
           </Pressable>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* ── ID Full-Screen viewer ── */}
+      <Modal
+        visible={idFullScreen !== null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setIdFullScreen(null)}
+        statusBarTranslucent
+      >
+        <Pressable style={styles.idFsOverlay} onPress={() => setIdFullScreen(null)}>
+          <Image
+            source={{ uri: idFullScreen }}
+            style={styles.idFsImage}
+            resizeMode="contain"
+          />
+          <TouchableOpacity style={styles.idFsClose} onPress={() => setIdFullScreen(null)}>
+            <Ionicons name="close-circle" size={36} color="#FFF" />
+          </TouchableOpacity>
         </Pressable>
       </Modal>
 
@@ -623,7 +695,10 @@ export default function AdminDashboardScreen({ onLogout }) {
                 {/* Verification ID */}
                 <Text style={styles.vfSectionLabel}>Verification ID</Text>
                 {viewFormData.verificationId?.url ? (
-                  <Image source={{ uri: viewFormData.verificationId.url }} style={styles.vfIdImage} resizeMode="contain" />
+                  <TouchableOpacity onPress={() => setIdFullScreen(viewFormData.verificationId.url)} activeOpacity={0.85}>
+                    <Image source={{ uri: viewFormData.verificationId.url }} style={styles.vfIdImage} resizeMode="contain" />
+                    <Text style={styles.vfTapHint}>Tap to view full screen</Text>
+                  </TouchableOpacity>
                 ) : (
                   <Text style={styles.vfMissing}>Not submitted</Text>
                 )}
@@ -750,8 +825,8 @@ function EmptyCard({ icon, text }) {
   );
 }
 
-function UserCard({ user, tab, actionLoading, onToggleActive, onGrantPro, onRevokePro }) {
-  const isArtisan     = tab === 'artisans' || tab === 'pro';
+function UserCard({ user, tab, actionLoading, onToggleActive, onGrantPro, onRevokePro, onWarnCustomer, onSuspendCustomer, onUnsuspendCustomer }) {
+  const isCustomer    = tab === 'customers';
   const profession    = user.skills?.length ? user.skills.slice(0, 2).join(' · ') : null;
   const statusLabel   = user.isSuspended ? 'Suspended'
                       : !user.isActive   ? 'Disabled'
@@ -764,23 +839,20 @@ function UserCard({ user, tab, actionLoading, onToggleActive, onGrantPro, onRevo
                       : user.verificationStatus === 'pending'  ? AMBER
                       : '#6B7280';
 
-  const toggleLoading = actionLoading === user._id + '_toggle';
-  const proLoading    = actionLoading === user._id + '_pro';
+  const toggleLoading  = actionLoading === user._id + '_toggle';
+  const proLoading     = actionLoading === user._id + '_pro';
+  const suspendLoading = actionLoading === user._id + '_suspend';
 
-  // "Make Pro" is shown for verified artisans (not yet pro), only on artisans tab
-  const canGrantPro   = tab === 'artisans' && user.verificationStatus === 'verified' && !user.isPro;
-  // "Revoke Pro" is shown on pro tab
-  const canRevokePro  = tab === 'pro' && user.isPro;
+  const canGrantPro  = tab === 'artisans' && user.verificationStatus === 'verified' && !user.isPro;
+  const canRevokePro = tab === 'pro' && user.isPro;
 
   return (
     <View style={styles.userCard}>
       <View style={styles.userCardTop}>
-        {/* Avatar */}
         <View style={styles.userAvatar}>
           <Text style={styles.userAvatarText}>{user.name?.[0]?.toUpperCase() || '?'}</Text>
         </View>
 
-        {/* Info */}
         <View style={{ flex: 1 }}>
           <View style={styles.userNameRow}>
             <Text style={styles.userName} numberOfLines={1}>{user.name || '—'}</Text>
@@ -789,12 +861,15 @@ function UserCard({ user, tab, actionLoading, onToggleActive, onGrantPro, onRevo
                 <Text style={styles.proChipText}>TRUSTED</Text>
               </View>
             )}
+            {isCustomer && (user.warningCount || 0) > 0 && (
+              <View style={[styles.proChip, { backgroundColor: '#FEF3C7' }]}>
+                <Text style={[styles.proChipText, { color: '#92400E' }]}>{user.warningCount}W</Text>
+              </View>
+            )}
           </View>
-          {profession ? (
-            <Text style={styles.userProfession} numberOfLines={1}>{profession}</Text>
-          ) : (
-            <Text style={styles.userProfession} numberOfLines={1}>{user.phone || ''}</Text>
-          )}
+          <Text style={styles.userProfession} numberOfLines={1}>
+            {profession || user.phone || ''}
+          </Text>
           <View style={[styles.userStatusChip, { backgroundColor: statusColor + '18' }]}>
             <Text style={[styles.userStatusText, { color: statusColor }]}>{statusLabel}</Text>
           </View>
@@ -803,45 +878,80 @@ function UserCard({ user, tab, actionLoading, onToggleActive, onGrantPro, onRevo
 
       {/* Actions */}
       <View style={styles.userCardActions}>
-        {canGrantPro && (
-          <TouchableOpacity
-            style={styles.makeProBtn}
-            onPress={onGrantPro}
-            disabled={!!proLoading}
-            activeOpacity={0.8}
-          >
-            {proLoading
-              ? <ActivityIndicator color="#FFF" size="small" />
-              : <Text style={styles.makeProBtnText}>Make Trusted</Text>
-            }
-          </TouchableOpacity>
+        {isCustomer ? (
+          user.isSuspended ? (
+            <TouchableOpacity
+              style={styles.approveBtn}
+              onPress={onUnsuspendCustomer}
+              disabled={!!suspendLoading}
+              activeOpacity={0.8}
+            >
+              {suspendLoading
+                ? <ActivityIndicator color="#FFF" size="small" />
+                : <Text style={styles.approveBtnText}>Unsuspend</Text>
+              }
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={styles.warnBtn}
+                onPress={onWarnCustomer}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.warnBtnText}>Warn</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.suspendBtn}
+                onPress={onSuspendCustomer}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.suspendBtnText}>Suspend</Text>
+              </TouchableOpacity>
+            </>
+          )
+        ) : (
+          <>
+            {canGrantPro && (
+              <TouchableOpacity
+                style={styles.makeProBtn}
+                onPress={onGrantPro}
+                disabled={!!proLoading}
+                activeOpacity={0.8}
+              >
+                {proLoading
+                  ? <ActivityIndicator color="#FFF" size="small" />
+                  : <Text style={styles.makeProBtnText}>Make Trusted</Text>
+                }
+              </TouchableOpacity>
+            )}
+            {canRevokePro && (
+              <TouchableOpacity
+                style={styles.revokeProBtn}
+                onPress={onRevokePro}
+                disabled={!!proLoading}
+                activeOpacity={0.8}
+              >
+                {proLoading
+                  ? <ActivityIndicator color={AMBER} size="small" />
+                  : <Text style={styles.revokeProBtnText}>Revoke Trusted</Text>
+                }
+              </TouchableOpacity>
+            )}
+            <TouchableOpacity
+              style={[styles.toggleActiveBtn, user.isActive && styles.toggleActiveBtnOn]}
+              onPress={onToggleActive}
+              disabled={!!toggleLoading}
+              activeOpacity={0.8}
+            >
+              {toggleLoading
+                ? <ActivityIndicator color={user.isActive ? RED : GREEN} size="small" />
+                : <Text style={[styles.toggleActiveBtnText, user.isActive && styles.toggleActiveBtnTextOn]}>
+                    {user.isActive ? 'Disable' : 'Enable'}
+                  </Text>
+              }
+            </TouchableOpacity>
+          </>
         )}
-        {canRevokePro && (
-          <TouchableOpacity
-            style={styles.revokeProBtn}
-            onPress={onRevokePro}
-            disabled={!!proLoading}
-            activeOpacity={0.8}
-          >
-            {proLoading
-              ? <ActivityIndicator color={AMBER} size="small" />
-              : <Text style={styles.revokeProBtnText}>Revoke Trusted</Text>
-            }
-          </TouchableOpacity>
-        )}
-        <TouchableOpacity
-          style={[styles.toggleActiveBtn, user.isActive && styles.toggleActiveBtnOn]}
-          onPress={onToggleActive}
-          disabled={!!toggleLoading}
-          activeOpacity={0.8}
-        >
-          {toggleLoading
-            ? <ActivityIndicator color={user.isActive ? RED : GREEN} size="small" />
-            : <Text style={[styles.toggleActiveBtnText, user.isActive && styles.toggleActiveBtnTextOn]}>
-                {user.isActive ? 'Disable' : 'Enable'}
-              </Text>
-          }
-        </TouchableOpacity>
       </View>
     </View>
   );
@@ -1047,7 +1157,14 @@ const styles = StyleSheet.create({
   formValueHighlight: { color: PRIMARY, fontWeight: '700', textTransform: 'capitalize' },
   vfSectionLabel: { fontSize: 14, fontWeight: '800', color: '#1E232C', marginTop: 16, marginBottom: 8 },
   vfIdImage: { width: '100%', height: 180, borderRadius: 12, backgroundColor: '#F3F4F6' },
+  vfTapHint: { fontSize: 11, color: PRIMARY, textAlign: 'center', marginTop: 4, marginBottom: 4 },
   vfMissing: { fontSize: 13, color: '#9CA3AF', fontStyle: 'italic' },
+  idFsOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.92)',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  idFsImage: { width: SCREEN_W, height: SCREEN_W * 1.4 },
+  idFsClose: { position: 'absolute', top: 50, right: 20 },
   vfVideoBox: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: '#EFF6FF', borderRadius: 10, padding: 14,

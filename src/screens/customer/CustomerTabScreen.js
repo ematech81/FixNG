@@ -12,6 +12,7 @@ import ProfileScreen        from './ProfileScreen';
 import { getUser }              from '../../utils/storage';
 import { connectSocket, getSocket } from '../../hooks/useSocket';
 import usePushNotifications     from '../../hooks/usePushNotifications';
+import { getUnreadMsgCount }    from '../../api/notificationApi';
 
 const PRIMARY = '#2563EB';
 const RED     = '#EF4444';
@@ -71,6 +72,12 @@ export default function CustomerTabScreen({
       connectSocket(uid).then((socket) => {
         socket.on('notification', handleIncomingNotification);
       });
+
+      // Seed the badge with unread message notifications from the server so it
+      // persists across app restarts (socket-only count resets to 0 on every launch).
+      getUnreadMsgCount()
+        .then((res) => { if (res?.data?.count > 0) setUnreadMsgCount(res.data.count); })
+        .catch(() => {});
     });
 
     return () => {

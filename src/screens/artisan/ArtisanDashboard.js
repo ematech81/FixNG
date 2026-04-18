@@ -149,7 +149,7 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
           <TouchableOpacity
             style={styles.actionCard}
             onPress={() => navigation.navigate('AvailableJobs')}
-          >
+          > 
             <Text style={styles.actionIcon}>📋</Text>
             <Text style={styles.actionLabel}>Browse Jobs</Text>
           </TouchableOpacity>

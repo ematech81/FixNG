@@ -32,9 +32,11 @@ import SubscriptionScreen    from '../screens/shared/SubscriptionScreen';
 import MyReviewsScreen       from '../screens/shared/MyReviewsScreen';
 import PrivacySecurityScreen from '../screens/shared/PrivacySecurityScreen';
 import HelpSupportScreen    from '../screens/shared/HelpSupportScreen';
+import AccountStatusScreen  from '../screens/shared/AccountStatusScreen';
 
 // Artisan onboarding
 import ArtisanJobScreen from '../screens/artisan/ArtisanJobScreen';
+import Step4_VerificationID from '../screens/artisan/onboarding/Step4_VerificationID';
 
 // Admin
 import AdminDashboardScreen from '../screens/admin/AdminDashboardScreen';
@@ -101,6 +103,10 @@ function CustomerNavigator({ onLogout, onRefreshAuth, initialTab, onInitialTabCo
       <CustomerStack.Screen name="HelpSupport"      component={HelpSupportScreen} />
       {/* Pending artisans can access the job dashboard while awaiting verification */}
       <CustomerStack.Screen name="JobScreen" component={ArtisanJobScreen} />
+      {/* ID upload accessible in edit mode from the incomplete registration card */}
+      <CustomerStack.Screen name="Step4_VerificationID" component={Step4_VerificationID} />
+      {/* Account status: rejection details, suspension notice */}
+      <CustomerStack.Screen name="AccountStatus" component={AccountStatusScreen} />
     </CustomerStack.Navigator>
   );
 }
@@ -125,6 +131,8 @@ export default function AppNavigator() {
     user: null,
     artisanStep: null,      // null | 'profilePhoto' | 'skills' | ... | 'pending' | 'verified' | 'rejected'
     verificationStatus: null,
+    isSuspended: false,
+    suspensionReason: null,
   });
   // Set to true by handleGoToDashboard so CustomerTabScreen opens on the Profile tab
   const [startOnProfile, setStartOnProfile] = useState(false);
@@ -144,7 +152,7 @@ export default function AppNavigator() {
 
       if (user.role === 'artisan') {
         const statusRes = await getOnboardingStatus();
-        const { completedSteps, verificationStatus, onboardingComplete } = statusRes.data.data;
+        const { completedSteps, verificationStatus, onboardingComplete, isSuspended, suspensionReason } = statusRes.data.data;
 
         let step = null;
         if (!onboardingComplete) {
@@ -155,14 +163,16 @@ export default function AppNavigator() {
 
         setAuthState({
           isAuthenticated: true, user, artisanStep: step, verificationStatus,
+          isSuspended: isSuspended || false,
+          suspensionReason: suspensionReason || null,
         });
       } else {
-        setAuthState({ isAuthenticated: true, user, artisanStep: null, verificationStatus: null });
+        setAuthState({ isAuthenticated: true, user, artisanStep: null, verificationStatus: null, isSuspended: false, suspensionReason: null });
       }
     } catch {
       // Expired or invalid token — boot to login
       await clearSession();
-      setAuthState({ isAuthenticated: false, user: null, artisanStep: null, verificationStatus: null });
+      setAuthState({ isAuthenticated: false, user: null, artisanStep: null, verificationStatus: null, isSuspended: false, suspensionReason: null });
     } finally {
       setIsLoading(false);
     }
@@ -181,16 +191,18 @@ export default function AppNavigator() {
       setAuthState({
         isAuthenticated: true, user, artisanStep: step,
         verificationStatus: artisanProfile?.verificationStatus || null,
+        isSuspended: artisanProfile?.isSuspended || false,
+        suspensionReason: artisanProfile?.suspensionReason || null,
       });
     } else {
-      setAuthState({ isAuthenticated: true, user, artisanStep: null, verificationStatus: null });
+      setAuthState({ isAuthenticated: true, user, artisanStep: null, verificationStatus: null, isSuspended: false, suspensionReason: null });
     }
   };
 
   // Called from dashboard logout button
   const handleLogout = async () => {
     await clearSession();
-    setAuthState({ isAuthenticated: false, user: null, artisanStep: null, verificationStatus: null });
+    setAuthState({ isAuthenticated: false, user: null, artisanStep: null, verificationStatus: null, isSuspended: false, suspensionReason: null });
   };
 
   // Called after "Become an Artisan" or "Cancel Registration" — re-fetches auth state
@@ -229,11 +241,8 @@ export default function AppNavigator() {
   }
 
   // ── Routing logic ──────────────────────────────────────────────────────────
-  const { isAuthenticated, user, artisanStep } = authState;
+  const { isAuthenticated, user, artisanStep, isSuspended, suspensionReason } = authState;
 
-  // Lock into onboarding ONLY while there are incomplete onboarding steps.
-  // artisanStep is one of the step names ('profilePhoto', 'skills', etc.) during onboarding,
-  // and 'pending' | 'verified' | 'rejected' once onboarding is complete.
   const isAdmin = isAuthenticated && user?.role === 'admin';
 
   const ONBOARDING_STEPS = ['profilePhoto', 'skills', 'location', 'verificationId', 'skillVideo'];
@@ -241,6 +250,9 @@ export default function AppNavigator() {
     isAuthenticated &&
     user?.role === 'artisan' &&
     ONBOARDING_STEPS.includes(artisanStep);
+
+  // Suspended artisans are locked to the AccountStatus screen until the admin lifts the suspension.
+  const isArtisanSuspended = isAuthenticated && user?.role === 'artisan' && isSuspended;
 
   // All artisans (pending, verified, rejected) stay in CustomerNavigator so the
   // marketplace home is never replaced. Verified artisans access the job dashboard
@@ -259,6 +271,17 @@ export default function AppNavigator() {
           // ── Admin → admin dashboard
           <Stack.Screen name="AdminApp">
             {() => <AdminNavigator onLogout={handleLogout} />}
+          </Stack.Screen>
+
+        ) : isArtisanSuspended ? (
+          // ── Suspended artisan → locked to suspension notice
+          <Stack.Screen name="SuspendedNotice">
+            {() => (
+              <AccountStatusScreen
+                route={{ params: { type: 'suspended', reason: suspensionReason } }}
+                navigation={{ goBack: handleLogout, navigate: () => {}, reset: handleLogout }}
+              />
+            )}
           </Stack.Screen>
 
         ) : isArtisanOnboarding ? (

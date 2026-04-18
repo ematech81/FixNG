@@ -15,3 +15,8 @@ export const listUsers            = (params)                 => api.get('/admin/
 export const toggleUserActive     = (userId)                 => api.post(`/admin/users/${userId}/toggle-active`);
 export const grantPro             = (userId)                 => api.post(`/admin/artisans/${userId}/grant-pro`);
 export const revokePro            = (userId)                 => api.post(`/admin/artisans/${userId}/revoke-pro`);
+
+// Customer moderation
+export const warnCustomer         = (userId, reason)         => api.post(`/admin/customers/${userId}/warn`, { reason });
+export const suspendCustomer      = (userId, reason)         => api.post(`/admin/customers/${userId}/suspend`, { reason });
+export const unsuspendCustomer    = (userId)                 => api.post(`/admin/customers/${userId}/unsuspend`);

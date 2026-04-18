@@ -38,7 +38,7 @@ function formatDate(d) {
   });
 }
 
-export default function SubscriptionScreen({ navigation }) {
+export default function SubscriptionScreen({ navigation, route }) {
   const [plans, setPlans]         = useState([]);
   const [current, setCurrent]     = useState(null); // current subscription
   const [loading, setLoading]     = useState(true);
@@ -132,6 +132,7 @@ export default function SubscriptionScreen({ navigation }) {
   };
 
   // ── Render ─────────────────────────────────────────────────────────────────
+  const upgradeContext = route?.params?.upgradeContext || null;
   const activePlan = current?.plan || 'free';
   const isActive   = current?.status === 'active';
   const expiresAt  = current?.expiresAt;
@@ -154,6 +155,25 @@ export default function SubscriptionScreen({ navigation }) {
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
         >
+          {/* Upgrade nudge — shown when navigated here from a job limit error */}
+          {upgradeContext && (
+            <View style={styles.upgradeNudge}>
+              <Text style={styles.upgradeNudgeIcon}>🔒</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.upgradeNudgeTitle}>
+                  {upgradeContext.currentPlan === 'free'
+                    ? 'Free Plan: 2-Job Limit Reached'
+                    : 'Pro Plan: 10-Job Limit Reached'}
+                </Text>
+                <Text style={styles.upgradeNudgeSub}>
+                  {upgradeContext.currentPlan === 'free'
+                    ? 'Upgrade to Pro to accept up to 10 jobs simultaneously.'
+                    : 'Upgrade to Elite for unlimited simultaneous jobs.'}
+                </Text>
+              </View>
+            </View>
+          )}
+
           {/* Current plan banner */}
           {current && (
             <View style={styles.currentBanner}>
@@ -307,6 +327,16 @@ const styles = StyleSheet.create({
 
   centred: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll:  { padding: 16, paddingBottom: 48 },
+
+  // Upgrade nudge banner (shown when arriving from a job limit error)
+  upgradeNudge: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    backgroundColor: '#FEF3C7', borderRadius: 14, padding: 14,
+    borderWidth: 1.5, borderColor: '#FCD34D', marginBottom: 16,
+  },
+  upgradeNudgeIcon: { fontSize: 24 },
+  upgradeNudgeTitle: { fontSize: 14, fontWeight: '800', color: '#92400E', marginBottom: 3 },
+  upgradeNudgeSub:   { fontSize: 13, color: '#78350F', lineHeight: 18 },
 
   // Current plan banner
   currentBanner: {

@@ -8,6 +8,7 @@ import { getJob, acceptJob, declineJob, markArrived, markCompleted, raiseDispute
 import useSocket from '../../hooks/useSocket';
 import BackButton from '../../components/BackButton';
 import { getUser } from '../../utils/storage';
+import VoiceNotePlayer from '../../components/VoiceNotePlayer';
 
 const STATUS_LABELS = {
   pending: { label: 'Pending', color: '#F59E0B', bg: '#FFFBEB' },
@@ -100,10 +101,10 @@ export default function JobDetailScreen({ route, navigation }) {
   };
 
   const handleArrived = () => {
-    Alert.alert('Confirm Arrival', 'This will notify the customer that you have arrived.', [
+    Alert.alert('Job Accepted', 'This will notify the customer that you have accepted the job.', [
       { text: 'Cancel', style: 'cancel' },
       {
-        text: 'I Have Arrived',
+        text: 'Notify Customer',
         onPress: async () => {
           setActing(true);
           try {
@@ -212,7 +213,26 @@ export default function JobDetailScreen({ route, navigation }) {
         </View>
 
         <Text style={styles.sectionTitle}>Description</Text>
-        <Text style={styles.description}>{job.description}</Text>
+        {job.voiceDescription?.url ? (
+          <View style={styles.voiceCard}>
+            <View style={styles.voiceCardHeader}>
+              <View style={styles.voiceIconCircle}>
+                <Text style={styles.voiceIconEmoji}>🎤</Text>
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.voiceCardTitle}>Voice Description</Text>
+                <Text style={styles.voiceCardHint}> You sent a voice description</Text>
+              </View>
+            </View>
+            <VoiceNotePlayer
+              uri={job.voiceDescription.url}
+              duration={job.voiceDescription.duration}
+              isMine={false}
+            />
+          </View>
+        ) : (
+          <Text style={styles.description}>{job.description}</Text>
+        )}
 
         {/* Images */}
         {job.images?.length > 0 && (
@@ -399,7 +419,7 @@ export default function JobDetailScreen({ route, navigation }) {
           )}
           {isArtisan && job.status === 'accepted' && (
             <TouchableOpacity style={styles.primaryBtn} onPress={handleArrived}>
-              <Text style={styles.primaryBtnText}>📍 I Have Arrived</Text>
+              <Text style={styles.primaryBtnText}>📍 Let Customer Know You've Accepted</Text>
             </TouchableOpacity>
           )}
           {isArtisan && job.status === 'in-progress' && (
@@ -458,7 +478,7 @@ export default function JobDetailScreen({ route, navigation }) {
             </Text>
             <TextInput
               style={[styles.modalInput, { height: 100, textAlignVertical: 'top' }]}
-              placeholder="e.g. Artisan did not show up after accepting, and is not responding..."
+              placeholder="e.g. Customer refused to pay after job completion, or the agreed scope was changed without notice..."
               multiline
               value={disputeReason}
               onChangeText={setDisputeReason}
@@ -505,6 +525,18 @@ const styles = StyleSheet.create({
   timestamp: { fontSize: 12, color: '#BBB' },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: '#999', marginTop: 20, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
   description: { fontSize: 15, color: '#444', lineHeight: 22 },
+  voiceCard: {
+    backgroundColor: '#FFF3EC', borderRadius: 14, padding: 14,
+    borderWidth: 1.5, borderColor: '#FF6B00',
+  },
+  voiceCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
+  voiceIconCircle: {
+    width: 44, height: 44, borderRadius: 22,
+    backgroundColor: '#FF6B00', justifyContent: 'center', alignItems: 'center',
+  },
+  voiceIconEmoji: { fontSize: 20 },
+  voiceCardTitle: { fontSize: 14, fontWeight: '700', color: '#92400E' },
+  voiceCardHint: { fontSize: 12, color: '#B45309', marginTop: 2 },
   imagesRow: { flexDirection: 'row', gap: 10, paddingBottom: 4 },
   jobImage: { width: 120, height: 100, borderRadius: 10 },
   locationText: { fontSize: 15, color: '#444' },

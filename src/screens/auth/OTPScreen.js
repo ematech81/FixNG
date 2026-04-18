@@ -74,7 +74,7 @@ export default function OTPScreen({ route, navigation }) {
     try {
       let res;
       if (mode === 'register') {
-        res = await verifyRegister({ name, phone, role, otp });
+        res = await verifyRegister({ name, phone, role, otp, deviceId });
       } else {
         // Pass deviceId so backend can register this device as trusted
         res = await verifyLoginOTP({ phone, otp, deviceId });
@@ -85,11 +85,25 @@ export default function OTPScreen({ route, navigation }) {
       await saveUser(user);
       onAuthSuccess({ user, artisanProfile });
     } catch (err) {
-      const msg = err?.message || 'Verification failed. Please try again.';
-      Alert.alert('Invalid Code', msg);
-      // Clear digits on failure so user can re-enter
-      setDigits(Array(OTP_LENGTH).fill(''));
-      setTimeout(() => inputRefs.current[0]?.focus(), 100);
+      const data = err?.response?.data;
+      if (data?.isAccountDisabled) {
+        Alert.alert(
+          'Account Disabled',
+          'This account has been disabled and is no longer allowed to use FixNG.',
+          [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+        );
+      } else if (data?.isDeviceBanned) {
+        Alert.alert(
+          'Device Blocked',
+          'This device has been blocked from accessing FixNG.',
+          [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+        );
+      } else {
+        const msg = data?.message || err?.message || 'Verification failed. Please try again.';
+        Alert.alert('Invalid Code', msg);
+        setDigits(Array(OTP_LENGTH).fill(''));
+        setTimeout(() => inputRefs.current[0]?.focus(), 100);
+      }
     } finally {
       setLoading(false);
     }

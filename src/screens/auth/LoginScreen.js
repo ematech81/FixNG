@@ -1,18 +1,23 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   ActivityIndicator, Alert, ScrollView, KeyboardAvoidingView,
-  Platform, Image,
+  Platform, Image, Modal, Linking, Pressable,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { checkDevice } from '../../api/authApi';
 import { getDeviceId } from '../../utils/deviceId';
-import { saveToken, saveUser } from '../../utils/storage';
+import { saveToken, saveUser, saveLastPhone, getLastPhone } from '../../utils/storage';
 import BackButton from '../../components/BackButton';
 
 export default function LoginScreen({ navigation, onAuthSuccess }) {
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
+  const [showRecovery, setShowRecovery] = useState(false);
+
+  useEffect(() => {
+    getLastPhone().then((saved) => { if (saved) setPhone(saved); });
+  }, []);
 
   const handlePhoneChange = (text) => {
     // The input value is raw digits only — strip anything else (e.g. paste with spaces)
@@ -36,6 +41,8 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
       const deviceId = await getDeviceId();
       const res = await checkDevice(normalized, deviceId);
       const data = res.data;
+      // Persist digits so next login autofills this field
+      saveLastPhone(phone);
 
       if (!data.needsOTP) {
         // Known device — backend returned a token directly, no OTP needed
@@ -68,7 +75,22 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
         onAuthSuccess,
       });
     } catch (err) {
-      Alert.alert('Error', err?.message || 'Could not sign in. Please try again.');
+      const data = err?.response?.data;
+      if (data?.isAccountDisabled) {
+        Alert.alert(
+          'Account Disabled',
+          'Your account has been disabled and you are no longer allowed to use FixNG.',
+          [{ text: 'OK' }]
+        );
+      } else if (data?.isDeviceBanned) {
+        Alert.alert(
+          'Device Blocked',
+          'This device has been blocked from accessing FixNG.',
+          [{ text: 'OK' }]
+        );
+      } else {
+        Alert.alert('Error', data?.message || err?.message || 'Could not sign in. Please try again.');
+      }
     } finally {
       setLoading(false);
     }
@@ -142,9 +164,9 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
               )}
             </TouchableOpacity>
 
-            {/* Forgot password */}
-            <TouchableOpacity style={styles.forgotRow}>
-              <Text style={styles.forgotText}>Forgot Password?</Text>
+            {/* Can't access number */}
+            <TouchableOpacity style={styles.forgotRow} onPress={() => setShowRecovery(true)}>
+              <Text style={styles.forgotText}>Can't access this number?</Text>
             </TouchableOpacity>
 
             {/* Divider */}
@@ -198,6 +220,54 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* ── Account Recovery Modal ── */}
+      <Modal visible={showRecovery} transparent animationType="slide" onRequestClose={() => setShowRecovery(false)}>
+        <Pressable style={styles.recoveryOverlay} onPress={() => setShowRecovery(false)}>
+          <Pressable style={styles.recoverySheet} onPress={(e) => e.stopPropagation()}>
+            <View style={styles.recoveryHandle} />
+
+            <Text style={styles.recoveryTitle}>Can't access this number?</Text>
+            <Text style={styles.recoverySub}>
+              If you've lost your SIM or changed your phone number, our support team can help you
+              recover your account after verifying your identity.
+            </Text>
+
+            <View style={styles.recoverySteps}>
+              {[
+                { icon: '💬', text: 'Contact support via WhatsApp or email' },
+                { icon: '🪪', text: 'Provide your name and previous account activity for verification' },
+                { icon: '✅', text: 'Our team will update your number within 24 hours' },
+              ].map((s, i) => (
+                <View key={i} style={styles.recoveryStep}>
+                  <Text style={styles.recoveryStepIcon}>{s.icon}</Text>
+                  <Text style={styles.recoveryStepText}>{s.text}</Text>
+                </View>
+              ))}
+            </View>
+
+            <TouchableOpacity
+              style={styles.whatsappBtn}
+              onPress={() => Linking.openURL('https://wa.me/2349011495230?text=Hi%2C%20I%20need%20help%20recovering%20my%20FixNG%20account')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.whatsappBtnText}>💬  Contact Support on WhatsApp</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.emailBtn}
+              onPress={() => Linking.openURL('mailto:support@fixng.com?subject=Account%20Recovery%20Request')}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.emailBtnText}>✉️  Email support@fixng.com</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.recoveryCloseBtn} onPress={() => setShowRecovery(false)}>
+              <Text style={styles.recoveryCloseBtnText}>Close</Text>
+            </TouchableOpacity>
+          </Pressable>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -311,4 +381,39 @@ const styles = StyleSheet.create({
     fontSize: 10, color: '#C4C9D4',
     letterSpacing: 1, textTransform: 'uppercase',
   },
+
+  // ── Recovery modal ──
+  recoveryOverlay: {
+    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end',
+  },
+  recoverySheet: {
+    backgroundColor: '#FFF', borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    paddingHorizontal: 24, paddingTop: 16, paddingBottom: 36,
+  },
+  recoveryHandle: {
+    width: 40, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB',
+    alignSelf: 'center', marginBottom: 20,
+  },
+  recoveryTitle: { fontSize: 20, fontWeight: '900', color: '#1E232C', marginBottom: 10 },
+  recoverySub: { fontSize: 14, color: '#6B7280', lineHeight: 21, marginBottom: 20 },
+
+  recoverySteps: { gap: 12, marginBottom: 24 },
+  recoveryStep: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  recoveryStepIcon: { fontSize: 18, marginTop: 1 },
+  recoveryStepText: { flex: 1, fontSize: 13, color: '#374151', lineHeight: 20 },
+
+  whatsappBtn: {
+    backgroundColor: '#16A34A', borderRadius: 14,
+    paddingVertical: 15, alignItems: 'center', marginBottom: 10,
+  },
+  whatsappBtnText: { fontSize: 15, fontWeight: '800', color: '#FFF' },
+
+  emailBtn: {
+    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 14,
+    paddingVertical: 15, alignItems: 'center', marginBottom: 20,
+  },
+  emailBtnText: { fontSize: 15, fontWeight: '700', color: '#374151' },
+
+  recoveryCloseBtn: { alignItems: 'center' },
+  recoveryCloseBtnText: { fontSize: 14, color: '#9CA3AF', fontWeight: '600' },
 });

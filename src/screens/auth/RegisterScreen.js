@@ -6,6 +6,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { sendOTP } from '../../api/authApi';
+import { getDeviceId } from '../../utils/deviceId';
 import BackButton from '../../components/BackButton';
 
 export default function RegisterScreen({ navigation, onAuthSuccess }) {
@@ -38,6 +39,7 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
 
     setLoading(true);
     try {
+      const deviceId = await getDeviceId();
       await sendOTP(normalized);
       // Navigate to OTP screen, passing registration data
       // Everyone registers as a customer; artisan onboarding is triggered on-demand
@@ -46,6 +48,7 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
         phone: normalized,
         name: name.trim(),
         role: 'customer',
+        deviceId,
         onAuthSuccess,
       });
     } catch (err) {

@@ -138,6 +138,7 @@ export default function ArtisanProfileScreen({ route, navigation }) {
   const primarySkill = profile.skills?.[0] || 'Artisan';
   const location     = profile.location?.state || profile.location?.address || 'Nigeria';
   const isDummy      = profile._isDummy === true;
+  const isSelf       = !isDummy && !!currentUserId && currentUserId === artisanId;
 
   // ── Badge config ────────────────────────────────────────────────────────────
   const badgeColor = isTrusted ? COLORS.amber : COLORS.green;
@@ -252,38 +253,32 @@ export default function ArtisanProfileScreen({ route, navigation }) {
           {/* Divider */}
           <View style={styles.heroDivider} />
 
-          {/* Request / Book CTA */}
-          <TouchableOpacity
-            style={[
-              styles.requestBtn,
-              isDummy && styles.requestBtnDummy,
-            ]}
-            onPress={() => {
-              if (isDummy) {
-                Alert.alert(
-                  'Preview Only',
-                  'This is a sample profile for UI preview. Sign in to book real artisans.'
-                );
-              } else if (currentUserId && currentUserId === artisanId) {
-                Alert.alert(
-                  'Action Not Allowed',
-                  'You cannot request a job from your own profile. Please select another artisan.'
-                );
-              } else {
-                navigation.navigate('CreateJob', {
-                  artisanId,
-                  artisanName: profile.name,
-                  artisanSkill: primarySkill,
-                });
-              }
-            }}
-            activeOpacity={0.88}
-          >
-            <Text style={styles.requestBtnIcon}>⚡</Text>
-            <Text style={styles.requestBtnText}>
-              {isDummy ? 'Book Now (Preview)' : 'Request Job'}
-            </Text>
-          </TouchableOpacity>
+          {/* Request / Book CTA — hidden on own profile */}
+          {!isSelf && (
+            <TouchableOpacity
+              style={[styles.requestBtn, isDummy && styles.requestBtnDummy]}
+              onPress={() => {
+                if (isDummy) {
+                  Alert.alert(
+                    'Preview Only',
+                    'This is a sample profile for UI preview. Sign in to book real artisans.'
+                  );
+                } else {
+                  navigation.navigate('CreateJob', {
+                    artisanId,
+                    artisanName: profile.name,
+                    artisanSkill: primarySkill,
+                  });
+                }
+              }}
+              activeOpacity={0.88}
+            >
+              <Text style={styles.requestBtnIcon}>⚡</Text>
+              <Text style={styles.requestBtnText}>
+                {isDummy ? 'Book Now (Preview)' : 'Request Job'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* ════════════════════════════════════════
@@ -478,34 +473,31 @@ export default function ArtisanProfileScreen({ route, navigation }) {
             </>
           )}
         </View>
-        <TouchableOpacity
-          style={[styles.stickyBtn, isDummy && styles.stickyBtnDummy]}
-          onPress={() => {
-            if (isDummy) {
-              Alert.alert(
-                'Preview Only',
-                'This is a sample profile for UI preview. Sign in to book real artisans.'
-              );
-            } else if (currentUserId && currentUserId === artisanId) {
-              Alert.alert(
-                'Action Not Allowed',
-                'You cannot request a job from your own profile.'
-              );
-            } else {
-              navigation.navigate('CreateJob', {
-                artisanId,
-                artisanName: profile.name,
-                artisanSkill: primarySkill,
-              });
-            }
-          }}
-          activeOpacity={0.88}
-        >
-          <Text style={styles.stickyBtnIcon}>⚡</Text>
-          <Text style={styles.stickyBtnText}>
-            {isDummy ? 'Book Now (Preview)' : 'Request Job'}
-          </Text>
-        </TouchableOpacity>
+        {!isSelf && (
+          <TouchableOpacity
+            style={[styles.stickyBtn, isDummy && styles.stickyBtnDummy]}
+            onPress={() => {
+              if (isDummy) {
+                Alert.alert(
+                  'Preview Only',
+                  'This is a sample profile for UI preview. Sign in to book real artisans.'
+                );
+              } else {
+                navigation.navigate('CreateJob', {
+                  artisanId,
+                  artisanName: profile.name,
+                  artisanSkill: primarySkill,
+                });
+              }
+            }}
+            activeOpacity={0.88}
+          >
+            <Text style={styles.stickyBtnIcon}>⚡</Text>
+            <Text style={styles.stickyBtnText}>
+              {isDummy ? 'Book Now (Preview)' : 'Request Job'}
+            </Text>
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );

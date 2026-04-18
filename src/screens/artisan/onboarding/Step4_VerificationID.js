@@ -19,15 +19,25 @@ const TOTAL_STEPS = 5;
 const CURRENT_STEP = 4;
 
 const ID_TYPES = [
+  // Government IDs
   { label: 'NIN Slip / Card', value: 'NIN' },
   { label: "Voter's Card", value: 'Voters Card' },
   { label: "Driver's License", value: "Driver's License" },
   { label: 'International Passport', value: 'International Passport' },
   { label: 'BVN Printout', value: 'BVN' },
+  // Professional Certificates
+  { label: 'NYSC Certificate', value: 'NYSC Certificate' },
+  { label: 'Professional Licence', value: 'Professional Licence' },
+  { label: 'Degree / HND Certificate', value: 'Degree Certificate' },
+  { label: 'Trade / Craft Certificate', value: 'Trade Certificate' },
+  { label: 'Bar Certificate (NBA)', value: 'Bar Certificate' },
+  { label: 'COREN Certificate', value: 'COREN Certificate' },
+  { label: 'Other Certificate', value: 'Other Certificate' },
 ];
 
 export default function Step4_VerificationID({ navigation, route }) {
   const isEdit = route?.params?.isEdit === true;
+  const fromResubmit = route?.params?.fromResubmit === true;
   const { onCancelRegistration } = useOnboarding();
 
   const [imageUri, setImageUri] = useState(null);
@@ -83,8 +93,18 @@ export default function Step4_VerificationID({ navigation, route }) {
     setUploading(true);
     try {
       await uploadVerificationId(imageUri, selectedIdType);
-      // In edit mode, go on to video step in case it also needs completing
-      navigation.navigate('Step5_SkillVideo', { isEdit });
+      if (fromResubmit) {
+        Alert.alert(
+          'Resubmission Sent ✅',
+          'Your document has been submitted for review. Our team will verify it shortly. You will receive a notification once reviewed.',
+          [{ text: 'OK', onPress: () => navigation.navigate('CustomerTabs') }]
+        );
+      } else if (isEdit) {
+        navigation.goBack();
+      } else {
+        // First-time onboarding — proceed to optional video step
+        navigation.navigate('Step5_SkillVideo');
+      }
     } catch (err) {
       Alert.alert(
         'Upload Failed',
@@ -128,21 +148,29 @@ export default function Step4_VerificationID({ navigation, route }) {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <ProgressBar current={CURRENT_STEP} total={TOTAL_STEPS} onCancel={!isEdit && onCancelRegistration ? () => {
+        {!fromResubmit && <ProgressBar current={CURRENT_STEP} total={TOTAL_STEPS} onCancel={!isEdit && onCancelRegistration ? () => {
           Alert.alert('Cancel Registration?', 'This will cancel your artisan registration and return you to your customer account.', [
             { text: 'Stay', style: 'cancel' },
             { text: 'Cancel Registration', style: 'destructive', onPress: () => onCancelRegistration?.() },
           ]);
-        } : null} />
+        } : null} />}
 
         <Text style={styles.title}>Verify Your Identity</Text>
         <Text style={styles.subtitle}>
-          Upload a government-issued ID. This is reviewed only by FixNG admins and is never shared
-          with customers.
+          Upload a government-issued ID or a professional certificate. This is reviewed only by
+          FixNG admins and is never shared with customers.
         </Text>
 
+        {/* Name match notice */}
+        <View style={styles.nameNotice}>
+          <Text style={styles.nameNoticeIcon}>ℹ️</Text>
+          <Text style={styles.nameNoticeText}>
+            Ensure the name on your ID or certificate matches your registered name on FixNG.
+          </Text>
+        </View>
+
         {/* ID Type Selection */}
-        <Text style={styles.label}>Select ID Type *</Text>
+        <Text style={styles.label}>Select Document Type *</Text>
         <View style={styles.idTypeRow}>
           {ID_TYPES.map((id) => (
             <TouchableOpacity
@@ -171,7 +199,7 @@ export default function Step4_VerificationID({ navigation, route }) {
         ) : (
           <View style={styles.uploadPlaceholder}>
             <Text style={styles.uploadIcon}>🪪</Text>
-            <Text style={styles.uploadPlaceholderText}>No ID selected yet</Text>
+            <Text style={styles.uploadPlaceholderText}>No document selected yet</Text>
           </View>
         )}
 
@@ -188,10 +216,10 @@ export default function Step4_VerificationID({ navigation, route }) {
         {/* Tips */}
         <View style={styles.tipsBox}>
           <Text style={styles.tipsTitle}>Tips for a valid upload:</Text>
-          <Text style={styles.tipItem}>• Ensure all text on the ID is clearly readable</Text>
-          <Text style={styles.tipItem}>• No blurry or dark photos</Text>
-          <Text style={styles.tipItem}>• Ensure the full ID fits in the frame</Text>
-          <Text style={styles.tipItem}>• Expired IDs will be rejected</Text>
+          <Text style={styles.tipItem}>• All text must be clearly readable — no blurry or dark photos</Text>
+          <Text style={styles.tipItem}>• The full document must fit within the frame</Text>
+          <Text style={styles.tipItem}>• Expired IDs or certificates will be rejected</Text>
+          <Text style={styles.tipItem}>• Your name must match your FixNG registered name</Text>
         </View>
       </ScrollView>
 
@@ -211,17 +239,19 @@ export default function Step4_VerificationID({ navigation, route }) {
           )}
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.skipBtn}
-          onPress={handleSkip}
-          disabled={uploading || skipping}
-        >
-          {skipping ? (
-            <ActivityIndicator color={PRIMARY} size="small" />
-          ) : (
-            <Text style={styles.skipBtnText}>Skip for Now</Text>
-          )}
-        </TouchableOpacity>
+        {!fromResubmit && (
+          <TouchableOpacity
+            style={styles.skipBtn}
+            onPress={handleSkip}
+            disabled={uploading || skipping}
+          >
+            {skipping ? (
+              <ActivityIndicator color={PRIMARY} size="small" />
+            ) : (
+              <Text style={styles.skipBtnText}>Skip for Now</Text>
+            )}
+          </TouchableOpacity>
+        )}
       </View>
     </SafeAreaView>
   );
@@ -259,6 +289,13 @@ const styles = StyleSheet.create({
   progressSegmentActive: { backgroundColor: PRIMARY },
   title: { fontSize: 24, fontWeight: '700', color: '#1A1A1A', marginBottom: 8 },
   subtitle: { fontSize: 15, color: '#666', marginBottom: 24, lineHeight: 22 },
+  nameNotice: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 10,
+    backgroundColor: '#FFFBEB', borderRadius: 10, padding: 12,
+    borderWidth: 1, borderColor: '#FDE68A', marginBottom: 20,
+  },
+  nameNoticeIcon: { fontSize: 16, marginTop: 1 },
+  nameNoticeText: { flex: 1, fontSize: 13, color: '#78350F', lineHeight: 19 },
   label: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 10 },
   idTypeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
   idTypeChip: {

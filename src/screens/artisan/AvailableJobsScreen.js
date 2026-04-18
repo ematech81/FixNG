@@ -86,7 +86,14 @@ export default function AvailableJobsScreen({ navigation }) {
         </View>
 
         <Text style={styles.jobCategory}>{item.category}</Text>
-        <Text style={styles.jobDesc} numberOfLines={2}>{item.description}</Text>
+        {item.voiceDescription?.url ? (
+          <View style={styles.voiceBadge}>
+            <Text style={styles.voiceBadgeIcon}>🎤</Text>
+            <Text style={styles.voiceBadgeText}>Voice description — tap to listen</Text>
+          </View>
+        ) : (
+          <Text style={styles.jobDesc} numberOfLines={2}>{item.description}</Text>
+        )}
 
         {item.address && (
           <Text style={styles.jobLocation}>📍 {item.address}</Text>
@@ -183,6 +190,13 @@ const styles = StyleSheet.create({
   timeAgo: { fontSize: 12, color: '#BBB' },
   jobCategory: { fontSize: 17, fontWeight: '700', color: '#1A1A1A', marginBottom: 4 },
   jobDesc: { fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 8 },
+  voiceBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#FFF3EC', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 10,
+    marginBottom: 8, borderWidth: 1, borderColor: '#FDBA74', alignSelf: 'flex-start',
+  },
+  voiceBadgeIcon: { fontSize: 15 },
+  voiceBadgeText: { fontSize: 13, color: '#92400E', fontWeight: '600' },
   jobLocation: { fontSize: 13, color: '#888', marginBottom: 6 },
   expiring: { fontSize: 12, color: '#F59E0B', fontWeight: '600', marginBottom: 8 },
   viewBtn: {

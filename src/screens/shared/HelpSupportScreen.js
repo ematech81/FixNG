@@ -69,8 +69,8 @@ const CONTACTS = [
   {
     icon: '💬',
     label: 'WhatsApp',
-    value: '+234 800 000 0000',
-    action: () => Linking.openURL('https://wa.me/2348000000000'),
+    value: '+234 901 149 5230',
+    action: () => Linking.openURL('https://wa.me/2349011495230'),
     color: GREEN,
     bg: '#F0FDF4',
     border: '#BBF7D0',

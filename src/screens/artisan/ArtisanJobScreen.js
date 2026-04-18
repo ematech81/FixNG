@@ -8,6 +8,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getMe } from '../../api/authApi';
 import { getMyJobs, getAvailableJobs, acceptJob, declineJob, markCompleted } from '../../api/jobApi';
 import BackButton from '../../components/BackButton';
+import VoiceNotePlayer from '../../components/VoiceNotePlayer';
 
 const PRIMARY = '#2563EB'; 
 const GREEN = '#16A34A';
@@ -77,7 +78,25 @@ export default function ArtisanJobScreen({ navigation }) {
       await acceptJob(jobId, { estimatedArrivalMinutes: 15 });
       await fetchAll();
     } catch (err) {
-      Alert.alert('Error', err?.message || 'Could not accept job.');
+      const data = err?.response?.data;
+      if (data?.limitReached) {
+        const isPro = data.currentPlan === 'pro';
+        Alert.alert(
+          isPro ? '10-Job Limit Reached' : '2-Job Limit Reached',
+          data.message,
+          [
+            { text: 'Not Now', style: 'cancel' },
+            {
+              text: 'Upgrade Plan',
+              onPress: () => navigation.navigate('Subscription', {
+                upgradeContext: { currentPlan: data.currentPlan, requiredPlan: data.requiredPlan },
+              }),
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Error', data?.message || err?.message || 'Could not accept job.');
+      }
     }
   };
 
@@ -124,15 +143,10 @@ export default function ArtisanJobScreen({ navigation }) {
   const isRejected = verificationStatus === 'rejected';
 
   const skippedId = artisanProfile?.skippedSteps?.verificationId === true;
-  const skippedVideo = artisanProfile?.skippedSteps?.skillVideo === true;
-  const hasIncomplete = skippedId || skippedVideo;
+  const hasIncomplete = skippedId;
 
   const handleEditProfile = () => {
-    if (skippedId) {
-      navigation.navigate('Step4_VerificationID', { isEdit: true });
-    } else if (skippedVideo) {
-      navigation.navigate('Step5_SkillVideo', { isEdit: true });
-    }
+    navigation.navigate('Step4_VerificationID', { isEdit: true });
   };
 
   if (loading) {
@@ -171,8 +185,8 @@ export default function ArtisanJobScreen({ navigation }) {
           <Text style={styles.pageTitle}>Job Dashboard</Text>
         </View>
 
-        {/* ── Subscription upgrade banner ── */}
-        {isVerified && (
+        {/* ── Subscription upgrade banner — only for verified artisans not yet on a paid plan ── */}
+        {isVerified && !artisanProfile?.isPro && (
           <TouchableOpacity
             style={styles.subPromo}
             onPress={() => navigation.navigate('Subscription')}
@@ -218,15 +232,9 @@ export default function ArtisanJobScreen({ navigation }) {
               <Text style={styles.incompleteIcon}>⚠️</Text>
               <View style={styles.incompleteBody}>
                 <Text style={styles.incompleteTitle}>Complete Your Registration</Text>
-                <Text style={styles.incompleteText}>
-                  {skippedId && skippedVideo
-                    ? 'Missing: Verification ID & Skill Video'
-                    : skippedId
-                    ? 'Missing: Verification ID'
-                    : 'Missing: Skill Video'}
-                </Text>
+                <Text style={styles.incompleteText}>Missing: Verification ID / Professional Certificate</Text>
                 <Text style={styles.incompleteSubText}>
-                  Upload the missing items to become eligible for the Verified badge and full platform access.
+                  Upload your ID or certificate to become eligible for the Verified badge and full platform access.
                 </Text>
               </View>
             </View>
@@ -338,12 +346,27 @@ function ActiveJobCard({ job, onViewDetails, onComplete, onUpdateStatus }) {
       </View>
 
       {/* Details */}
-      <Text style={styles.activeCardTitle} numberOfLines={2}>
-        {job.category}{job.description ? ` — ${job.description.slice(0, 40)}` : ''}
-      </Text>
-      {job.description && (
+      <Text style={styles.activeCardTitle} numberOfLines={1}>{job.category}</Text>
+      {job.voiceDescription?.url ? (
+        <View style={styles.voiceCard}>
+          <View style={styles.voiceCardHeader}>
+            <View style={styles.voiceIconCircle}>
+              <Text style={styles.voiceIconEmoji}>🎤</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.voiceCardTitle}>Voice Description</Text>
+              <Text style={styles.voiceCardHint}>Tap ▶ to listen</Text>
+            </View>
+          </View>
+          <VoiceNotePlayer
+            uri={job.voiceDescription.url}
+            duration={job.voiceDescription.duration}
+            isMine={false}
+          />
+        </View>
+      ) : job.description ? (
         <Text style={styles.activeCardDesc} numberOfLines={2}>{job.description}</Text>
-      )}
+      ) : null}
 
       <View style={styles.metaRow}>
         <Text style={styles.metaIcon}>📍</Text>
@@ -359,18 +382,11 @@ function ActiveJobCard({ job, onViewDetails, onComplete, onUpdateStatus }) {
 
       {/* Action buttons */}
       <View style={styles.activeCardButtons}>
-        <TouchableOpacity style={styles.viewDetailsBtn} onPress={onViewDetails}>
-          <Text style={styles.viewDetailsBtnText}>View Details</Text>
-        </TouchableOpacity>
-        {isArrived ? (
-          <TouchableOpacity style={styles.completeBtn} onPress={onComplete}>
-            <Text style={styles.completeBtnText}>Complete Job</Text>
-          </TouchableOpacity>
-        ) : (
+       
           <TouchableOpacity style={styles.updateBtn} onPress={onUpdateStatus}>
-            <Text style={styles.updateBtnText}>Update Status</Text>
+            <Text style={styles.updateBtnText}>Start Job</Text>
           </TouchableOpacity>
-        )}
+        
       </View>
     </View>
   );
@@ -394,9 +410,14 @@ function NearbyJobCard({ job, onAccept, onDecline, canAccept = true }) {
       </View>
 
       <Text style={styles.nearbyTitle} numberOfLines={1}>{job.category}</Text>
-      {job.description && (
+      {job.voiceDescription?.url ? (
+        <View style={styles.voiceBadge}>
+          <Text style={styles.voiceBadgeIcon}>🎤</Text>
+          <Text style={styles.voiceBadgeText}>Voice description — tap to listen</Text>
+        </View>
+      ) : job.description ? (
         <Text style={styles.nearbyDesc} numberOfLines={1}>{job.description}</Text>
-      )}
+      ) : null}
       <View style={styles.nearbyLocation}>
         <Text style={styles.nearbyLocIcon}>📍</Text>
         <Text style={styles.nearbyLocText}>{address}</Text>
@@ -564,9 +585,9 @@ const styles = StyleSheet.create({
   viewDetailsBtnText: { fontSize: 13, fontWeight: '700', color: '#374151' },
   updateBtn: {
     flex: 1, paddingVertical: 12, borderRadius: 12,
-    backgroundColor: PRIMARY, alignItems: 'center',
+    backgroundColor: PRIMARY, alignItems: 'center',marginTop: 10
   },
-  updateBtnText: { fontSize: 13, fontWeight: '800', color: '#FFF' },
+  updateBtnText: { fontSize: 15, fontWeight: '800', color: '#FFF' },
   completeBtn: {
     flex: 1, paddingVertical: 12, borderRadius: 12,
     backgroundColor: GREEN, alignItems: 'center',
@@ -634,4 +655,29 @@ const styles = StyleSheet.create({
   subPromoTitle: { fontSize: 13, fontWeight: '800', color: '#F8FAFC', marginBottom: 2 },
   subPromoSub:   { fontSize: 11, color: '#94A3B8' },
   subPromoArrow: { color: '#94A3B8', fontSize: 20 },
+
+  // ── Voice note (active card) ──
+  voiceCard: {
+    backgroundColor: '#FFF3EC', borderRadius: 12, padding: 12,
+    borderWidth: 1.5, borderColor: '#FB923C', marginBottom: 10,
+  },
+  voiceCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  voiceIconCircle: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: '#FF6B00', justifyContent: 'center', alignItems: 'center',
+  },
+  voiceIconEmoji: { fontSize: 18 },
+  voiceCardTitle: { fontSize: 13, fontWeight: '700', color: '#92400E' },
+  voiceCardHint:  { fontSize: 11, color: '#B45309', marginTop: 1 },
+
+  // ── Voice badge (nearby card) ──
+  voiceBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: '#FFF3EC', borderRadius: 8,
+    paddingVertical: 5, paddingHorizontal: 9,
+    marginBottom: 6, borderWidth: 1, borderColor: '#FDBA74',
+    alignSelf: 'flex-start',
+  },
+  voiceBadgeIcon: { fontSize: 13 },
+  voiceBadgeText: { fontSize: 12, color: '#92400E', fontWeight: '600' },
 });

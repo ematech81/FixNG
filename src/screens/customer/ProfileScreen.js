@@ -62,7 +62,8 @@ const ARTISAN_STATUS_CONFIG = {
     color: '#DC2626',
     bg: '#FEF2F2',
     border: '#FECACA',
-    note: 'Your application was not approved. Go to your artisan dashboard for details.',
+    note: 'Your application was not approved.',
+    tap: 'Tap to view reason and resubmit →',
   },
 };
 
@@ -74,6 +75,7 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth, onS
   const [becomingArtisan, setBecomingArtisan] = useState(false);
   // Artisan-specific state (only fetched when user.role === 'artisan')
   const [artisanStatus, setArtisanStatus] = useState(null); // verificationStatus string
+  const [artisanIsPro, setArtisanIsPro] = useState(false);
   const [loadingArtisanStatus, setLoadingArtisanStatus] = useState(false);
   const [profilePhotoUrl, setProfilePhotoUrl] = useState(null);
 
@@ -120,6 +122,7 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth, onS
       const data = res.data.data;
       const status = data?.verificationStatus || 'incomplete';
       setArtisanStatus(status);
+      setArtisanIsPro(data?.isPro || false);
       if (data?.profilePhoto?.url) setProfilePhotoUrl(data.profilePhoto.url);
     } catch {
       // silent — keep null
@@ -204,15 +207,42 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth, onS
               <Text style={styles.artisanStatusLoadingText}>Loading artisan status…</Text>
             </View>
           ) : statusConfig ? (
-            <View style={[styles.artisanStatusCard, { backgroundColor: statusConfig.bg, borderColor: statusConfig.border }]}>
-              <View style={styles.artisanStatusTop}>
-                <Text style={styles.artisanStatusIcon}>{statusConfig.icon}</Text>
-                <Text style={[styles.artisanStatusLabel, { color: statusConfig.color }]}>
-                  {statusConfig.label}
+            (artisanStatus === 'incomplete' || artisanStatus === 'rejected') ? (
+              <TouchableOpacity
+                style={[styles.artisanStatusCard, { backgroundColor: statusConfig.bg, borderColor: statusConfig.border }]}
+                onPress={() => {
+                  if (artisanStatus === 'incomplete') {
+                    navigation.navigate('Step4_VerificationID', { isEdit: true });
+                  } else {
+                    navigation.navigate('AccountStatus', { type: 'rejected' });
+                  }
+                }}
+                activeOpacity={0.8}
+              >
+                <View style={styles.artisanStatusTop}>
+                  <Text style={styles.artisanStatusIcon}>{statusConfig.icon}</Text>
+                  <Text style={[styles.artisanStatusLabel, { color: statusConfig.color }]}>
+                    {statusConfig.label}
+                  </Text>
+                </View>
+                <Text style={styles.artisanStatusNote}>{statusConfig.note}</Text>
+                <Text style={[styles.artisanStatusTap, { color: statusConfig.color }]}>
+                  {artisanStatus === 'incomplete'
+                    ? 'Tap to upload your ID and complete registration →'
+                    : statusConfig.tap}
                 </Text>
+              </TouchableOpacity>
+            ) : (
+              <View style={[styles.artisanStatusCard, { backgroundColor: statusConfig.bg, borderColor: statusConfig.border }]}>
+                <View style={styles.artisanStatusTop}>
+                  <Text style={styles.artisanStatusIcon}>{statusConfig.icon}</Text>
+                  <Text style={[styles.artisanStatusLabel, { color: statusConfig.color }]}>
+                    {statusConfig.label}
+                  </Text>
+                </View>
+                <Text style={styles.artisanStatusNote}>{statusConfig.note}</Text>
               </View>
-              <Text style={styles.artisanStatusNote}>{statusConfig.note}</Text>
-            </View>
+            )
           ) : null
         )}
 
@@ -306,8 +336,8 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth, onS
           </TouchableOpacity>
         )}
 
-        {/* ── Subscription upgrade banner — artisans only ── */}
-        {isArtisan && (
+        {/* ── Subscription upgrade banner — artisans only, hidden once on a paid plan ── */}
+        {isArtisan && !artisanIsPro && (
           <TouchableOpacity
             style={styles.subBanner}
             onPress={() => navigation.navigate('Subscription')}
@@ -414,6 +444,7 @@ const styles = StyleSheet.create({
   artisanStatusIcon: { fontSize: 22 },
   artisanStatusLabel: { fontSize: 15, fontWeight: '800' },
   artisanStatusNote: { fontSize: 13, color: '#374151', lineHeight: 18 },
+  artisanStatusTap: { fontSize: 13, fontWeight: '700', marginTop: 8 },
   artisanStatusLoading: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     marginHorizontal: 16, marginBottom: 16, padding: 14,

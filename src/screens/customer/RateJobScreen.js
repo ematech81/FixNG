@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, TextInput,
-  ScrollView, ActivityIndicator, Alert,
+  ScrollView, ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { rateJob } from '../../api/reviewApi';
@@ -60,7 +60,7 @@ export default function RateJobScreen({ route, navigation }) {
         [{ text: 'Done', onPress: () => navigation.goBack() }]
       );
     } catch (err) {
-      const msg = err?.response?.data?.message || 'Failed to submit review.';
+      const msg = err?.message || 'Failed to submit review.';
       Alert.alert('Error', msg);
     } finally {
       setSubmitting(false);
@@ -69,6 +69,11 @@ export default function RateJobScreen({ route, navigation }) {
 
   return (
     <SafeAreaView style={styles.container}>
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
+      >
       <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
         {/* Header */}
         <View style={styles.header}>
@@ -141,13 +146,14 @@ export default function RateJobScreen({ route, navigation }) {
           <Text style={styles.skipBtnText}>Skip for now</Text>
         </TouchableOpacity>
       </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#FFF' },
-  scroll: { padding: 20, paddingBottom: 30 },
+  scroll: { padding: 20, paddingBottom: 60 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8,
   },
