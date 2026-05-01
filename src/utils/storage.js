@@ -1,19 +1,20 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 
 const TOKEN_KEY      = 'fixng_token';
 const USER_KEY       = 'fixng_user';
 const LAST_PHONE_KEY = 'fixng_last_phone'; // persists across logout for autofill
 
 export const saveToken = async (token) => {
-  await AsyncStorage.setItem(TOKEN_KEY, token);
+  await SecureStore.setItemAsync(TOKEN_KEY, token);
 };
 
 export const getToken = async () => {
-  return await AsyncStorage.getItem(TOKEN_KEY);
+  return await SecureStore.getItemAsync(TOKEN_KEY);
 };
 
 export const removeToken = async () => {
-  await AsyncStorage.removeItem(TOKEN_KEY);
+  await SecureStore.deleteItemAsync(TOKEN_KEY);
 };
 
 export const saveUser = async (user) => {
@@ -22,7 +23,12 @@ export const saveUser = async (user) => {
 
 export const getUser = async () => {
   const user = await AsyncStorage.getItem(USER_KEY);
-  return user ? JSON.parse(user) : null;
+  if (!user) return null;
+  try {
+    return JSON.parse(user);
+  } catch {
+    return null;
+  }
 };
 
 export const removeUser = async () => {
@@ -38,6 +44,9 @@ export const getLastPhone = async () => {
 };
 
 export const clearSession = async () => {
-  await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
+  await Promise.all([
+    SecureStore.deleteItemAsync(TOKEN_KEY),
+    AsyncStorage.removeItem(USER_KEY),
+  ]);
   // LAST_PHONE_KEY intentionally kept so login screen can autofill
 };

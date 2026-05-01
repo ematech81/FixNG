@@ -26,9 +26,9 @@ const C = {
 };
 
 const PLAN_ACCENT = {
-  free:  { color: C.sub,     bg: '#F1F5F9', badge: null },
-  pro:   { color: C.primary, bg: '#EFF6FF', badge: 'Most Popular' },
-  elite: { color: C.gold,    bg: '#FFFBEB', badge: 'Best Value'   },
+  free:    { color: C.sub,     bg: '#F1F5F9', badge: null           },
+  basic:   { color: C.primary, bg: '#EFF6FF', badge: 'Most Popular' },
+  premium: { color: C.gold,    bg: '#FFFBEB', badge: 'Best Value'   },
 };
 
 function formatDate(d) {
@@ -163,12 +163,12 @@ export default function SubscriptionScreen({ navigation, route }) {
                 <Text style={styles.upgradeNudgeTitle}>
                   {upgradeContext.currentPlan === 'free'
                     ? 'Free Plan: 2-Job Limit Reached'
-                    : 'Pro Plan: 10-Job Limit Reached'}
+                    : 'Basic Plan: 10-Job Limit Reached'}
                 </Text>
                 <Text style={styles.upgradeNudgeSub}>
                   {upgradeContext.currentPlan === 'free'
-                    ? 'Upgrade to Pro to accept up to 10 jobs simultaneously.'
-                    : 'Upgrade to Elite for unlimited simultaneous jobs.'}
+                    ? 'Upgrade to Basic to accept up to 10 jobs simultaneously.'
+                    : 'Upgrade to Premium for unlimited simultaneous jobs.'}
                 </Text>
               </View>
             </View>

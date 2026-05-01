@@ -62,7 +62,8 @@
         {
           "locationAlwaysAndWhenInUsePermission": "FixNG uses your location to connect you with nearby customers."
         }
-      ]
+      ],
+      "expo-secure-store"
     ],
     "extra": {
       "eas": {

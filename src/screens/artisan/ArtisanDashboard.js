@@ -8,6 +8,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getMyJobs } from '../../api/jobApi';
 import { getUser, clearSession } from '../../utils/storage';
 import { getMe } from '../../api/authApi';
+import { getMySubscription } from '../../api/subscriptionApi';
 import useSocket from '../../hooks/useSocket';
 
 const BADGE_CONFIG = {
@@ -20,14 +21,10 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
   const [user, setUser] = useState(null);
   const [artisanProfile, setArtisanProfile] = useState(null);
   const [recentJobs, setRecentJobs] = useState([]);
+  const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  // Refresh when screen focuses (e.g. coming back from JobDetail)
   useFocusEffect(
     useCallback(() => {
       loadData();
@@ -55,14 +52,16 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     try {
-      const [userRes, jobsRes] = await Promise.all([
+      const [userRes, jobsRes, subRes] = await Promise.all([
         getMe(),
         getMyJobs({ limit: 5 }),
+        getMySubscription().catch(() => null),
       ]);
 
       setUser(userRes.data.user);
       setArtisanProfile(userRes.data.artisanProfile);
       setRecentJobs(jobsRes.data.data || []);
+      setSubscription(subRes?.data?.data || null);
     } catch {
       // silent
     } finally {
@@ -85,8 +84,14 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
     ]);
   };
 
-  const badge = BADGE_CONFIG[artisanProfile?.badgeLevel || 'new'];
-  const stats = artisanProfile?.stats || {};
+  const badge      = BADGE_CONFIG[artisanProfile?.badgeLevel || 'new'];
+  const stats      = artisanProfile?.stats || {};
+  const isVerified = ['verified', 'trusted'].includes(artisanProfile?.badgeLevel);
+  const subPlan    = subscription?.plan || 'free';
+  const subActive  = subscription?.status === 'active' && subPlan !== 'free';
+  const subExpiry  = subscription?.expiresAt
+    ? new Date(subscription.expiresAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
+    : null;
 
   const STATUS_COLOR = {
     pending: '#F59E0B', accepted: '#3B82F6',
@@ -142,6 +147,84 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
             <Text style={styles.statLabel}>Acceptance</Text>
           </View>
         </View>
+
+        {/* ── Subscription card (all artisans) ────────────────────────────── */}
+        {!subActive && (
+          <TouchableOpacity
+            style={subCard.freeWrap}
+            onPress={() => navigation.navigate('Subscription')}
+            activeOpacity={0.88}
+          >
+            <View style={subCard.freeLeft}>
+              {isVerified ? (
+                <>
+                  <View style={subCard.verifiedRow}>
+                    <Text style={subCard.verifiedIcon}>✓</Text>
+                    <Text style={subCard.verifiedLabel}>Verified Artisan</Text>
+                  </View>
+                  <Text style={subCard.freeHeadline}>Your account is fully verified.</Text>
+                  <Text style={subCard.freeSub}>
+                    Upgrade to Basic or Premium to unlock priority placement, more jobs & a Pro badge.
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text style={subCard.freeHeadline}>Grow your business with FixNG</Text>
+                  <Text style={subCard.freeSub}>
+                    Subscribe to get priority placement, unlimited jobs & a Pro badge once verified.
+                  </Text>
+                </>
+              )}
+            </View>
+            <View style={subCard.freeRight}>
+              <Text style={subCard.freePrice}>from{'\n'}₦3,000</Text>
+              <View style={subCard.freeBtn}>
+                <Text style={subCard.freeBtnText}>Subscribe →</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {subActive && subPlan === 'basic' && (
+          <View style={subCard.basicWrap}>
+            <View style={subCard.activeLeft}>
+              <View style={subCard.activePlanRow}>
+                <View style={subCard.activePlanBadge}>
+                  <Text style={subCard.activePlanBadgeText}>BASIC</Text>
+                </View>
+                <Text style={subCard.activePlanStatus}>Active</Text>
+              </View>
+              <Text style={subCard.activeHeadline}>Basic Plan</Text>
+              <Text style={subCard.activeSub}>
+                10 active jobs • Priority placement • Pro badge
+              </Text>
+              {subExpiry && <Text style={subCard.activeExpiry}>Renews {subExpiry}</Text>}
+            </View>
+            <TouchableOpacity
+              style={subCard.upgradeBtn}
+              onPress={() => navigation.navigate('Subscription')}
+              activeOpacity={0.85}
+            >
+              <Text style={subCard.upgradeBtnText}>Upgrade to Premium ↑</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {subActive && subPlan === 'premium' && (
+          <View style={subCard.premiumWrap}>
+            <View style={subCard.premiumTop}>
+              <View style={subCard.premiumBadge}>
+                <Text style={subCard.premiumBadgeText}>👑 PREMIUM</Text>
+              </View>
+              <Text style={subCard.premiumStatus}>Active</Text>
+            </View>
+            <Text style={subCard.premiumHeadline}>Premium Plan</Text>
+            <Text style={subCard.premiumSub}>
+              Unlimited jobs • Featured placement • Priority support
+            </Text>
+            {subExpiry && <Text style={subCard.premiumExpiry}>Renews {subExpiry}</Text>}
+          </View>
+        )}
 
         {/* Quick Actions */}
         <Text style={styles.sectionTitle}>Quick Actions</Text>
@@ -262,4 +345,61 @@ const styles = StyleSheet.create({
   jobLocation: { fontSize: 11, color: '#BBB' },
   viewAllBtn: { alignItems: 'center', marginTop: 8, paddingVertical: 12 },
   viewAllBtnText: { color: '#2563EB', fontWeight: '700', fontSize: 14 },
+});
+
+// ── Subscription card styles ──────────────────────────────────────────────────
+const subCard = StyleSheet.create({
+  // Free → upgrade prompt
+  freeWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#1E293B', borderRadius: 18,
+    padding: 16, marginBottom: 24, gap: 12,
+    shadowColor: '#1E293B', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25, shadowRadius: 10, elevation: 5,
+  },
+  freeLeft:      { flex: 1, gap: 4 },
+  verifiedRow:   { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
+  verifiedIcon:  { fontSize: 13, color: '#4ADE80', fontWeight: '900' },
+  verifiedLabel: { fontSize: 12, fontWeight: '800', color: '#4ADE80', letterSpacing: 0.3 },
+  freeHeadline:  { fontSize: 15, fontWeight: '800', color: '#FFFFFF', marginBottom: 2 },
+  freeSub:       { fontSize: 12, color: '#94A3B8', lineHeight: 17 },
+  freeRight:     { alignItems: 'center', gap: 8 },
+  freePrice:     { fontSize: 12, fontWeight: '800', color: '#FFFFFF', textAlign: 'center', lineHeight: 17 },
+  freeBtn: {
+    backgroundColor: '#2563EB', borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 8,
+  },
+  freeBtnText: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
+
+  // Basic plan — active
+  basicWrap: {
+    backgroundColor: '#EFF6FF', borderRadius: 18, padding: 16,
+    marginBottom: 24, borderWidth: 2, borderColor: '#2563EB',
+  },
+  activeLeft:       { marginBottom: 10 },
+  activePlanRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  activePlanBadge:  { backgroundColor: '#2563EB', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
+  activePlanBadgeText: { fontSize: 10, fontWeight: '900', color: '#FFF', letterSpacing: 0.5 },
+  activePlanStatus: { fontSize: 12, fontWeight: '700', color: '#16A34A' },
+  activeHeadline:   { fontSize: 16, fontWeight: '800', color: '#1E3A8A', marginBottom: 2 },
+  activeSub:        { fontSize: 12, color: '#3B82F6', lineHeight: 17 },
+  activeExpiry:     { fontSize: 11, color: '#64748B', marginTop: 4 },
+  upgradeBtn: {
+    backgroundColor: '#1E293B', borderRadius: 10,
+    paddingVertical: 10, alignItems: 'center',
+  },
+  upgradeBtnText: { fontSize: 13, fontWeight: '800', color: '#FFF' },
+
+  // Premium plan — active
+  premiumWrap: {
+    backgroundColor: '#FFFBEB', borderRadius: 18, padding: 16,
+    marginBottom: 24, borderWidth: 2, borderColor: '#F59E0B',
+  },
+  premiumTop:          { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
+  premiumBadge:        { backgroundColor: '#F59E0B', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 },
+  premiumBadgeText:    { fontSize: 10, fontWeight: '900', color: '#FFF', letterSpacing: 0.5 },
+  premiumStatus:       { fontSize: 12, fontWeight: '700', color: '#16A34A' },
+  premiumHeadline:     { fontSize: 16, fontWeight: '800', color: '#92400E', marginBottom: 2 },
+  premiumSub:          { fontSize: 12, color: '#B45309', lineHeight: 17 },
+  premiumExpiry:       { fontSize: 11, color: '#64748B', marginTop: 4 },
 });

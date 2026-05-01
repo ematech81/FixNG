@@ -9,6 +9,7 @@ import useSocket from '../../hooks/useSocket';
 import BackButton from '../../components/BackButton';
 import { getUser } from '../../utils/storage';
 import VoiceNotePlayer from '../../components/VoiceNotePlayer';
+import BottomModal from '../../components/BottomModal';
 
 const STATUS_LABELS = {
   pending: { label: 'Pending', color: '#F59E0B', bg: '#FFFBEB' },
@@ -203,6 +204,26 @@ export default function JobDetailScreen({ route, navigation }) {
           </View>
         </View>
 
+        {/* Pending status banner — customer only */}
+        {isCustomer && job.status === 'pending' && (
+          <View style={styles.pendingBanner}>
+            <Text style={styles.pendingBannerIcon}>⏳</Text>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.pendingBannerTitle}>
+                {job.assignedArtisanId
+                  ? `Waiting for ${job.assignedArtisanId.name} to accept`
+                  : 'Looking for an artisan near you…'}
+              </Text>
+              <Text style={styles.pendingBannerBody}>
+                {job.assignedArtisanId
+                  ? `Your request has been sent to ${job.assignedArtisanId.name}. They will confirm shortly — you'll get a notification the moment they accept.`
+                  : "Your request has been sent to nearby artisans. Sit tight \u2014 you'll get a notification the moment someone accepts."}
+              </Text>
+            </View>
+          </View>
+        )}
+
+
         {/* Job Info */}
         <Text style={styles.category}>{job.category}</Text>
         <View style={styles.urgencyRow}>
@@ -379,6 +400,15 @@ export default function JobDetailScreen({ route, navigation }) {
             </View>
           )}
 
+          {isCustomer && job.status === 'completed' && (
+            <TouchableOpacity
+              style={styles.disputeCompletedBtn}
+              onPress={() => setDisputeModal(true)}
+            >
+              <Text style={styles.disputeCompletedBtnText}>⚠️ Job not done right? Raise a Dispute</Text>
+            </TouchableOpacity>
+          )}
+
           {isCustomer && ['pending', 'accepted'].includes(job.status) && (
             <View style={styles.actionRow}>
               <TouchableOpacity style={styles.declineBtn} onPress={handleCancel}>
@@ -436,64 +466,52 @@ export default function JobDetailScreen({ route, navigation }) {
       )}
 
       {/* Accept Modal */}
-      <Modal visible={acceptModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Accept Job</Text>
-            <Text style={styles.modalLabel}>Estimated Arrival (minutes)</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="e.g. 30"
-              keyboardType="number-pad"
-              value={eta}
-              onChangeText={setEta}
-            />
-            <Text style={styles.modalLabel}>Agreed Price (₦) — optional</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="e.g. 5000"
-              keyboardType="decimal-pad"
-              value={price}
-              onChangeText={setPrice}
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.modalCancel} onPress={() => setAcceptModal(false)}>
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalAccept} onPress={handleAccept} disabled={acting}>
-                <Text style={styles.modalAcceptText}>Accept</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <BottomModal
+        visible={acceptModal}
+        onClose={() => setAcceptModal(false)}
+        title="Accept Job"
+        confirmLabel="Accept"
+        confirmColor="#22C55E"
+        onConfirm={handleAccept}
+        confirmLoading={acting}
+      >
+        <Text style={styles.modalLabel}>Estimated Arrival (minutes)</Text>
+        <TextInput
+          style={styles.modalInput}
+          placeholder="e.g. 30"
+          keyboardType="number-pad"
+          value={eta}
+          onChangeText={setEta}
+        />
+        <Text style={styles.modalLabel}>Agreed Price (₦) — optional</Text>
+        <TextInput
+          style={styles.modalInput}
+          placeholder="e.g. 5000"
+          keyboardType="decimal-pad"
+          value={price}
+          onChangeText={setPrice}
+        />
+      </BottomModal>
 
       {/* Dispute Modal */}
-      <Modal visible={disputeModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Raise a Dispute</Text>
-            <Text style={styles.modalSubtitle}>
-              Describe the problem clearly. An admin will review within 24 hours.
-            </Text>
-            <TextInput
-              style={[styles.modalInput, { height: 100, textAlignVertical: 'top' }]}
-              placeholder="e.g. Customer refused to pay after job completion, or the agreed scope was changed without notice..."
-              multiline
-              value={disputeReason}
-              onChangeText={setDisputeReason}
-            />
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.modalCancel} onPress={() => setDisputeModal(false)}>
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.modalDisputeSubmit} onPress={handleDispute} disabled={acting}>
-                <Text style={styles.modalAcceptText}>Submit</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
+      <BottomModal
+        visible={disputeModal}
+        onClose={() => setDisputeModal(false)}
+        title="Raise a Dispute"
+        subtitle="Describe the problem clearly. An admin will review within 24 hours."
+        confirmLabel="Submit Dispute"
+        confirmColor="#EF4444"
+        onConfirm={handleDispute}
+        confirmLoading={acting}
+      >
+        <TextInput
+          style={[styles.modalInput, { height: 110, textAlignVertical: 'top' }]}
+          placeholder="e.g. Customer refused to pay after job completion, or the agreed scope was changed without notice..."
+          multiline
+          value={disputeReason}
+          onChangeText={setDisputeReason}
+        />
+      </BottomModal>
     </SafeAreaView>
   );
 }
@@ -525,6 +543,14 @@ const styles = StyleSheet.create({
   timestamp: { fontSize: 12, color: '#BBB' },
   sectionTitle: { fontSize: 13, fontWeight: '700', color: '#999', marginTop: 20, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
   description: { fontSize: 15, color: '#444', lineHeight: 22 },
+  pendingBanner: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    backgroundColor: '#FFFBEB', borderRadius: 14, padding: 14,
+    borderWidth: 1.5, borderColor: '#F59E0B', marginBottom: 8, marginTop: 4,
+  },
+  pendingBannerIcon: { fontSize: 22, marginTop: 1 },
+  pendingBannerTitle: { fontSize: 14, fontWeight: '700', color: '#92400E', marginBottom: 4 },
+  pendingBannerBody: { fontSize: 13, color: '#78350F', lineHeight: 19 },
   voiceCard: {
     backgroundColor: '#FFF3EC', borderRadius: 14, padding: 14,
     borderWidth: 1.5, borderColor: '#FF6B00',
@@ -599,6 +625,11 @@ const styles = StyleSheet.create({
     borderRadius: 12, alignItems: 'center',
   },
   disputeActionBtnText: { color: '#EF4444', fontWeight: '700', fontSize: 15 },
+  disputeCompletedBtn: {
+    borderWidth: 1.5, borderColor: '#FECACA', backgroundColor: '#FEF2F2',
+    borderRadius: 12, padding: 14, alignItems: 'center', marginBottom: 10,
+  },
+  disputeCompletedBtnText: { color: '#DC2626', fontWeight: '700', fontSize: 14 },
   modalOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',

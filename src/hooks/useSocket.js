@@ -17,8 +17,10 @@ export const connectSocket = async (userId) => {
   // connections where event listeners are registered on dead socket objects.
   if (socketInstance) return socketInstance;
 
+  const token = await getToken();
+
   socketInstance = io(SOCKET_URL, {
-    query: { userId },
+    auth: { token },
     transports: ['websocket'],
     reconnection: true,
     reconnectionAttempts: 10,

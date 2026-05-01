@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getMe } from '../../api/authApi';
 import { getMyJobs, getAvailableJobs, acceptJob, declineJob, markCompleted } from '../../api/jobApi';
+import { getMySubscription } from '../../api/subscriptionApi';
 import BackButton from '../../components/BackButton';
 import VoiceNotePlayer from '../../components/VoiceNotePlayer';
 
@@ -41,6 +42,7 @@ export default function ArtisanJobScreen({ navigation }) {
   const [artisanProfile, setArtisanProfile] = useState(null);
   const [activeJobs, setActiveJobs] = useState([]);
   const [nearbyJobs, setNearbyJobs] = useState([]);
+  const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -54,13 +56,15 @@ export default function ArtisanJobScreen({ navigation }) {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     try {
-      const [meRes, myJobsRes, availableRes] = await Promise.all([
+      const [meRes, myJobsRes, availableRes, subRes] = await Promise.all([
         getMe(),
         getMyJobs({ role: 'artisan' }),
         getAvailableJobs(),
+        getMySubscription().catch(() => null),
       ]);
       setUser(meRes.data.user);
       setArtisanProfile(meRes.data.artisanProfile);
+      setSubscription(subRes?.data?.data || null);
 
       const myJobs = myJobsRes.data.data || [];
       setActiveJobs(myJobs.filter((j) => ACTIVE_STATUSES.includes(j.status)));
@@ -185,21 +189,69 @@ export default function ArtisanJobScreen({ navigation }) {
           <Text style={styles.pageTitle}>Job Dashboard</Text>
         </View>
 
-        {/* ── Subscription upgrade banner — only for verified artisans not yet on a paid plan ── */}
-        {isVerified && !artisanProfile?.isPro && (
-          <TouchableOpacity
-            style={styles.subPromo}
-            onPress={() => navigation.navigate('Subscription')}
-            activeOpacity={0.88}
-          >
-            <Text style={styles.subPromoEmoji}>⚡</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.subPromoTitle}>Unlock Pro & Elite Plans</Text>
-              <Text style={styles.subPromoSub}>Get priority placement & unlimited requests — from ₦3,500/mo</Text>
-            </View>
-            <Text style={styles.subPromoArrow}>›</Text>
-          </TouchableOpacity>
-        )}
+        {/* ── Subscription card — verified artisans only ── */}
+        {isVerified && (() => {
+          const subPlan   = subscription?.plan || 'free';
+          const subActive = subscription?.status === 'active' && subPlan !== 'free';
+          const subExpiry = subscription?.expiresAt
+            ? new Date(subscription.expiresAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
+            : null;
+
+          if (subActive && subPlan === 'basic') {
+            return (
+              <View style={styles.subBasicWrap}>
+                <View style={styles.subPlanRow}>
+                  <View style={styles.subBasicBadge}>
+                    <Text style={styles.subBadgeText}>BASIC</Text>
+                  </View>
+                  <Text style={styles.subActiveLabel}>● Active</Text>
+                </View>
+                <Text style={styles.subPlanHeadline}>Basic Plan</Text>
+                <Text style={styles.subPlanSub}>10 active jobs • Priority placement • Pro badge</Text>
+                {subExpiry && <Text style={styles.subExpiry}>Renews {subExpiry}</Text>}
+                <TouchableOpacity
+                  style={styles.subUpgradeBtn}
+                  onPress={() => navigation.navigate('Subscription')}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.subUpgradeBtnText}>Upgrade to Premium ↑</Text>
+                </TouchableOpacity>
+              </View>
+            );
+          }
+
+          if (subActive && subPlan === 'premium') {
+            return (
+              <View style={styles.subPremiumWrap}>
+                <View style={styles.subPlanRow}>
+                  <View style={styles.subPremiumBadge}>
+                    <Text style={styles.subBadgeText}>👑 PREMIUM</Text>
+                  </View>
+                  <Text style={styles.subActiveLabel}>● Active</Text>
+                </View>
+                <Text style={styles.subPlanHeadline}>Premium Plan</Text>
+                <Text style={styles.subPlanSub}>Unlimited jobs • Featured placement • Priority support</Text>
+                {subExpiry && <Text style={styles.subExpiry}>Renews {subExpiry}</Text>}
+              </View>
+            );
+          }
+
+          return (
+            <TouchableOpacity
+              style={styles.subFreeWrap}
+              onPress={() => navigation.navigate('Subscription')}
+              activeOpacity={0.88}
+            >
+              <View style={{ flex: 1 }}>
+                <Text style={styles.subFreeTitle}>Unlock Basic & Premium Plans</Text>
+                <Text style={styles.subFreeSub}>Priority placement, more jobs & a Pro badge — from ₦3,000/mo</Text>
+              </View>
+              <View style={styles.subFreeBtn}>
+                <Text style={styles.subFreeBtnText}>Subscribe →</Text>
+              </View>
+            </TouchableOpacity>
+          );
+        })()}
 
         {/* ── Verification status banner ── */}
         {isPending && (
@@ -644,17 +696,47 @@ const styles = StyleSheet.create({
   safetyTitle: { fontSize: 14, fontWeight: '800', color: '#92400E', marginBottom: 4 },
   safetyText: { fontSize: 13, color: '#78350F', lineHeight: 18 },
 
-  // Subscription promo banner
-  subPromo: {
+  // ── Subscription card ──
+  subBasicWrap: {
+    marginHorizontal: 16, marginBottom: 12, borderRadius: 14, padding: 14,
+    backgroundColor: '#EFF6FF', borderWidth: 2, borderColor: '#2563EB',
+  },
+  subPremiumWrap: {
+    marginHorizontal: 16, marginBottom: 12, borderRadius: 14, padding: 14,
+    backgroundColor: '#FFFBEB', borderWidth: 2, borderColor: '#F59E0B',
+  },
+  subFreeWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     backgroundColor: '#1E293B', borderRadius: 14,
     paddingVertical: 14, paddingHorizontal: 16,
     marginHorizontal: 16, marginBottom: 12,
   },
-  subPromoEmoji: { fontSize: 22 },
-  subPromoTitle: { fontSize: 13, fontWeight: '800', color: '#F8FAFC', marginBottom: 2 },
-  subPromoSub:   { fontSize: 11, color: '#94A3B8' },
-  subPromoArrow: { color: '#94A3B8', fontSize: 20 },
+  subPlanRow: {
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', marginBottom: 6,
+  },
+  subBasicBadge: {
+    backgroundColor: '#2563EB', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
+  },
+  subPremiumBadge: {
+    backgroundColor: '#F59E0B', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
+  },
+  subBadgeText:    { color: '#FFF', fontSize: 11, fontWeight: '800' },
+  subActiveLabel:  { fontSize: 13, fontWeight: '700', color: '#16A34A' },
+  subPlanHeadline: { fontSize: 16, fontWeight: '800', color: '#0F172A', marginBottom: 3 },
+  subPlanSub:      { fontSize: 12, color: '#475569', lineHeight: 17, marginBottom: 6 },
+  subExpiry:       { fontSize: 11, color: '#64748B', marginBottom: 10 },
+  subUpgradeBtn: {
+    backgroundColor: '#2563EB', borderRadius: 10, paddingVertical: 9, alignItems: 'center',
+  },
+  subUpgradeBtnText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
+  subFreeTitle: { fontSize: 13, fontWeight: '800', color: '#F8FAFC', marginBottom: 2 },
+  subFreeSub:   { fontSize: 11, color: '#94A3B8' },
+  subFreeBtn: {
+    backgroundColor: '#2563EB', borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 7, marginLeft: 8,
+  },
+  subFreeBtnText: { color: '#FFF', fontSize: 12, fontWeight: '800' },
 
   // ── Voice note (active card) ──
   voiceCard: {

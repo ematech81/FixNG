@@ -634,10 +634,6 @@ function ArtisanCard({ artisan, onPress }) {
   const jobs   = artisan.stats?.completedJobs || 0;
 
   return (
-
-    <ScrollView
-    showsHorizontalScrollIndicator={true}
-    >
     <TouchableOpacity
       style={nearbyCard.container}
       onPress={onPress}
@@ -718,7 +714,6 @@ function ArtisanCard({ artisan, onPress }) {
         <Text style={nearbyCard.bookBtnText}>Book</Text>
       </TouchableOpacity>
     </TouchableOpacity>
-  </ScrollView>
   );
 }
 

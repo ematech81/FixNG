@@ -90,7 +90,7 @@ export default function Step5_SkillVideo({ navigation, route }) {
     try {
       await uploadSkillVideo(videoUri);
       if (isEdit) {
-        navigation.navigate('ArtisanTabs');
+        navigation.goBack();
       } else {
         navigation.navigate('PendingVerification');
       }

@@ -1,13 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  StatusBar, Alert, Modal, Pressable, Dimensions, Platform,
+  StatusBar, Alert, Modal, Pressable, Dimensions,
   ActivityIndicator, RefreshControl, TextInput, Image, FlatList,
-  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { getUser } from '../../utils/storage';
+import BottomModal from '../../components/BottomModal';
 import {
   getDashboardStats,
   getVerificationQueue,
@@ -571,65 +571,40 @@ export default function AdminDashboardScreen({ onLogout }) {
       </Modal>
 
       {/* ── Reason input modal (warn / suspend / reject) ── */}
-      <Modal visible={!!actionModal} transparent animationType="slide" onRequestClose={() => setActionModal(null)}>
-        <KeyboardAvoidingView
-          style={{ flex: 1 }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={0}
-        >
-          <Pressable style={styles.modalOverlay} onPress={() => !actionLoading && setActionModal(null)}>
-            <Pressable style={styles.reasonModal} onPress={(e) => e.stopPropagation()}>
-              <Text style={styles.reasonTitle}>
-                {actionModal?.type === 'warn'             && `Warn ${actionModal.name}`}
-                {actionModal?.type === 'suspend'          && `Suspend ${actionModal.name}`}
-                {actionModal?.type === 'reject'           && `Reject ${actionModal.name}`}
-                {actionModal?.type === 'warn_customer'    && `Warn Customer: ${actionModal.name}`}
-                {actionModal?.type === 'suspend_customer' && `Suspend Customer: ${actionModal.name}`}
-              </Text>
-              <Text style={styles.reasonSubtitle}>
-                This reason will be sent to the user.
-              </Text>
-              <TextInput
-                style={styles.reasonInput}
-                placeholder="Enter reason…"
-                placeholderTextColor="#9CA3AF"
-                multiline
-                numberOfLines={3}
-                value={actionReason}
-                onChangeText={setActionReason}
-                editable={!actionLoading}
-              />
-              <View style={styles.reasonActions}>
-                <TouchableOpacity
-                  style={styles.reasonCancelBtn}
-                  onPress={() => setActionModal(null)}
-                  disabled={actionLoading}
-                >
-                  <Text style={styles.reasonCancelText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={[
-                    styles.reasonSubmitBtn,
-                    (actionModal?.type === 'warn' || actionModal?.type === 'warn_customer') && { backgroundColor: AMBER },
-                    (actionModal?.type === 'suspend' || actionModal?.type === 'suspend_customer' || actionModal?.type === 'reject') && { backgroundColor: RED },
-                  ]}
-                  onPress={submitAction}
-                  disabled={actionLoading}
-                >
-                  {actionLoading
-                    ? <ActivityIndicator color="#FFF" size="small" />
-                    : <Text style={styles.reasonSubmitText}>
-                        {(actionModal?.type === 'warn' || actionModal?.type === 'warn_customer') ? 'Send Warning'
-                          : (actionModal?.type === 'suspend' || actionModal?.type === 'suspend_customer') ? 'Suspend'
-                          : 'Reject'}
-                      </Text>
-                  }
-                </TouchableOpacity>
-              </View>
-            </Pressable>
-          </Pressable>
-        </KeyboardAvoidingView>
-      </Modal>
+      <BottomModal
+        visible={!!actionModal}
+        onClose={() => !actionLoading && setActionModal(null)}
+        title={
+          !actionModal ? ''
+          : actionModal.type === 'warn'            ? `Warn ${actionModal.name}`
+          : actionModal.type === 'suspend'         ? `Suspend ${actionModal.name}`
+          : actionModal.type === 'reject'          ? `Reject ${actionModal.name}`
+          : actionModal.type === 'warn_customer'   ? `Warn Customer: ${actionModal.name}`
+          :                                          `Suspend Customer: ${actionModal.name}`
+        }
+        subtitle="This reason will be sent to the user."
+        confirmLabel={
+          (actionModal?.type === 'warn' || actionModal?.type === 'warn_customer') ? 'Send Warning'
+          : (actionModal?.type === 'suspend' || actionModal?.type === 'suspend_customer') ? 'Suspend'
+          : 'Reject'
+        }
+        confirmColor={
+          (actionModal?.type === 'warn' || actionModal?.type === 'warn_customer') ? AMBER : RED
+        }
+        onConfirm={submitAction}
+        confirmLoading={actionLoading}
+      >
+        <TextInput
+          style={styles.reasonInput}
+          placeholder="Enter reason…"
+          placeholderTextColor="#9CA3AF"
+          multiline
+          numberOfLines={3}
+          value={actionReason}
+          onChangeText={setActionReason}
+          editable={!actionLoading}
+        />
+      </BottomModal>
 
       {/* ── ID Full-Screen viewer ── */}
       <Modal
@@ -1113,29 +1088,11 @@ const styles = StyleSheet.create({
     flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
-  reasonModal: {
-    backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24,
-    padding: 24, paddingBottom: 36,
-  },
-  reasonTitle: { fontSize: 18, fontWeight: '800', color: '#1E232C', marginBottom: 4 },
-  reasonSubtitle: { fontSize: 13, color: '#6B7280', marginBottom: 16 },
   reasonInput: {
     borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
     padding: 14, fontSize: 14, color: '#1E232C',
     minHeight: 90, textAlignVertical: 'top', marginBottom: 20,
   },
-  reasonActions: { flexDirection: 'row', gap: 12 },
-  reasonCancelBtn: {
-    flex: 1, paddingVertical: 14, borderRadius: 12,
-    borderWidth: 1.5, borderColor: '#E5E7EB', alignItems: 'center',
-  },
-  reasonCancelText: { fontSize: 14, fontWeight: '700', color: '#374151' },
-  reasonSubmitBtn: {
-    flex: 2, paddingVertical: 14, borderRadius: 12,
-    backgroundColor: PRIMARY, alignItems: 'center',
-  },
-  reasonSubmitText: { fontSize: 14, fontWeight: '800', color: '#FFF' },
-
   viewFormModal: {
     backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: 24, maxHeight: '90%',

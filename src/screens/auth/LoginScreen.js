@@ -7,7 +7,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { checkDevice } from '../../api/authApi';
 import { getDeviceId } from '../../utils/deviceId';
-import { saveToken, saveUser, saveLastPhone, getLastPhone } from '../../utils/storage';
+import { saveToken, saveUser, saveLastPhone, getLastPhone, clearSession, removeToken } from '../../utils/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as SecureStore from 'expo-secure-store';
 import BackButton from '../../components/BackButton';
 
 export default function LoginScreen({ navigation, onAuthSuccess }) {
@@ -199,6 +201,34 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
               <Text style={[styles.badgeText, { color: '#92400E' }]}>SECURE PAYMENTS</Text>
             </View>
           </View>
+
+          {/* DEV ONLY — clear all local storage for fresh testing */}
+          {__DEV__ && (
+            <TouchableOpacity
+              style={devStyles.clearBtn}
+              onPress={() => {
+                Alert.alert(
+                  'Clear Storage',
+                  'This will wipe all local data (token, user, phone). You will need to register again.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Clear',
+                      style: 'destructive',
+                      onPress: async () => {
+                        await AsyncStorage.clear();
+                        await SecureStore.deleteItemAsync('fixng_token');
+                        setPhone('');
+                        Alert.alert('Done', 'Storage cleared. You can now register fresh.');
+                      },
+                    },
+                  ]
+                );
+              }}
+            >
+              <Text style={devStyles.clearBtnText}>🧹 DEV: Clear Storage</Text>
+            </TouchableOpacity>
+          )}
 
           {/* Footer */}
           <View style={styles.footer}>
@@ -416,4 +446,18 @@ const styles = StyleSheet.create({
 
   recoveryCloseBtn: { alignItems: 'center' },
   recoveryCloseBtnText: { fontSize: 14, color: '#9CA3AF', fontWeight: '600' },
+});
+
+const devStyles = StyleSheet.create({
+  clearBtn: {
+    alignSelf: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#FCA5A5',
+    backgroundColor: '#FEF2F2',
+  },
+  clearBtnText: { fontSize: 13, fontWeight: '700', color: '#B91C1C' },
 });

@@ -419,7 +419,7 @@ export default function ArtisanProfileScreen({ route, navigation }) {
               </View>
               <Text style={styles.noReviewsTitle}>No Reviews Yet</Text>
               <Text style={styles.noReviewsSub}>
-                Be the first to work with {profile.name.split(' ')[0]} and
+                Be the first to work with {profile.name?.split(' ')[0] ?? 'this artisan'} and
                 leave a review.
               </Text>
             </View>
