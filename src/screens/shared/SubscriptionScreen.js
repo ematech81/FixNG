@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   ActivityIndicator, Alert, Linking,
@@ -6,6 +6,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
+import { getUser } from '../../utils/storage';
+import { getOnboardingStatus } from '../../api/artisanApi';
 import {
   getPlans, getMySubscription,
   initiateSubscription, verifySubscription, cancelSubscription,
@@ -40,18 +42,35 @@ function formatDate(d) {
 
 export default function SubscriptionScreen({ navigation, route }) {
   const [plans, setPlans]         = useState([]);
-  const [current, setCurrent]     = useState(null); // current subscription
+  const [current, setCurrent]     = useState(null);
   const [loading, setLoading]     = useState(true);
   const [subscribing, setSubscribing] = useState(null); // planId being processed
+  const [verifying, setVerifying] = useState(false);
+  // Persists across browser round-trip so the confirm banner stays visible
+  const [pendingPayment, setPendingPayment] = useState(null); // { reference, planName }
+  const [artisanStatus, setArtisanStatus] = useState(null);
 
   useFocusEffect(useCallback(() => { load(); }, []));
 
   const load = async () => {
     setLoading(true);
     try {
-      const [plansRes, subRes] = await Promise.all([getPlans(), getMySubscription()]);
-      setPlans(plansRes.data.data || []);
-      setCurrent(subRes.data.data || null);
+      const u = await getUser();
+      const fetches = [
+        getPlans().catch(() => null),
+        getMySubscription().catch(() => null),
+      ];
+      if (u?.role === 'artisan') fetches.push(getOnboardingStatus().catch(() => null));
+      const [plansRes, subRes, onboardRes] = await Promise.all(fetches);
+      setPlans(plansRes?.data?.data || []);
+      const sub = subRes?.data?.data || null;
+      setCurrent(sub);
+      if (sub?.status === 'active' && sub?.plan !== 'free') {
+        setPendingPayment(null);
+      }
+      if (onboardRes) {
+        setArtisanStatus(onboardRes?.data?.data?.verificationStatus || 'incomplete');
+      }
     } catch {
       // silent
     } finally {
@@ -66,6 +85,22 @@ export default function SubscriptionScreen({ navigation, route }) {
       return;
     }
 
+    // Step 1 — explain the process before opening the browser
+    const planName = plans.find(p => p.id === planId)?.name || planId;
+    Alert.alert(
+      'You\'re about to pay via Paystack',
+      `You will be redirected to the Paystack payment page to complete your ${planName} subscription.\n\nAfter paying, come back to this screen and tap "I've Paid — Confirm" to activate your subscription.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Open Paystack →',
+          onPress: () => openPaystack(planId, planName),
+        },
+      ]
+    );
+  };
+
+  const openPaystack = async (planId, planName) => {
     setSubscribing(planId);
     try {
       const res = await initiateSubscription(planId);
@@ -74,18 +109,8 @@ export default function SubscriptionScreen({ navigation, route }) {
       // Open Paystack checkout in device browser
       await Linking.openURL(authorizationUrl);
 
-      // After the browser, ask the user if payment was completed
-      Alert.alert(
-        'Payment Complete?',
-        'If you completed the payment, tap Confirm to activate your subscription.',
-        [
-          { text: 'Not Yet', style: 'cancel' },
-          {
-            text: 'Confirm Payment',
-            onPress: () => handleVerify(reference),
-          },
-        ]
-      );
+      // Store reference in state — this persists when user returns from browser
+      setPendingPayment({ reference, planName });
     } catch (err) {
       const msg = err?.response?.data?.message || 'Could not initiate payment. Please try again.';
       Alert.alert('Payment Error', msg);
@@ -94,17 +119,23 @@ export default function SubscriptionScreen({ navigation, route }) {
     }
   };
 
-  const handleVerify = async (reference) => {
+  const handleVerify = async () => {
+    if (!pendingPayment) return;
+    setVerifying(true);
     try {
-      const res = await verifySubscription(reference);
+      const res = await verifySubscription(pendingPayment.reference);
       if (res.data.success) {
+        setPendingPayment(null);
         Alert.alert('Subscription Activated! 🎉', res.data.message);
-        load(); // refresh subscription state
+        load();
       } else {
         Alert.alert('Verification Failed', 'Payment could not be verified. Contact support if funds were deducted.');
       }
-    } catch {
-      Alert.alert('Error', 'Verification failed. Contact support with your payment reference.');
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Verification failed. Contact support with your payment reference.';
+      Alert.alert('Verification Error', msg);
+    } finally {
+      setVerifying(false);
     }
   };
 
@@ -155,6 +186,52 @@ export default function SubscriptionScreen({ navigation, route }) {
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
         >
+          {/* ── Pending payment confirmation banner ── */}
+          {pendingPayment && (
+            <View style={styles.pendingBanner}>
+              <View style={styles.pendingBannerTop}>
+                <Text style={styles.pendingBannerIcon}>⏳</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.pendingBannerTitle}>Payment Pending Confirmation</Text>
+                  <Text style={styles.pendingBannerSub}>
+                    If you completed the {pendingPayment.planName} payment on Paystack, tap the button below to activate your subscription.
+                  </Text>
+                </View>
+              </View>
+              <TouchableOpacity
+                style={[styles.confirmBtn, verifying && { opacity: 0.7 }]}
+                onPress={handleVerify}
+                disabled={verifying}
+                activeOpacity={0.85}
+              >
+                {verifying
+                  ? <ActivityIndicator color="#FFF" size="small" />
+                  : <Text style={styles.confirmBtnText}>I've Paid — Confirm Activation ✓</Text>
+                }
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.pendingDismiss}
+                onPress={() => setPendingPayment(null)}
+                disabled={verifying}
+              >
+                <Text style={styles.pendingDismissText}>I didn't complete payment</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Verification required notice — shown for unverified artisans */}
+          {artisanStatus && artisanStatus !== 'verified' && (
+            <View style={styles.verificationNotice}>
+              <Text style={styles.verificationNoticeIcon}>⏳</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.verificationNoticeTitle}>Verification Required</Text>
+                <Text style={styles.verificationNoticeSub}>
+                  Your artisan account must be approved before you can subscribe. Our team usually reviews applications within 24–48 hours.
+                </Text>
+              </View>
+            </View>
+          )}
+
           {/* Upgrade nudge — shown when navigated here from a job limit error */}
           {upgradeContext && (
             <View style={styles.upgradeNudge}>
@@ -266,10 +343,10 @@ export default function SubscriptionScreen({ navigation, route }) {
                     style={[
                       styles.subBtn,
                       { backgroundColor: isCurrent ? C.green : accent.color },
-                      isLoading && { opacity: 0.7 },
+                      (isLoading || (artisanStatus && artisanStatus !== 'verified')) && { opacity: 0.5 },
                     ]}
                     onPress={() => handleSubscribe(plan.id)}
-                    disabled={isCurrent || !!isLoading}
+                    disabled={isCurrent || !!isLoading || (artisanStatus != null && artisanStatus !== 'verified')}
                     activeOpacity={0.85}
                   >
                     {isLoading ? (
@@ -408,4 +485,38 @@ const styles = StyleSheet.create({
   historyPlan:   { fontSize: 13, fontWeight: '700', color: C.text },
   historyDate:   { fontSize: 11, color: C.muted, marginTop: 2 },
   historyAmount: { fontSize: 15, fontWeight: '800', color: C.primary },
+
+  // ── Verification required notice ─────────────────────────────────────────────
+  verificationNotice: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
+    backgroundColor: '#FFF7ED', borderRadius: 14, padding: 14,
+    borderWidth: 1.5, borderColor: '#FDE68A', marginBottom: 16,
+  },
+  verificationNoticeIcon: { fontSize: 24 },
+  verificationNoticeTitle: { fontSize: 14, fontWeight: '800', color: '#92400E', marginBottom: 3 },
+  verificationNoticeSub: { fontSize: 13, color: '#78350F', lineHeight: 18 },
+
+  // ── Pending payment confirmation banner ──────────────────────────────────────
+  pendingBanner: {
+    backgroundColor: '#FFF7ED', borderRadius: 16, padding: 16,
+    marginBottom: 16, borderWidth: 2, borderColor: '#F59E0B',
+  },
+  pendingBannerTop: {
+    flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14,
+  },
+  pendingBannerIcon: { fontSize: 26, marginTop: 2 },
+  pendingBannerTitle: {
+    fontSize: 15, fontWeight: '800', color: '#92400E', marginBottom: 4,
+  },
+  pendingBannerSub: { fontSize: 13, color: '#78350F', lineHeight: 18 },
+  confirmBtn: {
+    backgroundColor: C.green, borderRadius: 12,
+    paddingVertical: 14, alignItems: 'center',
+    marginBottom: 10,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.12, shadowRadius: 4, elevation: 3,
+  },
+  confirmBtnText: { color: '#FFF', fontSize: 15, fontWeight: '800' },
+  pendingDismiss: { alignItems: 'center', paddingVertical: 6 },
+  pendingDismissText: { fontSize: 13, color: '#92400E', fontWeight: '600' },
 });

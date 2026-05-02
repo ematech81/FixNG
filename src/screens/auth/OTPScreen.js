@@ -38,22 +38,30 @@ export default function OTPScreen({ route, navigation }) {
   }, []);
 
   const handleDigitChange = (text, index) => {
-    const digit = text.replace(/\D/g, '').slice(-1); // only last digit
+    const cleaned = text.replace(/\D/g, '');
+
+    // ── Autofill / paste — received the full code at once ──────────────────
+    // iOS textContentType="oneTimeCode" and Android autoComplete="sms-otp"
+    // fire onChangeText with all 6 digits in the first box.
+    if (cleaned.length >= OTP_LENGTH) {
+      const newDigits = cleaned.slice(0, OTP_LENGTH).split('');
+      setDigits(newDigits);
+      inputRefs.current[OTP_LENGTH - 1]?.focus();
+      handleVerify(cleaned.slice(0, OTP_LENGTH));
+      return;
+    }
+
+    // ── Normal single-digit typing ──────────────────────────────────────────
+    const digit = cleaned.slice(-1);
     const updated = [...digits];
     updated[index] = digit;
     setDigits(updated);
 
-    // Auto-advance
     if (digit && index < OTP_LENGTH - 1) {
       inputRefs.current[index + 1]?.focus();
     }
-
-    // Auto-submit when all 6 filled
-    if (digit && index === OTP_LENGTH - 1) {
-      const all = [...updated];
-      if (all.every((d) => d !== '')) {
-        handleVerify(all.join(''));
-      }
+    if (digit && index === OTP_LENGTH - 1 && updated.every((d) => d !== '')) {
+      handleVerify(updated.join(''));
     }
   };
 
@@ -167,10 +175,12 @@ export default function OTPScreen({ route, navigation }) {
                 onChangeText={(text) => handleDigitChange(text, i)}
                 onKeyPress={(e) => handleKeyPress(e, i)}
                 keyboardType="number-pad"
-                maxLength={2} // allow 2 so backspace clears properly
+                maxLength={OTP_LENGTH}
                 textAlign="center"
                 selectTextOnFocus
                 caretHidden
+                // iOS: system reads the SMS and shows a one-tap "Code from Messages" banner
+                textContentType="oneTimeCode"
               />
             ))}
           </View>

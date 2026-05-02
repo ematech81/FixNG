@@ -10,8 +10,10 @@ import {
   ScrollView,
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { uploadProfilePhoto } from '../../../api/artisanApi';
+import { saveProfilePhotoUrl } from '../../../api/artisanApi';
+import { uploadImageToCloudinary } from '../../../utils/cloudinaryUpload';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 
 const PRIMARY = '#2563EB';
@@ -22,6 +24,7 @@ export default function Step1_ProfilePhoto({ navigation }) {
   const { onCancelRegistration } = useOnboarding();
   const [imageUri, setImageUri] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
 
   const requestPermission = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -43,7 +46,7 @@ export default function Step1_ProfilePhoto({ navigation }) {
       mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.8,
+      quality: 1, // keep full quality here — we compress ourselves below
     });
 
     if (!result.canceled && result.assets?.length > 0) {
@@ -61,7 +64,7 @@ export default function Step1_ProfilePhoto({ navigation }) {
     const result = await ImagePicker.launchCameraAsync({
       allowsEditing: true,
       aspect: [1, 1],
-      quality: 0.8,
+      quality: 1,
     });
 
     if (!result.canceled && result.assets?.length > 0) {
@@ -76,18 +79,33 @@ export default function Step1_ProfilePhoto({ navigation }) {
     }
 
     setUploading(true);
+    setUploadProgress(0);
     try {
-      await uploadProfilePhoto(imageUri);
+      // Compress image before uploading — reduces 3-5 MB to ~150 KB
+      const compressed = await ImageManipulator.manipulateAsync(
+        imageUri,
+        [{ resize: { width: 800 } }],
+        { compress: 0.78, format: ImageManipulator.SaveFormat.JPEG }
+      );
+
+      // Upload directly to Cloudinary from the device (no relay through backend)
+      const { url, publicId } = await uploadImageToCloudinary(
+        compressed.uri,
+        (pct) => setUploadProgress(pct)
+      );
+
+      // Tell the backend to save the Cloudinary URL (tiny JSON call — instant)
+      await saveProfilePhotoUrl({ url, publicId });
       navigation.navigate('Step2_Skills');
     } catch (err) {
-      const msg = err?.message || 'Upload failed.';
       Alert.alert(
         'Upload Failed',
-        msg + (err?.isNetworkError ? '' : '\n\nTip: Try using a smaller photo or switch to WiFi.'),
+        err?.message || 'Upload failed. Try again.',
         [{ text: 'Retry', onPress: handleContinue }, { text: 'Cancel' }]
       );
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -133,6 +151,18 @@ export default function Step1_ProfilePhoto({ navigation }) {
             <Text style={styles.pickBtnText}>Camera</Text>
           </TouchableOpacity>
         </View>
+
+        {/* Upload progress bar */}
+        {uploading && (
+          <View style={styles.progressWrap}>
+            <View style={styles.progressTrackFull}>
+              <View style={[styles.progressFill, { width: `${uploadProgress}%` }]} />
+            </View>
+            <Text style={styles.progressLabel}>
+              {uploadProgress < 100 ? `Uploading… ${uploadProgress}%` : 'Processing…'}
+            </Text>
+          </View>
+        )}
 
         <Text style={styles.hint}>
           ⚠ No face masks, sunglasses, or group photos. Admin will reject unclear photos.
@@ -204,6 +234,15 @@ const styles = StyleSheet.create({
     borderWidth: 1.5, borderColor: PRIMARY, alignItems: 'center',
   },
   pickBtnText: { color: PRIMARY, fontWeight: '600', fontSize: 15 },
+
+  // Upload progress
+  progressWrap: { marginBottom: 20 },
+  progressTrackFull: {
+    height: 8, borderRadius: 4, backgroundColor: '#E5E7EB', overflow: 'hidden', marginBottom: 6,
+  },
+  progressFill: { height: '100%', backgroundColor: PRIMARY, borderRadius: 4 },
+  progressLabel: { fontSize: 13, color: PRIMARY, fontWeight: '600', textAlign: 'center' },
+
   hint: { fontSize: 13, color: '#999', lineHeight: 18 },
   footer: { padding: 24, paddingTop: 0 },
   continueBtn: { backgroundColor: PRIMARY, padding: 16, borderRadius: 12, alignItems: 'center' },

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,8 +10,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
-import { Video, ResizeMode } from 'expo-av';
-import { uploadSkillVideo, skipSkillVideo } from '../../../api/artisanApi';
+import { VideoView, useVideoPlayer } from 'expo-video';
+import { saveSkillVideoUrl, skipSkillVideo } from '../../../api/artisanApi';
+import { uploadVideoToCloudinary } from '../../../utils/cloudinaryUpload';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 
 const PRIMARY = '#2563EB';
@@ -26,7 +27,15 @@ export default function Step5_SkillVideo({ navigation, route }) {
 
   const [videoUri, setVideoUri] = useState(null);
   const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [skipping, setSkipping] = useState(false);
+
+  // expo-video player — source is replaced via useEffect when videoUri changes
+  const player = useVideoPlayer(null, (p) => { p.loop = false; });
+
+  useEffect(() => {
+    if (videoUri) player.replace({ uri: videoUri });
+  }, [videoUri]);
 
   const pickVideo = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -86,33 +95,32 @@ export default function Step5_SkillVideo({ navigation, route }) {
     }
 
     setUploading(true);
+    setUploadProgress(0);
 
     try {
-      await uploadSkillVideo(videoUri);
+      // Upload directly to Cloudinary from the device — no relay through backend
+      const { url, publicId } = await uploadVideoToCloudinary(
+        videoUri,
+        (pct) => setUploadProgress(pct)
+      );
+
+      // Tell the backend to save the URL (tiny JSON call — instant)
+      await saveSkillVideoUrl({ url, publicId });
+
       if (isEdit) {
         navigation.goBack();
       } else {
         navigation.navigate('PendingVerification');
       }
     } catch (err) {
-      const isTimeout = err?.isTimeout;
-      const isNetwork = err?.isNetworkError;
-
-      let message;
-      if (isTimeout) {
-        message = 'Upload timed out. The video may be too large for your current connection speed. Try switching to WiFi or recording a shorter clip (under 30 seconds).';
-      } else if (isNetwork) {
-        message = 'No internet connection. Please check your network and try again.';
-      } else {
-        message = err?.message || 'Video upload failed. Please try again.';
-      }
-
-      Alert.alert('Upload Failed', message, [
-        { text: 'Retry', onPress: handleSubmit },
-        { text: 'Cancel' },
-      ]);
+      Alert.alert(
+        'Upload Failed',
+        err?.message || 'Video upload failed. Please try again.',
+        [{ text: 'Retry', onPress: handleSubmit }, { text: 'Cancel' }]
+      );
     } finally {
       setUploading(false);
+      setUploadProgress(0);
     }
   };
 
@@ -125,10 +133,7 @@ export default function Step5_SkillVideo({ navigation, route }) {
         {
           text: 'Continue Anyway',
           onPress: async () => {
-            if (isEdit) {
-              navigation.goBack();
-              return;
-            }
+            if (isEdit) { navigation.goBack(); return; }
             setSkipping(true);
             try {
               await skipSkillVideo();
@@ -163,12 +168,11 @@ export default function Step5_SkillVideo({ navigation, route }) {
         {/* Video Preview */}
         {videoUri ? (
           <View style={styles.videoPreview}>
-            <Video
-              source={{ uri: videoUri }}
+            <VideoView
+              player={player}
               style={styles.video}
-              useNativeControls
-              resizeMode={ResizeMode.CONTAIN}
-              isLooping={false}
+              allowsFullscreen
+              allowsPictureInPicture={false}
             />
             <TouchableOpacity style={styles.rePickBtn} onPress={pickVideo}>
               <Text style={styles.rePickBtnText}>Change Video</Text>
@@ -191,13 +195,20 @@ export default function Step5_SkillVideo({ navigation, route }) {
           </TouchableOpacity>
         </View>
 
-        {/* Upload progress indicator */}
+        {/* Upload progress bar */}
         {uploading && (
           <View style={styles.uploadingBox}>
-            <ActivityIndicator color={PRIMARY} />
-            <Text style={styles.uploadingText}>
-              Uploading video… This may take a few minutes on mobile data. Please stay connected.
-            </Text>
+            <View style={styles.uploadingTop}>
+              <ActivityIndicator color={PRIMARY} />
+              <Text style={styles.uploadingText}>
+                {uploadProgress < 100
+                  ? `Uploading… ${uploadProgress}%`
+                  : 'Processing video…'}
+              </Text>
+            </View>
+            <View style={styles.progressTrackFull}>
+              <View style={[styles.progressFill, { width: `${uploadProgress}%` }]} />
+            </View>
           </View>
         )}
 
@@ -285,14 +296,9 @@ const styles = StyleSheet.create({
   subtitle: { fontSize: 15, color: '#666', marginBottom: 24, lineHeight: 22 },
   videoPlaceholder: {
     height: 180,
-    borderWidth: 2,
-    borderColor: '#E5E5E5',
-    borderStyle: 'dashed',
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 16,
-    backgroundColor: '#FAFAFA',
+    borderWidth: 2, borderColor: '#E5E5E5', borderStyle: 'dashed',
+    borderRadius: 12, justifyContent: 'center', alignItems: 'center',
+    marginBottom: 16, backgroundColor: '#FAFAFA',
   },
   videoIcon: { fontSize: 40, marginBottom: 8 },
   videoPlaceholderText: { fontSize: 14, color: '#BBB' },
@@ -302,30 +308,25 @@ const styles = StyleSheet.create({
   rePickBtnText: { color: PRIMARY, fontSize: 13, fontWeight: '600' },
   pickRow: { flexDirection: 'row', gap: 12, marginBottom: 16 },
   pickBtn: {
-    flex: 1,
-    padding: 14,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: PRIMARY,
-    alignItems: 'center',
+    flex: 1, padding: 14, borderRadius: 10,
+    borderWidth: 1.5, borderColor: PRIMARY, alignItems: 'center',
   },
   pickBtnText: { color: PRIMARY, fontWeight: '600', fontSize: 15 },
+
+  // Upload progress
   uploadingBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#EFF6FF',
-    borderRadius: 10,
-    padding: 14,
-    marginBottom: 16,
+    backgroundColor: '#EFF6FF', borderRadius: 10, padding: 14, marginBottom: 16,
   },
-  uploadingText: { flex: 1, fontSize: 13, color: PRIMARY, lineHeight: 18 },
+  uploadingTop: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10 },
+  uploadingText: { flex: 1, fontSize: 13, color: PRIMARY, fontWeight: '600', lineHeight: 18 },
+  progressTrackFull: {
+    height: 8, borderRadius: 4, backgroundColor: '#BFDBFE', overflow: 'hidden',
+  },
+  progressFill: { height: '100%', backgroundColor: PRIMARY, borderRadius: 4 },
+
   guideBox: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 10,
-    padding: 16,
-    borderLeftWidth: 4,
-    borderLeftColor: PRIMARY,
+    backgroundColor: '#F9FAFB', borderRadius: 10, padding: 16,
+    borderLeftWidth: 4, borderLeftColor: PRIMARY,
   },
   guideTitle: { fontSize: 13, fontWeight: '700', color: '#333', marginBottom: 8 },
   guideItem: { fontSize: 13, color: '#555', marginBottom: 5, lineHeight: 18 },
@@ -334,11 +335,8 @@ const styles = StyleSheet.create({
   submitBtnDisabled: { backgroundColor: '#93C5FD' },
   submitBtnText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
   skipBtn: {
-    padding: 14,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1.5,
-    borderColor: '#D1D5DB',
+    padding: 14, borderRadius: 12, alignItems: 'center',
+    borderWidth: 1.5, borderColor: '#D1D5DB',
   },
   skipBtnText: { color: '#6B7280', fontWeight: '600', fontSize: 15 },
   submitNote: { fontSize: 12, color: '#999', textAlign: 'center', lineHeight: 18 },

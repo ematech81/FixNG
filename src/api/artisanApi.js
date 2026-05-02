@@ -71,3 +71,10 @@ export const getSkillsList = () => api.get('/artisan/skills-list');
 // Skip optional onboarding steps
 export const skipVerificationId = () => api.post('/artisan/onboarding/skip-verification-id');
 export const skipSkillVideo = () => api.post('/artisan/onboarding/skip-skill-video');
+
+// Called after the frontend uploads directly to Cloudinary — just saves the URL
+export const saveProfilePhotoUrl = ({ url, publicId }) =>
+  api.post('/artisan/onboarding/profile-photo-url', { url, publicId });
+
+export const saveSkillVideoUrl = ({ url, publicId }) =>
+  api.post('/artisan/onboarding/skill-video-url', { url, publicId });
