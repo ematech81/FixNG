@@ -386,7 +386,7 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth, onS
             <View style={styles.artisanCtaLeft}>
               <Text style={styles.artisanCtaIcon}>🔧</Text>
               <View>
-                <Text style={styles.artisanCtaTitle}>Become an Artisan</Text>
+                <Text style={styles.artisanCtaTitle}>Create Job</Text>
                 <Text style={styles.artisanCtaSubtitle}>List your skills & earn money</Text>
               </View>
             </View>
@@ -597,8 +597,8 @@ const styles = StyleSheet.create({
   },
   artisanCtaLeft: { flexDirection: 'row', alignItems: 'center', gap: 14, flex: 1 },
   artisanCtaIcon: { fontSize: 28 },
-  artisanCtaTitle: { fontSize: 15, fontWeight: '800', color: PRIMARY, marginBottom: 2 },
-  artisanCtaSubtitle: { fontSize: 12, color: '#6B7280' },
+  artisanCtaTitle: { fontSize: 18, fontWeight: '800', color: PRIMARY, marginBottom: 2 },
+  artisanCtaSubtitle: { fontSize: 13, color: '#6B7280' },
   artisanCtaArrow: { fontSize: 24, color: PRIMARY, fontWeight: '700' },
 
   logoutBtn: {

@@ -46,7 +46,7 @@ export default function Step5_SkillVideo({ navigation, route }) {
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['videos'],
-      allowsEditing: true,
+      allowsEditing: false,
       videoMaxDuration: MAX_VIDEO_DURATION_SECS,
       quality: ImagePicker.UIImagePickerControllerQualityType.Medium,
     });
