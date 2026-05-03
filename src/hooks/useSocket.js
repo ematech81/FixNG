@@ -1,10 +1,8 @@
 import { useEffect, useRef } from 'react';
 import { io } from 'socket.io-client';
 import { getToken } from '../utils/storage';
-import { ApiIPAddress } from '../utils/AppIPAdress';
 
-// Derived from the same IP as the REST API — strip /api suffix so both point to the same server
-const SOCKET_URL = ApiIPAddress.replace('/api', '');
+const SOCKET_URL = 'https://fixngbackend-production.up.railway.app';
 
 let socketInstance = null;
 
