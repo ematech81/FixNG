@@ -6,14 +6,7 @@
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
-    "splash": {
-      "image": "./assets/splash.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#FF6B00"
-    },
-    "assetBundlePatterns": [
-      "**/*"
-    ],
+    "assetBundlePatterns": ["**/*"],
     "ios": {
       "supportsTablet": false,
       "infoPlist": {
@@ -26,7 +19,7 @@
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#FF6B00"
+        "backgroundColor": "#2563EB"
       },
       "permissions": [
         "android.permission.CAMERA",
@@ -42,10 +35,19 @@
     },
     "plugins": [
       [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "imageWidth": 220,
+          "backgroundColor": "#2563EB",
+          "resizeMode": "contain"
+        }
+      ],
+      [
         "expo-notifications",
         {
           "icon": "./assets/adaptive-icon.png",
-          "color": "#2563EB",
+          "color": "#FF6B00",
           "defaultChannel": "default",
           "sounds": []
         }

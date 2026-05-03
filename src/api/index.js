@@ -1,10 +1,7 @@
 import axios from 'axios';
 import { getToken } from '../utils/storage';
-import { ApiIPAddress } from '../utils/AppIPAdress';
 
-// Change this to your machine's local IP when testing on a physical device
-// e.g. http://192.168.1.100:5000/api
-const BASE_URL = ApiIPAddress;
+const BASE_URL = 'https://fixngbackend-production.up.railway.app/api';
 const APP_KEY = '6b1fd0eb36ca9c691c4329dff758606f1e51ca8d1dcd2f0f1e57c2504beab6f9';
 
 const api = axios.create({
