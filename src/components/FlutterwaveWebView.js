@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useRef, useState, useEffect } from 'react';
 import {
   Modal, View, StyleSheet, TouchableOpacity, Text,
   ActivityIndicator, StatusBar,
@@ -8,9 +8,25 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const PRIMARY = '#2563EB';
 
-// Must match the redirect_url domain set in the backend initializePayment call
+// Must match the redirect_url set in the backend initializePayment call
 const REDIRECT_HOST = 'fixng.app';
 const REDIRECT_PATH = '/payment/callback';
+
+// Only match URLs where OUR domain is the actual host, not embedded as a query param.
+// Using url.includes() was too broad — Flutterwave embeds our redirect_url inside
+// its own checkout URL as a parameter, which was blocking the initial page load.
+const isCallbackUrl = (url) => {
+  if (!url) return false;
+  try {
+    const { hostname, pathname } = new URL(url);
+    return hostname === REDIRECT_HOST && pathname === REDIRECT_PATH;
+  } catch {
+    return false;
+  }
+};
+
+// Milliseconds before giving up and showing an error if the page never loads
+const LOAD_TIMEOUT_MS = 30000;
 
 /**
  * FlutterwaveWebView
@@ -35,8 +51,22 @@ export default function FlutterwaveWebView({
 }) {
   const insets              = useSafeAreaInsets();
   const webRef              = useRef(null);
+  const timeoutRef          = useRef(null);
   const [pageLoading, setPageLoading] = useState(true);
   const [loadError,   setLoadError]   = useState(false);
+
+  // Clear timeout on unmount
+  useEffect(() => () => clearTimeout(timeoutRef.current), []);
+
+  const startLoadTimeout = () => {
+    clearTimeout(timeoutRef.current);
+    timeoutRef.current = setTimeout(() => {
+      setPageLoading(false);
+      setLoadError(true);
+    }, LOAD_TIMEOUT_MS);
+  };
+
+  const clearLoadTimeout = () => clearTimeout(timeoutRef.current);
 
   const parseRedirect = (url) => {
     try {
@@ -49,7 +79,6 @@ export default function FlutterwaveWebView({
         onCancel();
       }
     } catch {
-      // URL parse failed — treat as success with the stored txRef
       onSuccess(txRef);
     }
   };
@@ -57,17 +86,18 @@ export default function FlutterwaveWebView({
   // Fires after navigation completes — catches soft redirects
   const handleNavChange = (state) => {
     const url = state.url || '';
-    if (url.includes(REDIRECT_HOST + REDIRECT_PATH)) {
-      parseRedirect(url);
-    }
+    if (isCallbackUrl(url)) parseRedirect(url);
   };
 
-  // Fires before loading starts — intercepts the redirect page before it renders
+  // Fires before loading starts — intercepts the redirect page before it renders.
+  // IMPORTANT: use isCallbackUrl (hostname check) not url.includes(), because
+  // Flutterwave embeds our redirect_url inside the checkout URL as a query param.
   const handleShouldStartLoad = (request) => {
     const url = request.url || '';
-    if (url.includes(REDIRECT_HOST + REDIRECT_PATH)) {
+    if (isCallbackUrl(url)) {
+      clearLoadTimeout();
       parseRedirect(url);
-      return false; // block the redirect page from loading
+      return false;
     }
     return true;
   };
@@ -114,9 +144,10 @@ export default function FlutterwaveWebView({
             <WebView
               ref={webRef}
               source={{ uri: paymentLink }}
-              onLoadStart={() => setPageLoading(true)}
-              onLoadEnd={()   => setPageLoading(false)}
-              onError={()     => { setPageLoading(false); setLoadError(true); }}
+              onLoadStart={() => { setPageLoading(true); startLoadTimeout(); }}
+              onLoadEnd={()   => { clearLoadTimeout(); setPageLoading(false); }}
+              onError={()     => { clearLoadTimeout(); setPageLoading(false); setLoadError(true); }}
+              onHttpError={() => { clearLoadTimeout(); setPageLoading(false); setLoadError(true); }}
               onNavigationStateChange={handleNavChange}
               onShouldStartLoadWithRequest={handleShouldStartLoad}
               javaScriptEnabled
