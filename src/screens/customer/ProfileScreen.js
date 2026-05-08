@@ -908,7 +908,15 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth }) {
 
         {/* ── Hero band ──────────────────────────────────────────────────── */}
         <View style={styles.hero}>
-          <Text style={styles.heroTitle}>My Profile</Text>
+          <View style={styles.heroTop}>
+            <Text style={styles.heroTitle}>My Profile</Text>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('EditProfile')}
+              hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            >
+              <Text style={styles.heroEditBtn}>Edit</Text>
+            </TouchableOpacity>
+          </View>
 
           {/* Avatar — overlaps the hero band */}
           <View style={styles.avatarWrapper}>
@@ -1128,8 +1136,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     paddingBottom: 52,          // extra space so avatar overlaps nicely
   },
+  heroTop: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+  },
   heroTitle: {
     fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: 0.3,
+  },
+  heroEditBtn: {
+    fontSize: 14, fontWeight: '700', color: 'rgba(255,255,255,0.85)',
+    paddingHorizontal: 12, paddingVertical: 5,
+    borderRadius: 20, borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)',
   },
 
   /* Avatar */

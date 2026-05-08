@@ -33,6 +33,7 @@ import MyReviewsScreen       from '../screens/shared/MyReviewsScreen';
 import PrivacySecurityScreen from '../screens/shared/PrivacySecurityScreen';
 import HelpSupportScreen    from '../screens/shared/HelpSupportScreen';
 import AccountStatusScreen  from '../screens/shared/AccountStatusScreen';
+import EditProfileScreen    from '../screens/shared/EditProfileScreen';
 
 // Artisan onboarding
 import ArtisanJobScreen from '../screens/artisan/ArtisanJobScreen';
@@ -107,6 +108,8 @@ function CustomerNavigator({ onLogout, onRefreshAuth, initialTab, onInitialTabCo
       <CustomerStack.Screen name="Step4_VerificationID" component={Step4_VerificationID} />
       {/* Account status: rejection details, suspension notice */}
       <CustomerStack.Screen name="AccountStatus" component={AccountStatusScreen} />
+      {/* Profile editing — shared for both customer and artisan */}
+      <CustomerStack.Screen name="EditProfile" component={EditProfileScreen} />
     </CustomerStack.Navigator>
   );
 }

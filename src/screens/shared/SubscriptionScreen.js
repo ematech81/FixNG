@@ -1,11 +1,12 @@
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Alert, Linking,
+  ActivityIndicator, Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import BackButton from '../../components/BackButton';
+import FlutterwaveWebView from '../../components/FlutterwaveWebView';
 import { getUser } from '../../utils/storage';
 import { getOnboardingStatus } from '../../api/artisanApi';
 import {
@@ -46,9 +47,15 @@ export default function SubscriptionScreen({ navigation, route }) {
   const [loading, setLoading]     = useState(true);
   const [subscribing, setSubscribing] = useState(null); // planId being processed
   const [verifying, setVerifying] = useState(false);
-  // Persists across browser round-trip so the confirm banner stays visible
-  const [pendingPayment, setPendingPayment] = useState(null); // { reference, planName }
   const [artisanStatus, setArtisanStatus] = useState(null);
+
+  // WebView state
+  const [webviewVisible, setWebviewVisible] = useState(false);
+  const [paymentLink,    setPaymentLink]    = useState('');
+  const [pendingTxRef,   setPendingTxRef]   = useState('');
+  const [pendingPlan,    setPendingPlan]    = useState(null); // plan object
+  // Manual fallback: shown if WebView is closed before redirect is auto-detected
+  const [pendingPayment, setPendingPayment] = useState(null); // { txRef, planName }
 
   useFocusEffect(useCallback(() => { load(); }, []));
 
@@ -65,6 +72,7 @@ export default function SubscriptionScreen({ navigation, route }) {
       setPlans(plansRes?.data?.data || []);
       const sub = subRes?.data?.data || null;
       setCurrent(sub);
+      // Clear manual pending banner if subscription is already active
       if (sub?.status === 'active' && sub?.plan !== 'free') {
         setPendingPayment(null);
       }
@@ -85,32 +93,29 @@ export default function SubscriptionScreen({ navigation, route }) {
       return;
     }
 
-    // Step 1 — explain the process before opening the browser
-    const planName = plans.find(p => p.id === planId)?.name || planId;
+    const plan = plans.find(p => p.id === planId);
+    const planName = plan?.name || planId;
+
     Alert.alert(
-      'You\'re about to pay via Paystack',
-      `You will be redirected to the Paystack payment page to complete your ${planName} subscription.\n\nAfter paying, come back to this screen and tap "I've Paid — Confirm" to activate your subscription.`,
+      'Subscribe via Flutterwave',
+      `You will be taken to a secure Flutterwave payment page to complete your ${planName} subscription (₦${(plan?.price || 0).toLocaleString('en-NG')}/month).\n\nYour subscription will activate automatically once payment is confirmed.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Open Paystack →',
-          onPress: () => openPaystack(planId, planName),
-        },
+        { text: 'Continue →', onPress: () => openFlutterwave(planId) },
       ]
     );
   };
 
-  const openPaystack = async (planId, planName) => {
+  const openFlutterwave = async (planId) => {
     setSubscribing(planId);
     try {
       const res = await initiateSubscription(planId);
-      const { authorizationUrl, reference } = res.data.data;
+      const { payment_link, tx_ref, plan } = res.data.data;
 
-      // Open Paystack checkout in device browser
-      await Linking.openURL(authorizationUrl);
-
-      // Store reference in state — this persists when user returns from browser
-      setPendingPayment({ reference, planName });
+      setPaymentLink(payment_link);
+      setPendingTxRef(tx_ref);
+      setPendingPlan(plan);
+      setWebviewVisible(true);
     } catch (err) {
       const msg = err?.response?.data?.message || 'Could not initiate payment. Please try again.';
       Alert.alert('Payment Error', msg);
@@ -119,17 +124,47 @@ export default function SubscriptionScreen({ navigation, route }) {
     }
   };
 
-  const handleVerify = async () => {
-    if (!pendingPayment) return;
+  // Called by WebView when redirect is auto-detected, or by manual fallback button
+  const handleWebViewSuccess = async (txRef) => {
+    setWebviewVisible(false);
     setVerifying(true);
     try {
-      const res = await verifySubscription(pendingPayment.reference);
+      const res = await verifySubscription(txRef);
       if (res.data.success) {
         setPendingPayment(null);
         Alert.alert('Subscription Activated! 🎉', res.data.message);
         load();
       } else {
         Alert.alert('Verification Failed', 'Payment could not be verified. Contact support if funds were deducted.');
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Verification failed. Contact support with your payment reference.';
+      Alert.alert('Verification Error', msg);
+    } finally {
+      setVerifying(false);
+    }
+  };
+
+  // Called when user closes the WebView without completing payment
+  const handleWebViewCancel = () => {
+    setWebviewVisible(false);
+    // Store txRef so user can manually confirm if they did pay before closing
+    if (pendingTxRef && pendingPlan) {
+      setPendingPayment({ txRef: pendingTxRef, planName: pendingPlan.name });
+    }
+  };
+
+  const handleManualVerify = async () => {
+    if (!pendingPayment) return;
+    setVerifying(true);
+    try {
+      const res = await verifySubscription(pendingPayment.txRef);
+      if (res.data.success) {
+        setPendingPayment(null);
+        Alert.alert('Subscription Activated! 🎉', res.data.message);
+        load();
+      } else {
+        Alert.alert('Not Verified', 'Payment not confirmed yet. If you paid, please wait a moment and try again.');
       }
     } catch (err) {
       const msg = err?.response?.data?.message || 'Verification failed. Contact support with your payment reference.';
@@ -170,6 +205,15 @@ export default function SubscriptionScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Flutterwave WebView modal */}
+      <FlutterwaveWebView
+        visible={webviewVisible}
+        paymentLink={paymentLink}
+        txRef={pendingTxRef}
+        onSuccess={handleWebViewSuccess}
+        onCancel={handleWebViewCancel}
+      />
+
       {/* Header */}
       <View style={styles.header}>
         <BackButton onPress={() => navigation.goBack()} />
@@ -186,7 +230,7 @@ export default function SubscriptionScreen({ navigation, route }) {
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
         >
-          {/* ── Pending payment confirmation banner ── */}
+          {/* ── Manual fallback banner (shown if WebView closed before auto-detect) ── */}
           {pendingPayment && (
             <View style={styles.pendingBanner}>
               <View style={styles.pendingBannerTop}>
@@ -194,13 +238,13 @@ export default function SubscriptionScreen({ navigation, route }) {
                 <View style={{ flex: 1 }}>
                   <Text style={styles.pendingBannerTitle}>Payment Pending Confirmation</Text>
                   <Text style={styles.pendingBannerSub}>
-                    If you completed the {pendingPayment.planName} payment on Paystack, tap the button below to activate your subscription.
+                    If you completed the {pendingPayment.planName} payment, tap below to activate your subscription.
                   </Text>
                 </View>
               </View>
               <TouchableOpacity
                 style={[styles.confirmBtn, verifying && { opacity: 0.7 }]}
-                onPress={handleVerify}
+                onPress={handleManualVerify}
                 disabled={verifying}
                 activeOpacity={0.85}
               >
@@ -219,7 +263,7 @@ export default function SubscriptionScreen({ navigation, route }) {
             </View>
           )}
 
-          {/* Verification required notice — shown for unverified artisans */}
+          {/* Verification required notice */}
           {artisanStatus && artisanStatus !== 'verified' && (
             <View style={styles.verificationNotice}>
               <Text style={styles.verificationNoticeIcon}>⏳</Text>
@@ -232,7 +276,7 @@ export default function SubscriptionScreen({ navigation, route }) {
             </View>
           )}
 
-          {/* Upgrade nudge — shown when navigated here from a job limit error */}
+          {/* Upgrade nudge */}
           {upgradeContext && (
             <View style={styles.upgradeNudge}>
               <Text style={styles.upgradeNudgeIcon}>🔒</Text>
@@ -278,10 +322,10 @@ export default function SubscriptionScreen({ navigation, route }) {
 
           {/* Plan cards */}
           {plans.map((plan) => {
-            const accent     = PLAN_ACCENT[plan.id] || PLAN_ACCENT.free;
-            const isCurrent  = activePlan === plan.id && isActive;
-            const isFree     = plan.id === 'free';
-            const isLoading  = subscribing === plan.id;
+            const accent    = PLAN_ACCENT[plan.id] || PLAN_ACCENT.free;
+            const isCurrent = activePlan === plan.id && isActive;
+            const isFree    = plan.id === 'free';
+            const isLoading = subscribing === plan.id;
 
             return (
               <View
@@ -293,7 +337,6 @@ export default function SubscriptionScreen({ navigation, route }) {
               >
                 {/* Plan header */}
                 <View style={[styles.cardHeader, { backgroundColor: accent.bg }]}>
-                  {/* Name row + inline badge */}
                   <View style={styles.cardHeaderTop}>
                     <Text style={[styles.planName, { color: accent.color }]}>{plan.name}</Text>
                     {accent.badge && (
@@ -303,7 +346,6 @@ export default function SubscriptionScreen({ navigation, route }) {
                     )}
                   </View>
                   <Text style={styles.planDesc}>{plan.description}</Text>
-                  {/* Price row — always below the name, never overlapping */}
                   <View style={styles.priceWrap}>
                     {isFree ? (
                       <Text style={[styles.price, { color: accent.color }]}>Free</Text>
@@ -329,7 +371,7 @@ export default function SubscriptionScreen({ navigation, route }) {
                   ))}
                 </View>
 
-                {/* CTA button */}
+                {/* CTA */}
                 {isFree ? (
                   <View style={styles.freePillWrap}>
                     <View style={[styles.freePill, isCurrent && { backgroundColor: C.green }]}>
@@ -343,10 +385,10 @@ export default function SubscriptionScreen({ navigation, route }) {
                     style={[
                       styles.subBtn,
                       { backgroundColor: isCurrent ? C.green : accent.color },
-                      (isLoading || (artisanStatus && artisanStatus !== 'verified')) && { opacity: 0.5 },
+                      (isLoading || verifying || (artisanStatus && artisanStatus !== 'verified')) && { opacity: 0.5 },
                     ]}
                     onPress={() => handleSubscribe(plan.id)}
-                    disabled={isCurrent || !!isLoading || (artisanStatus != null && artisanStatus !== 'verified')}
+                    disabled={isCurrent || !!isLoading || verifying || (artisanStatus != null && artisanStatus !== 'verified')}
                     activeOpacity={0.85}
                   >
                     {isLoading ? (
@@ -362,11 +404,11 @@ export default function SubscriptionScreen({ navigation, route }) {
             );
           })}
 
-          {/* Paystack disclaimer */}
+          {/* Flutterwave disclaimer */}
           <View style={styles.disclaimer}>
             <Text style={styles.disclaimerText}>
-              🔒 Payments are processed securely via Paystack.
-              Subscriptions auto-renew monthly. Cancel anytime.
+              🔒 Payments are processed securely via Flutterwave.
+              Subscriptions are billed monthly. Cancel anytime.
             </Text>
           </View>
 
@@ -405,17 +447,15 @@ const styles = StyleSheet.create({
   centred: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scroll:  { padding: 16, paddingBottom: 48 },
 
-  // Upgrade nudge banner (shown when arriving from a job limit error)
   upgradeNudge: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     backgroundColor: '#FEF3C7', borderRadius: 14, padding: 14,
     borderWidth: 1.5, borderColor: '#FCD34D', marginBottom: 16,
   },
-  upgradeNudgeIcon: { fontSize: 24 },
+  upgradeNudgeIcon:  { fontSize: 24 },
   upgradeNudgeTitle: { fontSize: 14, fontWeight: '800', color: '#92400E', marginBottom: 3 },
   upgradeNudgeSub:   { fontSize: 13, color: '#78350F', lineHeight: 18 },
 
-  // Current plan banner
   currentBanner: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     backgroundColor: C.surface, borderRadius: 12, padding: 16,
@@ -428,25 +468,22 @@ const styles = StyleSheet.create({
   cancelBtn:     { backgroundColor: '#FEE2E2', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20 },
   cancelBtnText: { color: C.red, fontSize: 13, fontWeight: '700' },
 
-  // Plan card
   card: {
     backgroundColor: C.surface, borderRadius: 16, marginBottom: 16,
     borderWidth: 1, borderColor: C.border, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
   },
-  cardHeader: { padding: 18 },
-  cardHeaderTop: {
-    flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap',
-  },
-  planName:     { fontSize: 18, fontWeight: '800' },
-  planBadge:    { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  planBadgeText:{ color: '#FFF', fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
-  planDesc:     { fontSize: 12, color: C.sub, marginBottom: 10 },
-  priceWrap:    { flexDirection: 'row', alignItems: 'flex-end' },
-  priceCurrency:{ fontSize: 14, fontWeight: '700', marginBottom: 4 },
-  price:        { fontSize: 28, fontWeight: '900', lineHeight: 34 },
-  priceInterval:{ fontSize: 12, color: C.sub, marginBottom: 6, marginLeft: 1 },
+  cardHeader:    { padding: 18 },
+  cardHeaderTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' },
+  planName:      { fontSize: 18, fontWeight: '800' },
+  planBadge:     { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
+  planBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
+  planDesc:      { fontSize: 12, color: C.sub, marginBottom: 10 },
+  priceWrap:     { flexDirection: 'row', alignItems: 'flex-end' },
+  priceCurrency: { fontSize: 14, fontWeight: '700', marginBottom: 4 },
+  price:         { fontSize: 28, fontWeight: '900', lineHeight: 34 },
+  priceInterval: { fontSize: 12, color: C.sub, marginBottom: 6, marginLeft: 1 },
 
   featureList: { padding: 16, gap: 10 },
   featureRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
@@ -486,37 +523,30 @@ const styles = StyleSheet.create({
   historyDate:   { fontSize: 11, color: C.muted, marginTop: 2 },
   historyAmount: { fontSize: 15, fontWeight: '800', color: C.primary },
 
-  // ── Verification required notice ─────────────────────────────────────────────
   verificationNotice: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
     backgroundColor: '#FFF7ED', borderRadius: 14, padding: 14,
     borderWidth: 1.5, borderColor: '#FDE68A', marginBottom: 16,
   },
-  verificationNoticeIcon: { fontSize: 24 },
+  verificationNoticeIcon:  { fontSize: 24 },
   verificationNoticeTitle: { fontSize: 14, fontWeight: '800', color: '#92400E', marginBottom: 3 },
-  verificationNoticeSub: { fontSize: 13, color: '#78350F', lineHeight: 18 },
+  verificationNoticeSub:   { fontSize: 13, color: '#78350F', lineHeight: 18 },
 
-  // ── Pending payment confirmation banner ──────────────────────────────────────
   pendingBanner: {
     backgroundColor: '#FFF7ED', borderRadius: 16, padding: 16,
     marginBottom: 16, borderWidth: 2, borderColor: '#F59E0B',
   },
-  pendingBannerTop: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14,
-  },
+  pendingBannerTop:  { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14 },
   pendingBannerIcon: { fontSize: 26, marginTop: 2 },
-  pendingBannerTitle: {
-    fontSize: 15, fontWeight: '800', color: '#92400E', marginBottom: 4,
-  },
-  pendingBannerSub: { fontSize: 13, color: '#78350F', lineHeight: 18 },
+  pendingBannerTitle:{ fontSize: 15, fontWeight: '800', color: '#92400E', marginBottom: 4 },
+  pendingBannerSub:  { fontSize: 13, color: '#78350F', lineHeight: 18 },
   confirmBtn: {
     backgroundColor: C.green, borderRadius: 12,
-    paddingVertical: 14, alignItems: 'center',
-    marginBottom: 10,
+    paddingVertical: 14, alignItems: 'center', marginBottom: 10,
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.12, shadowRadius: 4, elevation: 3,
   },
-  confirmBtnText: { color: '#FFF', fontSize: 15, fontWeight: '800' },
-  pendingDismiss: { alignItems: 'center', paddingVertical: 6 },
-  pendingDismissText: { fontSize: 13, color: '#92400E', fontWeight: '600' },
+  confirmBtnText:    { color: '#FFF', fontSize: 15, fontWeight: '800' },
+  pendingDismiss:    { alignItems: 'center', paddingVertical: 6 },
+  pendingDismissText:{ fontSize: 13, color: '#92400E', fontWeight: '600' },
 });
