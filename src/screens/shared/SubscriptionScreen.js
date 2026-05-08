@@ -135,11 +135,22 @@ export default function SubscriptionScreen({ navigation, route }) {
         Alert.alert('Subscription Activated! 🎉', res.data.message);
         load();
       } else {
-        Alert.alert('Verification Failed', 'Payment could not be verified. Contact support if funds were deducted.');
+        // Shouldn't normally reach here (backend returns 4xx on failure, not 200 false)
+        if (pendingPlan) setPendingPayment({ txRef, planName: pendingPlan.name });
+        Alert.alert('Not Confirmed Yet', 'Payment could not be verified. If you paid, tap "Confirm Activation" below to try again.');
       }
     } catch (err) {
-      const msg = err?.response?.data?.message || 'Verification failed. Contact support with your payment reference.';
-      Alert.alert('Verification Error', msg);
+      // Surface the pending banner so the user can retry without re-initiating payment.
+      // This is the common path for bank transfers, which are confirmed asynchronously.
+      if (pendingPlan) setPendingPayment({ txRef, planName: pendingPlan.name });
+      const serverMsg = err?.response?.data?.message || '';
+      const isPending = serverMsg.toLowerCase().includes('pending');
+      Alert.alert(
+        isPending ? 'Payment Being Processed' : 'Verification Failed',
+        isPending
+          ? 'Your bank transfer is still being processed. Once it clears, tap "Confirm Activation" below to activate your subscription.'
+          : (serverMsg || 'Verification failed. If funds were deducted, contact support with your payment reference.'),
+      );
     } finally {
       setVerifying(false);
     }
@@ -205,8 +216,12 @@ export default function SubscriptionScreen({ navigation, route }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Flutterwave WebView modal */}
+      {/* Flutterwave WebView modal
+          key={pendingTxRef} forces a full remount on every new payment session,
+          resetting the WebView's internal loading/error state so the second
+          payment doesn't inherit stale state from the first. */}
       <FlutterwaveWebView
+        key={pendingTxRef || 'idle'}
         visible={webviewVisible}
         paymentLink={paymentLink}
         txRef={pendingTxRef}
