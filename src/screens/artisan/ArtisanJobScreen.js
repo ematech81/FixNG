@@ -189,66 +189,76 @@ export default function ArtisanJobScreen({ navigation }) {
           <Text style={styles.pageTitle}>Job Dashboard</Text>
         </View>
 
-        {/* ── Subscription card — verified artisans only ── */}
+        {/* ── Subscription banner ── */}
         {isVerified && (() => {
-          const subPlan   = subscription?.plan || 'free';
-          const subActive = subscription?.status === 'active' && subPlan !== 'free';
-          const subExpiry = subscription?.expiresAt
-            ? new Date(subscription.expiresAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
+          const status = subscription?.status;
+          const days   = subscription?.daysRemaining ?? 0;
+          const fmtEnd = subscription?.endsAt
+            ? new Date(subscription.endsAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
             : null;
 
-          if (subActive && subPlan === 'basic') {
-            return (
-              <View style={styles.subBasicWrap}>
-                <View style={styles.subPlanRow}>
-                  <View style={styles.subBasicBadge}>
-                    <Text style={styles.subBadgeText}>BASIC</Text>
-                  </View>
-                  <Text style={styles.subActiveLabel}>● Active</Text>
-                </View>
-                <Text style={styles.subPlanHeadline}>Basic Plan</Text>
-                <Text style={styles.subPlanSub}>10 active jobs • Priority placement • Pro badge</Text>
-                {subExpiry && <Text style={styles.subExpiry}>Renews {subExpiry}</Text>}
-                <TouchableOpacity
-                  style={styles.subUpgradeBtn}
-                  onPress={() => navigation.navigate('Subscription')}
-                  activeOpacity={0.85}
-                >
-                  <Text style={styles.subUpgradeBtnText}>Upgrade to Premium ↑</Text>
-                </TouchableOpacity>
-              </View>
-            );
-          }
-
-          if (subActive && subPlan === 'premium') {
-            return (
-              <View style={styles.subPremiumWrap}>
-                <View style={styles.subPlanRow}>
-                  <View style={styles.subPremiumBadge}>
-                    <Text style={styles.subBadgeText}>👑 PREMIUM</Text>
-                  </View>
-                  <Text style={styles.subActiveLabel}>● Active</Text>
-                </View>
-                <Text style={styles.subPlanHeadline}>Premium Plan</Text>
-                <Text style={styles.subPlanSub}>Unlimited jobs • Featured placement • Priority support</Text>
-                {subExpiry && <Text style={styles.subExpiry}>Renews {subExpiry}</Text>}
-              </View>
-            );
-          }
-
-          return (
+          if (status === 'trial') return (
             <TouchableOpacity
-              style={styles.subFreeWrap}
+              style={styles.subTrialWrap}
               onPress={() => navigation.navigate('Subscription')}
               activeOpacity={0.88}
             >
+              <Text style={styles.subTrialIcon}>🎁</Text>
               <View style={{ flex: 1 }}>
-                <Text style={styles.subFreeTitle}>Unlock Basic & Premium Plans</Text>
-                <Text style={styles.subFreeSub}>Priority placement, more jobs & a Pro badge — from ₦3,000/mo</Text>
+                <Text style={styles.subTrialTitle}>Free Trial Active</Text>
+                <Text style={styles.subTrialSub}>
+                  {days > 0 ? `${days} day${days !== 1 ? 's' : ''} left` : 'Ends today'} · Subscribe to keep your access
+                </Text>
               </View>
-              <View style={styles.subFreeBtn}>
-                <Text style={styles.subFreeBtnText}>Subscribe →</Text>
+              <Text style={styles.subTrialArrow}>›</Text>
+            </TouchableOpacity>
+          );
+
+          if (status === 'active') return (
+            <View style={styles.subActiveWrap}>
+              <View style={styles.subPlanRow}>
+                <View style={styles.subProBadge}>
+                  <Text style={styles.subBadgeText}>✓ PRO</Text>
+                </View>
+                <Text style={styles.subActiveLabel}>● Active</Text>
               </View>
+              <Text style={styles.subPlanHeadline}>FixNG Pro</Text>
+              {fmtEnd && <Text style={styles.subExpiry}>Renews {fmtEnd}</Text>}
+            </View>
+          );
+
+          if (status === 'grace') return (
+            <TouchableOpacity
+              style={styles.subGraceWrap}
+              onPress={() => navigation.navigate('Subscription')}
+              activeOpacity={0.88}
+            >
+              <Text style={styles.subGraceIcon}>⚠️</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.subGraceTitle}>Subscription Expired — Renew Now</Text>
+                <Text style={styles.subGraceSub}>
+                  Grace period ends in {days} day{days !== 1 ? 's' : ''}. After that you'll be removed from search.
+                </Text>
+              </View>
+              <Text style={styles.subGraceArrow}>›</Text>
+            </TouchableOpacity>
+          );
+
+          // expired / cancelled / null
+          return (
+            <TouchableOpacity
+              style={styles.subExpiredWrap}
+              onPress={() => navigation.navigate('Subscription')}
+              activeOpacity={0.88}
+            >
+              <Text style={styles.subExpiredIcon}>❌</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.subExpiredTitle}>Subscribe to Be Discoverable</Text>
+                <Text style={styles.subExpiredSub}>
+                  Customers can't find you while your subscription is inactive. Plans from ₦5,000/mo.
+                </Text>
+              </View>
+              <Text style={styles.subExpiredArrow}>›</Text>
             </TouchableOpacity>
           );
         })()}
@@ -696,47 +706,47 @@ const styles = StyleSheet.create({
   safetyTitle: { fontSize: 14, fontWeight: '800', color: '#92400E', marginBottom: 4 },
   safetyText: { fontSize: 13, color: '#78350F', lineHeight: 18 },
 
-  // ── Subscription card ──
-  subBasicWrap: {
+  // ── Subscription banners ──
+  subTrialWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
     marginHorizontal: 16, marginBottom: 12, borderRadius: 14, padding: 14,
-    backgroundColor: '#EFF6FF', borderWidth: 2, borderColor: '#2563EB',
+    backgroundColor: '#EFF6FF', borderWidth: 1.5, borderColor: '#BFDBFE',
   },
-  subPremiumWrap: {
+  subTrialIcon:  { fontSize: 22 },
+  subTrialTitle: { fontSize: 13, fontWeight: '800', color: '#1D4ED8', marginBottom: 2 },
+  subTrialSub:   { fontSize: 11, color: '#3B82F6' },
+  subTrialArrow: { fontSize: 22, color: '#2563EB', fontWeight: '700' },
+
+  subActiveWrap: {
     marginHorizontal: 16, marginBottom: 12, borderRadius: 14, padding: 14,
-    backgroundColor: '#FFFBEB', borderWidth: 2, borderColor: '#F59E0B',
+    backgroundColor: '#DCFCE7', borderWidth: 1.5, borderColor: '#BBF7D0',
   },
-  subFreeWrap: {
-    flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#1E293B', borderRadius: 14,
-    paddingVertical: 14, paddingHorizontal: 16,
-    marginHorizontal: 16, marginBottom: 12,
-  },
-  subPlanRow: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginBottom: 6,
-  },
-  subBasicBadge: {
-    backgroundColor: '#2563EB', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
-  },
-  subPremiumBadge: {
-    backgroundColor: '#F59E0B', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
-  },
+  subPlanRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
+  subProBadge: { backgroundColor: '#16A34A', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
   subBadgeText:    { color: '#FFF', fontSize: 11, fontWeight: '800' },
   subActiveLabel:  { fontSize: 13, fontWeight: '700', color: '#16A34A' },
   subPlanHeadline: { fontSize: 16, fontWeight: '800', color: '#0F172A', marginBottom: 3 },
-  subPlanSub:      { fontSize: 12, color: '#475569', lineHeight: 17, marginBottom: 6 },
-  subExpiry:       { fontSize: 11, color: '#64748B', marginBottom: 10 },
-  subUpgradeBtn: {
-    backgroundColor: '#2563EB', borderRadius: 10, paddingVertical: 9, alignItems: 'center',
+  subExpiry:       { fontSize: 11, color: '#64748B' },
+
+  subGraceWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    marginHorizontal: 16, marginBottom: 12, borderRadius: 14, padding: 14,
+    backgroundColor: '#FFF7ED', borderWidth: 2, borderColor: '#F59E0B',
   },
-  subUpgradeBtnText: { color: '#FFF', fontSize: 13, fontWeight: '700' },
-  subFreeTitle: { fontSize: 13, fontWeight: '800', color: '#F8FAFC', marginBottom: 2 },
-  subFreeSub:   { fontSize: 11, color: '#94A3B8' },
-  subFreeBtn: {
-    backgroundColor: '#2563EB', borderRadius: 8,
-    paddingHorizontal: 10, paddingVertical: 7, marginLeft: 8,
+  subGraceIcon:  { fontSize: 22 },
+  subGraceTitle: { fontSize: 13, fontWeight: '800', color: '#C2410C', marginBottom: 2 },
+  subGraceSub:   { fontSize: 11, color: '#EA580C', lineHeight: 16 },
+  subGraceArrow: { fontSize: 22, color: '#EA580C', fontWeight: '700' },
+
+  subExpiredWrap: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    marginHorizontal: 16, marginBottom: 12, borderRadius: 14, padding: 14,
+    backgroundColor: '#1E293B',
   },
-  subFreeBtnText: { color: '#FFF', fontSize: 12, fontWeight: '800' },
+  subExpiredIcon:  { fontSize: 22 },
+  subExpiredTitle: { fontSize: 13, fontWeight: '800', color: '#F8FAFC', marginBottom: 2 },
+  subExpiredSub:   { fontSize: 11, color: '#94A3B8', lineHeight: 16 },
+  subExpiredArrow: { fontSize: 22, color: '#94A3B8', fontWeight: '700' },
 
   // ── Voice note (active card) ──
   voiceCard: {

@@ -1,84 +1,135 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
+import * as WebBrowser from 'expo-web-browser';
 import BackButton from '../../components/BackButton';
-import FlutterwaveWebView from '../../components/FlutterwaveWebView';
-import { getUser } from '../../utils/storage';
-import { getOnboardingStatus } from '../../api/artisanApi';
 import {
-  getPlans, getMySubscription,
-  initiateSubscription, verifySubscription, cancelSubscription,
+  getMySubscription,
+  initializeSubscription,
+  verifySubscription,
+  cancelSubscription,
 } from '../../api/subscriptionApi';
 
-// ── Design tokens ──────────────────────────────────────────────────────────────
+// ── Constants ──────────────────────────────────────────────────────────────────
 const C = {
-  primary:  '#2563EB',
-  gold:     '#F59E0B',
-  green:    '#16A34A',
-  surface:  '#FFFFFF',
-  bg:       '#F8FAFF',
-  border:   '#E2E8F0',
-  text:     '#0F172A',
-  sub:      '#64748B',
-  muted:    '#94A3B8',
-  red:      '#EF4444',
+  primary: '#2563EB',
+  gold:    '#F59E0B',
+  green:   '#16A34A',
+  red:     '#EF4444',
+  orange:  '#EA580C',
+  surface: '#FFFFFF',
+  bg:      '#F8FAFF',
+  border:  '#E2E8F0',
+  text:    '#0F172A',
+  sub:     '#64748B',
+  muted:   '#94A3B8',
 };
 
-const PLAN_ACCENT = {
-  free:    { color: C.sub,     bg: '#F1F5F9', badge: null           },
-  basic:   { color: C.primary, bg: '#EFF6FF', badge: 'Most Popular' },
-  premium: { color: C.gold,    bg: '#FFFBEB', badge: 'Best Value'   },
+const CYCLES = [
+  {
+    id: 'monthly',
+    label: 'Monthly',
+    price: 5000,
+    billing: 'Billed monthly',
+    savings: null,
+    accent: C.primary,
+  },
+  {
+    id: 'quarterly',
+    label: 'Quarterly',
+    price: 13500,
+    billing: 'Billed every 3 months',
+    savings: 'Save 10%',
+    accent: C.green,
+  },
+  {
+    id: 'yearly',
+    label: 'Yearly',
+    price: 48000,
+    billing: 'Billed annually',
+    savings: 'Save 20%',
+    accent: C.gold,
+    badge: 'Best Value',
+  },
+];
+
+const STATUS_CONFIG = {
+  trial: {
+    label: 'FREE TRIAL',
+    color: C.primary,
+    bg:    '#EFF6FF',
+    border:'#BFDBFE',
+    icon:  '🎁',
+  },
+  active: {
+    label: 'ACTIVE',
+    color: C.green,
+    bg:    '#DCFCE7',
+    border:'#BBF7D0',
+    icon:  '✅',
+  },
+  grace: {
+    label: 'GRACE PERIOD',
+    color: C.orange,
+    bg:    '#FFF7ED',
+    border:'#FED7AA',
+    icon:  '⚠️',
+  },
+  expired: {
+    label: 'EXPIRED',
+    color: C.red,
+    bg:    '#FEF2F2',
+    border:'#FECACA',
+    icon:  '❌',
+  },
+  cancelled: {
+    label: 'CANCELLED',
+    color: C.muted,
+    bg:    '#F8FAFC',
+    border:'#E2E8F0',
+    icon:  '⛔',
+  },
 };
 
-function formatDate(d) {
-  if (!d) return null;
-  return new Date(d).toLocaleDateString('en-NG', {
-    day: 'numeric', month: 'long', year: 'numeric',
-  });
-}
+const PRO_FEATURES = [
+  'Appear in customer search results',
+  'Accept unlimited job requests',
+  'Priority placement in search',
+  '"Verified Pro" badge on your profile',
+  'In-app chat with customers',
+  'Real-time job notifications',
+];
 
-export default function SubscriptionScreen({ navigation, route }) {
-  const [plans, setPlans]         = useState([]);
-  const [current, setCurrent]     = useState(null);
-  const [loading, setLoading]     = useState(true);
-  const [subscribing, setSubscribing] = useState(null); // planId being processed
-  const [verifying, setVerifying] = useState(false);
-  const [artisanStatus, setArtisanStatus] = useState(null);
+const fmtDate = (d) =>
+  d ? new Date(d).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
 
-  // WebView state
-  const [webviewVisible, setWebviewVisible] = useState(false);
-  const [paymentLink,    setPaymentLink]    = useState('');
-  const [pendingTxRef,   setPendingTxRef]   = useState('');
-  const [pendingPlan,    setPendingPlan]    = useState(null); // plan object
-  // Manual fallback: shown if WebView is closed before redirect is auto-detected
-  const [pendingPayment, setPendingPayment] = useState(null); // { txRef, planName }
+// ── Component ─────────────────────────────────────────────────────────────────
+export default function SubscriptionScreen({ navigation }) {
+  const [sub,         setSub]         = useState(null);
+  const [loading,     setLoading]     = useState(true);
+  const [subscribing, setSubscribing] = useState(false);
+  const [verifying,   setVerifying]   = useState(false);
+  const [selectedCycle, setSelectedCycle] = useState('monthly');
+  const pendingRef = useRef(null);  // reference waiting to be verified after deep link return
 
   useFocusEffect(useCallback(() => { load(); }, []));
+
+  // Listen for deep link return from Kora Pay hosted checkout
+  useEffect(() => {
+    const handler = ({ url }) => handleDeepLink(url);
+    const sub = Linking.addEventListener('url', handler);
+    return () => sub.remove();
+  }, []);
 
   const load = async () => {
     setLoading(true);
     try {
-      const u = await getUser();
-      const fetches = [
-        getPlans().catch(() => null),
-        getMySubscription().catch(() => null),
-      ];
-      if (u?.role === 'artisan') fetches.push(getOnboardingStatus().catch(() => null));
-      const [plansRes, subRes, onboardRes] = await Promise.all(fetches);
-      setPlans(plansRes?.data?.data || []);
-      const sub = subRes?.data?.data || null;
-      setCurrent(sub);
-      // Clear manual pending banner if subscription is already active
-      if (sub?.status === 'active' && sub?.plan !== 'free') {
-        setPendingPayment(null);
-      }
-      if (onboardRes) {
-        setArtisanStatus(onboardRes?.data?.data?.verificationStatus || 'incomplete');
-      }
+      const res = await getMySubscription();
+      setSub(res.data.data);
     } catch {
       // silent
     } finally {
@@ -86,121 +137,90 @@ export default function SubscriptionScreen({ navigation, route }) {
     }
   };
 
-  const handleSubscribe = async (planId) => {
-    if (planId === 'free') return;
-    if (current?.plan === planId && current?.status === 'active') {
-      Alert.alert('Already Subscribed', `You are already on the ${planId} plan.`);
-      return;
+  const handleDeepLink = async (url) => {
+    if (!url?.includes('subscription/callback')) return;
+    try {
+      const ref = new URL(url).searchParams.get('reference');
+      if (!ref) return;
+      pendingRef.current = ref;
+      await runVerify(ref);
+    } catch (e) {
+      console.warn('[SubscriptionScreen] deep link parse error:', e.message);
     }
+  };
 
-    const plan = plans.find(p => p.id === planId);
-    const planName = plan?.name || planId;
+  const runVerify = async (reference) => {
+    setVerifying(true);
+    try {
+      const res = await verifySubscription(reference);
+      if (res.data.success) {
+        setSub(res.data.data);
+        pendingRef.current = null;
+        Alert.alert('Subscription Activated! 🎉', res.data.message || 'Your Pro subscription is now active.');
+      }
+    } catch (err) {
+      const msg = err?.response?.data?.message || 'Verification failed. Tap "Verify Payment" to try again.';
+      Alert.alert('Verification Failed', msg);
+    } finally {
+      setVerifying(false);
+    }
+  };
 
+  const handleSubscribe = async () => {
+    if (subscribing || verifying) return;
+
+    const cycle = CYCLES.find(c => c.id === selectedCycle);
     Alert.alert(
-      'Subscribe via Flutterwave',
-      `You will be taken to a secure Flutterwave payment page to complete your ${planName} subscription (₦${(plan?.price || 0).toLocaleString('en-NG')}/month).\n\nYour subscription will activate automatically once payment is confirmed.`,
+      'Confirm Subscription',
+      `Subscribe to FixNG Pro — ${cycle.label}\n₦${cycle.price.toLocaleString('en-NG')} ${cycle.billing.toLowerCase()}.\n\nYou will be taken to a secure Kora Pay checkout page.`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Continue →', onPress: () => openFlutterwave(planId) },
+        { text: 'Continue →', onPress: () => openCheckout(selectedCycle) },
       ]
     );
   };
 
-  const openFlutterwave = async (planId) => {
-    setSubscribing(planId);
+  const openCheckout = async (cycle) => {
+    setSubscribing(true);
     try {
-      const res = await initiateSubscription(planId);
-      const { payment_link, tx_ref, plan } = res.data.data;
+      const res = await initializeSubscription(cycle);
+      const { checkout_url, reference } = res.data.data;
+      pendingRef.current = reference;
 
-      setPaymentLink(payment_link);
-      setPendingTxRef(tx_ref);
-      setPendingPlan(plan);
-      setWebviewVisible(true);
+      await WebBrowser.openBrowserAsync(checkout_url, {
+        dismissButtonStyle:    'cancel',
+        presentationStyle:     WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET,
+        showInRecents:         false,
+      });
+
+      // Browser closed — try to verify (user may have completed payment)
+      if (pendingRef.current) {
+        await runVerify(pendingRef.current);
+      }
     } catch (err) {
-      const msg = err?.response?.data?.message || 'Could not initiate payment. Please try again.';
+      const msg = err?.response?.data?.message || 'Could not open payment page. Please try again.';
       Alert.alert('Payment Error', msg);
     } finally {
-      setSubscribing(null);
-    }
-  };
-
-  // Called by WebView when redirect is auto-detected, or by manual fallback button
-  const handleWebViewSuccess = async (txRef) => {
-    setWebviewVisible(false);
-    setVerifying(true);
-    try {
-      const res = await verifySubscription(txRef);
-      if (res.data.success) {
-        setPendingPayment(null);
-        Alert.alert('Subscription Activated! 🎉', res.data.message);
-        load();
-      } else {
-        // Shouldn't normally reach here (backend returns 4xx on failure, not 200 false)
-        if (pendingPlan) setPendingPayment({ txRef, planName: pendingPlan.name });
-        Alert.alert('Not Confirmed Yet', 'Payment could not be verified. If you paid, tap "Confirm Activation" below to try again.');
-      }
-    } catch (err) {
-      // Surface the pending banner so the user can retry without re-initiating payment.
-      // This is the common path for bank transfers, which are confirmed asynchronously.
-      if (pendingPlan) setPendingPayment({ txRef, planName: pendingPlan.name });
-      const serverMsg = err?.response?.data?.message || '';
-      const isPending = serverMsg.toLowerCase().includes('pending');
-      Alert.alert(
-        isPending ? 'Payment Being Processed' : 'Verification Failed',
-        isPending
-          ? 'Your bank transfer is still being processed. Once it clears, tap "Confirm Activation" below to activate your subscription.'
-          : (serverMsg || 'Verification failed. If funds were deducted, contact support with your payment reference.'),
-      );
-    } finally {
-      setVerifying(false);
-    }
-  };
-
-  // Called when user closes the WebView without completing payment
-  const handleWebViewCancel = () => {
-    setWebviewVisible(false);
-    // Store txRef so user can manually confirm if they did pay before closing
-    if (pendingTxRef && pendingPlan) {
-      setPendingPayment({ txRef: pendingTxRef, planName: pendingPlan.name });
-    }
-  };
-
-  const handleManualVerify = async () => {
-    if (!pendingPayment) return;
-    setVerifying(true);
-    try {
-      const res = await verifySubscription(pendingPayment.txRef);
-      if (res.data.success) {
-        setPendingPayment(null);
-        Alert.alert('Subscription Activated! 🎉', res.data.message);
-        load();
-      } else {
-        Alert.alert('Not Verified', 'Payment not confirmed yet. If you paid, please wait a moment and try again.');
-      }
-    } catch (err) {
-      const msg = err?.response?.data?.message || 'Verification failed. Contact support with your payment reference.';
-      Alert.alert('Verification Error', msg);
-    } finally {
-      setVerifying(false);
+      setSubscribing(false);
     }
   };
 
   const handleCancel = () => {
     Alert.alert(
       'Cancel Subscription',
-      'Your plan will remain active until the end of the billing period, then revert to Free.',
+      'Your access continues until the end of your current period. You can request a pro-rated refund within 48 hours.\n\nCancel anyway?',
       [
-        { text: 'Keep My Plan', style: 'cancel' },
+        { text: 'Keep My Subscription', style: 'cancel' },
         {
-          text: 'Cancel Anyway',
+          text: 'Cancel',
           style: 'destructive',
           onPress: async () => {
             try {
               await cancelSubscription();
-              Alert.alert('Cancelled', 'Auto-renewal has been disabled.');
+              Alert.alert('Cancelled', 'Auto-renewal disabled. You can still request a refund within 48 hours.');
               load();
             } catch {
-              Alert.alert('Error', 'Could not cancel. Try again.');
+              Alert.alert('Error', 'Could not cancel. Please try again.');
             }
           },
         },
@@ -208,249 +228,184 @@ export default function SubscriptionScreen({ navigation, route }) {
     );
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
-  const upgradeContext = route?.params?.upgradeContext || null;
-  const activePlan = current?.plan || 'free';
-  const isActive   = current?.status === 'active';
-  const expiresAt  = current?.expiresAt;
+  // ── Render helpers ───────────────────────────────────────────────────────────
+  const status  = sub?.status || 'expired';
+  const cfg     = STATUS_CONFIG[status] || STATUS_CONFIG.expired;
+  const isAllow = sub?.isAllowed;
+  const showCTA = !isAllow || status === 'grace' || status === 'trial';
+  const showRenew = status === 'grace' || status === 'expired' || status === 'cancelled';
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Flutterwave WebView modal
-          key={pendingTxRef} forces a full remount on every new payment session,
-          resetting the WebView's internal loading/error state so the second
-          payment doesn't inherit stale state from the first. */}
-      <FlutterwaveWebView
-        key={pendingTxRef || 'idle'}
-        visible={webviewVisible}
-        paymentLink={paymentLink}
-        txRef={pendingTxRef}
-        onSuccess={handleWebViewSuccess}
-        onCancel={handleWebViewCancel}
-      />
-
+    <SafeAreaView style={styles.safe} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <BackButton onPress={() => navigation.goBack()} />
-        <Text style={styles.headerTitle}>Subscription Plans</Text>
+        <Text style={styles.headerTitle}>FixNG Pro</Text>
         <View style={{ width: 40 }} />
       </View>
 
       {loading ? (
-        <View style={styles.centred}>
-          <ActivityIndicator size="large" color={C.primary} />
-        </View>
+        <View style={styles.centred}><ActivityIndicator size="large" color={C.primary} /></View>
       ) : (
-        <ScrollView
-          contentContainerStyle={styles.scroll}
-          showsVerticalScrollIndicator={false}
-        >
-          {/* ── Manual fallback banner (shown if WebView closed before auto-detect) ── */}
-          {pendingPayment && (
-            <View style={styles.pendingBanner}>
-              <View style={styles.pendingBannerTop}>
-                <Text style={styles.pendingBannerIcon}>⏳</Text>
+        <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
+
+          {/* ── Status card ───────────────────────────────────────────────── */}
+          {sub && (
+            <View style={[styles.statusCard, { backgroundColor: cfg.bg, borderColor: cfg.border }]}>
+              <View style={styles.statusRow}>
+                <Text style={styles.statusIcon}>{cfg.icon}</Text>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.pendingBannerTitle}>Payment Pending Confirmation</Text>
-                  <Text style={styles.pendingBannerSub}>
-                    If you completed the {pendingPayment.planName} payment, tap below to activate your subscription.
-                  </Text>
-                </View>
-              </View>
-              <TouchableOpacity
-                style={[styles.confirmBtn, verifying && { opacity: 0.7 }]}
-                onPress={handleManualVerify}
-                disabled={verifying}
-                activeOpacity={0.85}
-              >
-                {verifying
-                  ? <ActivityIndicator color="#FFF" size="small" />
-                  : <Text style={styles.confirmBtnText}>I've Paid — Confirm Activation ✓</Text>
-                }
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.pendingDismiss}
-                onPress={() => setPendingPayment(null)}
-                disabled={verifying}
-              >
-                <Text style={styles.pendingDismissText}>I didn't complete payment</Text>
-              </TouchableOpacity>
-            </View>
-          )}
-
-          {/* Verification required notice */}
-          {artisanStatus && artisanStatus !== 'verified' && (
-            <View style={styles.verificationNotice}>
-              <Text style={styles.verificationNoticeIcon}>⏳</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.verificationNoticeTitle}>Verification Required</Text>
-                <Text style={styles.verificationNoticeSub}>
-                  Your artisan account must be approved before you can subscribe. Our team usually reviews applications within 24–48 hours.
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Upgrade nudge */}
-          {upgradeContext && (
-            <View style={styles.upgradeNudge}>
-              <Text style={styles.upgradeNudgeIcon}>🔒</Text>
-              <View style={{ flex: 1 }}>
-                <Text style={styles.upgradeNudgeTitle}>
-                  {upgradeContext.currentPlan === 'free'
-                    ? 'Free Plan: 2-Job Limit Reached'
-                    : 'Basic Plan: 10-Job Limit Reached'}
-                </Text>
-                <Text style={styles.upgradeNudgeSub}>
-                  {upgradeContext.currentPlan === 'free'
-                    ? 'Upgrade to Basic to accept up to 10 jobs simultaneously.'
-                    : 'Upgrade to Premium for unlimited simultaneous jobs.'}
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Current plan banner */}
-          {current && (
-            <View style={styles.currentBanner}>
-              <View>
-                <Text style={styles.currentLabel}>Current Plan</Text>
-                <Text style={styles.currentPlan}>
-                  {current.planDetails?.name || 'Free'}
-                  {activePlan !== 'free' && isActive && (
-                    <Text style={styles.currentActive}>  Active</Text>
+                  <View style={styles.statusLabelRow}>
+                    <View style={[styles.statusBadge, { backgroundColor: cfg.color }]}>
+                      <Text style={styles.statusBadgeText}>{cfg.label}</Text>
+                    </View>
+                  </View>
+                  {status === 'trial' && (
+                    <Text style={[styles.statusLine, { color: cfg.color }]}>
+                      Trial ends {fmtDate(sub.endsAt)}
+                      {sub.daysRemaining > 0 ? ` · ${sub.daysRemaining} day${sub.daysRemaining !== 1 ? 's' : ''} left` : ''}
+                    </Text>
                   )}
-                </Text>
-                {expiresAt && activePlan !== 'free' && (
-                  <Text style={styles.currentExpiry}>
-                    {isActive ? `Renews ${formatDate(expiresAt)}` : `Expired ${formatDate(expiresAt)}`}
-                  </Text>
-                )}
-              </View>
-              {activePlan !== 'free' && isActive && (
-                <TouchableOpacity onPress={handleCancel} style={styles.cancelBtn}>
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          )}
-
-          {/* Plan cards */}
-          {plans.map((plan) => {
-            const accent    = PLAN_ACCENT[plan.id] || PLAN_ACCENT.free;
-            const isCurrent = activePlan === plan.id && isActive;
-            const isFree    = plan.id === 'free';
-            const isLoading = subscribing === plan.id;
-
-            return (
-              <View
-                key={plan.id}
-                style={[
-                  styles.card,
-                  isCurrent && { borderColor: accent.color, borderWidth: 2 },
-                ]}
-              >
-                {/* Plan header */}
-                <View style={[styles.cardHeader, { backgroundColor: accent.bg }]}>
-                  <View style={styles.cardHeaderTop}>
-                    <Text style={[styles.planName, { color: accent.color }]}>{plan.name}</Text>
-                    {accent.badge && (
-                      <View style={[styles.planBadge, { backgroundColor: accent.color }]}>
-                        <Text style={styles.planBadgeText}>{accent.badge}</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.planDesc}>{plan.description}</Text>
-                  <View style={styles.priceWrap}>
-                    {isFree ? (
-                      <Text style={[styles.price, { color: accent.color }]}>Free</Text>
-                    ) : (
-                      <>
-                        <Text style={[styles.priceCurrency, { color: accent.color }]}>₦</Text>
-                        <Text style={[styles.price, { color: accent.color }]}>
-                          {plan.price.toLocaleString('en-NG')}
-                        </Text>
-                        <Text style={styles.priceInterval}>/mo</Text>
-                      </>
-                    )}
-                  </View>
+                  {status === 'active' && (
+                    <Text style={[styles.statusLine, { color: C.sub }]}>
+                      Active until {fmtDate(sub.endsAt)}
+                      {sub.daysRemaining > 0 ? ` · ${sub.daysRemaining} day${sub.daysRemaining !== 1 ? 's' : ''} left` : ''}
+                    </Text>
+                  )}
+                  {status === 'grace' && (
+                    <Text style={[styles.statusLine, { color: cfg.color }]}>
+                      Grace period ends {fmtDate(sub.graceEndsAt)} — renew now to stay visible
+                    </Text>
+                  )}
+                  {(status === 'expired' || status === 'cancelled') && (
+                    <Text style={[styles.statusLine, { color: C.sub }]}>
+                      Subscribe to appear in search and receive jobs
+                    </Text>
+                  )}
                 </View>
-
-                {/* Features */}
-                <View style={styles.featureList}>
-                  {(plan.features || []).map((f, i) => (
-                    <View key={i} style={styles.featureRow}>
-                      <Text style={[styles.featureCheck, { color: accent.color }]}>✓</Text>
-                      <Text style={styles.featureText}>{f}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                {/* CTA */}
-                {isFree ? (
-                  <View style={styles.freePillWrap}>
-                    <View style={[styles.freePill, isCurrent && { backgroundColor: C.green }]}>
-                      <Text style={styles.freePillText}>
-                        {isCurrent ? 'Your current plan' : 'Basic access'}
-                      </Text>
-                    </View>
-                  </View>
-                ) : (
-                  <TouchableOpacity
-                    style={[
-                      styles.subBtn,
-                      { backgroundColor: isCurrent ? C.green : accent.color },
-                      (isLoading || verifying || (artisanStatus && artisanStatus !== 'verified')) && { opacity: 0.5 },
-                    ]}
-                    onPress={() => handleSubscribe(plan.id)}
-                    disabled={isCurrent || !!isLoading || verifying || (artisanStatus != null && artisanStatus !== 'verified')}
-                    activeOpacity={0.85}
-                  >
-                    {isLoading ? (
-                      <ActivityIndicator color="#FFF" size="small" />
-                    ) : (
-                      <Text style={styles.subBtnText}>
-                        {isCurrent ? '✓ Active Plan' : `Subscribe — ₦${plan.price.toLocaleString('en-NG')}/mo`}
-                      </Text>
-                    )}
+                {status === 'active' && (
+                  <TouchableOpacity onPress={handleCancel} style={styles.cancelBtn}>
+                    <Text style={styles.cancelBtnText}>Cancel</Text>
                   </TouchableOpacity>
                 )}
               </View>
-            );
-          })}
-
-          {/* Flutterwave disclaimer */}
-          <View style={styles.disclaimer}>
-            <Text style={styles.disclaimerText}>
-              🔒 Payments are processed securely via Flutterwave.
-              Subscriptions are billed monthly. Cancel anytime.
-            </Text>
-          </View>
-
-          {/* Payment history */}
-          {current?.history?.length > 0 && (
-            <View style={styles.historySection}>
-              <Text style={styles.historyTitle}>Payment History</Text>
-              {current.history.slice(-5).reverse().map((h, i) => (
-                <View key={i} style={styles.historyRow}>
-                  <View>
-                    <Text style={styles.historyPlan}>{h.plan?.toUpperCase()} Plan</Text>
-                    <Text style={styles.historyDate}>{formatDate(h.paidAt)}</Text>
-                  </View>
-                  <Text style={styles.historyAmount}>₦{(h.amount || 0).toLocaleString('en-NG')}</Text>
-                </View>
-              ))}
             </View>
           )}
+
+          {/* ── Pending verification banner ───────────────────────────────── */}
+          {pendingRef.current && !verifying && (
+            <TouchableOpacity
+              style={styles.pendingBanner}
+              onPress={() => runVerify(pendingRef.current)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.pendingIcon}>⏳</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.pendingTitle}>Payment Pending Confirmation</Text>
+                <Text style={styles.pendingSub}>Tap to verify your payment and activate your subscription.</Text>
+              </View>
+            </TouchableOpacity>
+          )}
+          {verifying && (
+            <View style={styles.verifyingRow}>
+              <ActivityIndicator color={C.primary} size="small" />
+              <Text style={styles.verifyingText}>Verifying payment…</Text>
+            </View>
+          )}
+
+          {/* ── Cycle selector ────────────────────────────────────────────── */}
+          {(showCTA || showRenew) && (
+            <>
+              <Text style={styles.sectionLabel}>CHOOSE A PLAN</Text>
+              <View style={styles.cycleWrap}>
+                {CYCLES.map((c) => {
+                  const sel = selectedCycle === c.id;
+                  return (
+                    <TouchableOpacity
+                      key={c.id}
+                      style={[styles.cycleCard, sel && { borderColor: c.accent, borderWidth: 2, backgroundColor: '#FAFEFF' }]}
+                      onPress={() => setSelectedCycle(c.id)}
+                      activeOpacity={0.8}
+                    >
+                      {c.badge && (
+                        <View style={[styles.cycleBadge, { backgroundColor: c.accent }]}>
+                          <Text style={styles.cycleBadgeText}>{c.badge}</Text>
+                        </View>
+                      )}
+                      <Text style={[styles.cycleLabel, sel && { color: c.accent }]}>{c.label}</Text>
+                      <View style={styles.cyclePriceRow}>
+                        <Text style={[styles.cycleCurrency, sel && { color: c.accent }]}>₦</Text>
+                        <Text style={[styles.cyclePrice, sel && { color: c.accent }]}>
+                          {c.price.toLocaleString('en-NG')}
+                        </Text>
+                      </View>
+                      <Text style={styles.cycleBilling}>{c.billing}</Text>
+                      {c.savings && (
+                        <View style={[styles.savingsPill, { backgroundColor: c.accent + '18' }]}>
+                          <Text style={[styles.savingsText, { color: c.accent }]}>{c.savings}</Text>
+                        </View>
+                      )}
+                      {sel && (
+                        <View style={[styles.selectedDot, { backgroundColor: c.accent }]} />
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Subscribe / Renew CTA */}
+              <TouchableOpacity
+                style={[styles.subBtn, (subscribing || verifying) && { opacity: 0.6 }]}
+                onPress={handleSubscribe}
+                disabled={subscribing || verifying}
+                activeOpacity={0.85}
+              >
+                {subscribing
+                  ? <ActivityIndicator color="#fff" />
+                  : <Text style={styles.subBtnText}>
+                      {showRenew ? 'Renew Subscription →' : 'Subscribe Now →'}
+                    </Text>
+                }
+              </TouchableOpacity>
+            </>
+          )}
+
+          {/* ── Pro features ──────────────────────────────────────────────── */}
+          <Text style={styles.sectionLabel}>WHAT YOU GET</Text>
+          <View style={styles.featuresCard}>
+            {PRO_FEATURES.map((f, i) => (
+              <View key={i} style={[styles.featureRow, i < PRO_FEATURES.length - 1 && styles.featureBorder]}>
+                <Text style={styles.featureCheck}>✓</Text>
+                <Text style={styles.featureText}>{f}</Text>
+              </View>
+            ))}
+          </View>
+
+          {/* ── Trial info ────────────────────────────────────────────────── */}
+          {status === 'trial' && (
+            <View style={styles.trialInfo}>
+              <Text style={styles.trialInfoText}>
+                🎁 You are on a free 7-day trial with full Pro access. Subscribe before your trial ends to keep your visibility.
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.disclaimer}>
+            <Text style={styles.disclaimerText}>
+              🔒 Payments processed securely via Kora Pay. Cancel anytime from this screen.
+            </Text>
+          </View>
         </ScrollView>
       )}
     </SafeAreaView>
   );
 }
 
-// ── Styles ─────────────────────────────────────────────────────────────────────
+// ── Styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
+  safe:   { flex: 1, backgroundColor: C.bg },
+  centred:{ flex: 1, justifyContent: 'center', alignItems: 'center' },
+  scroll: { padding: 16, paddingBottom: 48 },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
@@ -459,109 +414,106 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 18, fontWeight: '700', color: C.text },
 
-  centred: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  scroll:  { padding: 16, paddingBottom: 48 },
+  /* Status card */
+  statusCard: {
+    borderRadius: 16, padding: 16, marginBottom: 16,
+    borderWidth: 1.5,
+  },
+  statusRow:      { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
+  statusIcon:     { fontSize: 24, marginTop: 2 },
+  statusLabelRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  statusBadge: {
+    borderRadius: 20, paddingHorizontal: 10, paddingVertical: 3,
+  },
+  statusBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },
+  statusLine:      { fontSize: 13, lineHeight: 18 },
+  cancelBtn: {
+    backgroundColor: '#FEE2E2', borderRadius: 20,
+    paddingHorizontal: 12, paddingVertical: 5, marginTop: 2,
+  },
+  cancelBtnText: { color: C.red, fontSize: 12, fontWeight: '700' },
 
-  upgradeNudge: {
+  /* Pending / verifying */
+  pendingBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#FEF3C7', borderRadius: 14, padding: 14,
-    borderWidth: 1.5, borderColor: '#FCD34D', marginBottom: 16,
+    backgroundColor: '#FFFBEB', borderRadius: 14, padding: 14,
+    marginBottom: 14, borderWidth: 1.5, borderColor: '#FCD34D',
   },
-  upgradeNudgeIcon:  { fontSize: 24 },
-  upgradeNudgeTitle: { fontSize: 14, fontWeight: '800', color: '#92400E', marginBottom: 3 },
-  upgradeNudgeSub:   { fontSize: 13, color: '#78350F', lineHeight: 18 },
-
-  currentBanner: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    backgroundColor: C.surface, borderRadius: 12, padding: 16,
-    marginBottom: 20, borderWidth: 1, borderColor: C.border,
+  pendingIcon:  { fontSize: 24 },
+  pendingTitle: { fontSize: 14, fontWeight: '800', color: '#92400E', marginBottom: 3 },
+  pendingSub:   { fontSize: 12, color: '#78350F', lineHeight: 17 },
+  verifyingRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: C.surface, borderRadius: 12, padding: 14, marginBottom: 14,
+    borderWidth: 1, borderColor: C.border,
   },
-  currentLabel:  { fontSize: 11, color: C.muted, fontWeight: '600', textTransform: 'uppercase', marginBottom: 2 },
-  currentPlan:   { fontSize: 17, fontWeight: '800', color: C.text },
-  currentActive: { fontSize: 13, fontWeight: '700', color: C.green },
-  currentExpiry: { fontSize: 12, color: C.sub, marginTop: 2 },
-  cancelBtn:     { backgroundColor: '#FEE2E2', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20 },
-  cancelBtnText: { color: C.red, fontSize: 13, fontWeight: '700' },
+  verifyingText: { fontSize: 13, color: C.sub },
 
-  card: {
+  /* Section label */
+  sectionLabel: {
+    fontSize: 11, fontWeight: '800', color: C.muted,
+    letterSpacing: 1.1, marginBottom: 10, marginTop: 4,
+  },
+
+  /* Cycle selector */
+  cycleWrap: { flexDirection: 'row', gap: 10, marginBottom: 16 },
+  cycleCard: {
+    flex: 1, backgroundColor: C.surface, borderRadius: 14, padding: 12,
+    borderWidth: 1, borderColor: C.border, alignItems: 'center', position: 'relative',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
+  },
+  cycleBadge: {
+    position: 'absolute', top: -8, alignSelf: 'center',
+    borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2,
+  },
+  cycleBadgeText:  { color: '#fff', fontSize: 9, fontWeight: '800' },
+  cycleLabel:      { fontSize: 12, fontWeight: '700', color: C.sub, marginBottom: 6, marginTop: 6 },
+  cyclePriceRow:   { flexDirection: 'row', alignItems: 'flex-end', gap: 1 },
+  cycleCurrency:   { fontSize: 13, fontWeight: '700', color: C.text, marginBottom: 2 },
+  cyclePrice:      { fontSize: 20, fontWeight: '900', color: C.text, lineHeight: 24 },
+  cycleBilling:    { fontSize: 10, color: C.muted, textAlign: 'center', marginTop: 4 },
+  savingsPill: {
+    borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3, marginTop: 6,
+  },
+  savingsText:  { fontSize: 10, fontWeight: '800' },
+  selectedDot: {
+    position: 'absolute', bottom: 8, right: 8,
+    width: 8, height: 8, borderRadius: 4,
+  },
+
+  /* Subscribe button */
+  subBtn: {
+    backgroundColor: C.primary, borderRadius: 14,
+    paddingVertical: 16, alignItems: 'center', marginBottom: 24,
+    shadowColor: C.primary, shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
+  },
+  subBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
+
+  /* Features */
+  featuresCard: {
     backgroundColor: C.surface, borderRadius: 16, marginBottom: 16,
     borderWidth: 1, borderColor: C.border, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
   },
-  cardHeader:    { padding: 18 },
-  cardHeaderTop: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' },
-  planName:      { fontSize: 18, fontWeight: '800' },
-  planBadge:     { borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  planBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '800', textTransform: 'uppercase' },
-  planDesc:      { fontSize: 12, color: C.sub, marginBottom: 10 },
-  priceWrap:     { flexDirection: 'row', alignItems: 'flex-end' },
-  priceCurrency: { fontSize: 14, fontWeight: '700', marginBottom: 4 },
-  price:         { fontSize: 28, fontWeight: '900', lineHeight: 34 },
-  priceInterval: { fontSize: 12, color: C.sub, marginBottom: 6, marginLeft: 1 },
+  featureRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 13 },
+  featureBorder:{ borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  featureCheck: { fontSize: 14, fontWeight: '800', color: C.green },
+  featureText:  { flex: 1, fontSize: 14, color: C.sub, lineHeight: 19 },
 
-  featureList: { padding: 16, gap: 10 },
-  featureRow:  { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
-  featureCheck:{ fontSize: 14, fontWeight: '800', marginTop: 1 },
-  featureText: { flex: 1, fontSize: 14, color: C.sub, lineHeight: 20 },
-
-  freePillWrap: { paddingHorizontal: 16, paddingBottom: 16 },
-  freePill: {
-    backgroundColor: '#E2E8F0', borderRadius: 10,
-    paddingVertical: 12, alignItems: 'center',
+  /* Trial info */
+  trialInfo: {
+    backgroundColor: '#EFF6FF', borderRadius: 12, padding: 14,
+    marginBottom: 16, borderWidth: 1, borderColor: '#BFDBFE',
   },
-  freePillText: { color: '#475569', fontSize: 13, fontWeight: '700' },
+  trialInfoText: { fontSize: 13, color: '#1D4ED8', lineHeight: 19 },
 
-  subBtn: {
-    marginHorizontal: 16, marginBottom: 16,
-    borderRadius: 12, paddingVertical: 14, alignItems: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15, shadowRadius: 6, elevation: 3,
-  },
-  subBtnText: { color: '#FFF', fontSize: 15, fontWeight: '800' },
-
+  /* Disclaimer */
   disclaimer: {
-    backgroundColor: '#F8FAFF', borderRadius: 10, padding: 14,
-    marginTop: 4, marginBottom: 24,
+    backgroundColor: C.surface, borderRadius: 10, padding: 14,
     borderWidth: 1, borderColor: C.border,
   },
   disclaimerText: { color: C.muted, fontSize: 12, lineHeight: 18, textAlign: 'center' },
-
-  historySection: { marginBottom: 16 },
-  historyTitle:   { fontSize: 14, fontWeight: '700', color: C.text, marginBottom: 10 },
-  historyRow: {
-    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: C.surface, borderRadius: 10, padding: 12,
-    marginBottom: 8, borderWidth: 1, borderColor: C.border,
-  },
-  historyPlan:   { fontSize: 13, fontWeight: '700', color: C.text },
-  historyDate:   { fontSize: 11, color: C.muted, marginTop: 2 },
-  historyAmount: { fontSize: 15, fontWeight: '800', color: C.primary },
-
-  verificationNotice: {
-    flexDirection: 'row', alignItems: 'flex-start', gap: 12,
-    backgroundColor: '#FFF7ED', borderRadius: 14, padding: 14,
-    borderWidth: 1.5, borderColor: '#FDE68A', marginBottom: 16,
-  },
-  verificationNoticeIcon:  { fontSize: 24 },
-  verificationNoticeTitle: { fontSize: 14, fontWeight: '800', color: '#92400E', marginBottom: 3 },
-  verificationNoticeSub:   { fontSize: 13, color: '#78350F', lineHeight: 18 },
-
-  pendingBanner: {
-    backgroundColor: '#FFF7ED', borderRadius: 16, padding: 16,
-    marginBottom: 16, borderWidth: 2, borderColor: '#F59E0B',
-  },
-  pendingBannerTop:  { flexDirection: 'row', alignItems: 'flex-start', gap: 12, marginBottom: 14 },
-  pendingBannerIcon: { fontSize: 26, marginTop: 2 },
-  pendingBannerTitle:{ fontSize: 15, fontWeight: '800', color: '#92400E', marginBottom: 4 },
-  pendingBannerSub:  { fontSize: 13, color: '#78350F', lineHeight: 18 },
-  confirmBtn: {
-    backgroundColor: C.green, borderRadius: 12,
-    paddingVertical: 14, alignItems: 'center', marginBottom: 10,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.12, shadowRadius: 4, elevation: 3,
-  },
-  confirmBtnText:    { color: '#FFF', fontSize: 15, fontWeight: '800' },
-  pendingDismiss:    { alignItems: 'center', paddingVertical: 6 },
-  pendingDismissText:{ fontSize: 13, color: '#92400E', fontWeight: '600' },
 });
