@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import {
   View, Text, StyleSheet, TextInput, TouchableOpacity,
   ActivityIndicator, KeyboardAvoidingView, Platform,
-  ScrollView, Alert,
+  ScrollView, Alert, Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { sendOTP } from '../../api/authApi';
@@ -132,9 +132,15 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
             </View>
             <Text style={styles.termsText}>
               By clicking Create Account, you agree to our{' '}
-              <Text style={styles.termsLink}>Terms of Service</Text>
+              <Text
+                style={styles.termsLink}
+                onPress={() => Linking.openURL('https://ematech81.github.io/FixNGTerms/')}
+              >Terms of Service</Text>
               {' '}and{' '}
-              <Text style={styles.termsLink}>Privacy Policy</Text>.
+              <Text
+                style={styles.termsLink}
+                onPress={() => Linking.openURL('https://ematech81.github.io/FixNGTerms/')}
+              >Privacy Policy</Text>.
             </Text>
           </TouchableOpacity>
 
