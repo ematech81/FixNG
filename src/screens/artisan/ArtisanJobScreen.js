@@ -191,7 +191,13 @@ export default function ArtisanJobScreen({ navigation }) {
 
         {/* ── Subscription banner ── */}
         {isVerified && (() => {
-          const status = subscription?.status;
+          // An artisan has Pro access if their subscription is active/trial/grace,
+          // OR if an admin has manually granted them Pro status (isPro from artisanProfile).
+          // Both paths must hide the "subscribe" prompt.
+          const adminGranted = artisanProfile?.isPro === true;
+          const status = (adminGranted && !['trial', 'active', 'grace'].includes(subscription?.status))
+            ? 'active'           // admin-granted — treat as active so the Pro badge shows
+            : subscription?.status;
           const days   = subscription?.daysRemaining ?? 0;
           const fmtEnd = subscription?.endsAt
             ? new Date(subscription.endsAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
