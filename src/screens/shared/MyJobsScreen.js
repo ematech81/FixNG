@@ -47,6 +47,7 @@ const STATUS_CONFIG = {
   completed:    { color: COLORS.completed,  bg: COLORS.completedLight,  icon: '🎉', label: 'Completed'   },
   disputed:     { color: COLORS.disputed,   bg: COLORS.disputedLight,   icon: '⚠️', label: 'Disputed'    },
   cancelled:    { color: COLORS.cancelled,  bg: COLORS.cancelledLight,  icon: '✕',  label: 'Cancelled'   },
+  expired:      { color: '#9CA3AF',         bg: '#F3F4F6',              icon: '⏰', label: 'Expired'     },
 };
 
 const TAB_LABELS = {
@@ -91,7 +92,9 @@ export default function MyJobsScreen({ navigation }) {
     try {
       const params = activeTab !== 'all' ? { status: activeTab } : {};
       const res = await getMyJobs(params);
-      setJobs(res.data.data);
+      // Hide expired jobs from the default 'all' view — they clutter the list
+      const data = res.data.data || [];
+      setJobs(activeTab === 'all' ? data.filter((j) => j.status !== 'expired') : data);
     } catch {
       // fail silently on refresh
     } finally {
