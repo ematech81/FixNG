@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -35,16 +35,28 @@ export default function Step2_Skills({ navigation }) {
   const [othersText, setOthersText] = useState('');
   const [bio, setBio] = useState('');
   const [saving, setSaving] = useState(false);
-  const othersInputRef = useRef(null);
+  const othersInputRef  = useRef(null);
+  const scrollViewRef   = useRef(null);
+  const dispatchYRef    = useRef(0);   // Y offset of the dispatch section inside the ScrollView
 
   // Dispatch rider fields
-  const [vehicleType, setVehicleType]           = useState(null);
-  const [plateNumber, setPlateNumber]           = useState('');
-  const [plateError, setPlateError]             = useState('');
-  const [hasHelmet, setHasHelmet]               = useState(false);
+  const [vehicleType, setVehicleType]             = useState(null);
+  const [plateNumber, setPlateNumber]             = useState('');
+  const [plateError, setPlateError]               = useState('');
+  const [hasHelmet, setHasHelmet]                 = useState(false);
   const [providesPackaging, setProvidesPackaging] = useState(false);
 
   const isDispatchRider = selectedSkills.includes('Dispatch Rider');
+
+  // When the dispatch section appears, scroll to it so the user sees the required fields
+  useEffect(() => {
+    if (isDispatchRider) {
+      // Small delay so the section has rendered and onLayout has fired
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: dispatchYRef.current - 16, animated: true });
+      }, 150);
+    }
+  }, [isDispatchRider]);
 
   const othersSelected = selectedSkills.includes('Others');
 
@@ -131,6 +143,7 @@ export default function Step2_Skills({ navigation }) {
         keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 0}
       >
         <ScrollView
+          ref={scrollViewRef}
           contentContainerStyle={styles.scroll}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
@@ -195,7 +208,10 @@ export default function Step2_Skills({ navigation }) {
 
           {/* Dispatch Rider extra fields */}
           {isDispatchRider && (
-            <View style={styles.dispatchBox}>
+            <View
+              style={styles.dispatchBox}
+              onLayout={(e) => { dispatchYRef.current = e.nativeEvent.layout.y; }}
+            >
               <View style={styles.dispatchHeader}>
                 <Text style={styles.dispatchIcon}>🏍️</Text>
                 <View style={{ flex: 1 }}>
