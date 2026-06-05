@@ -20,14 +20,27 @@ const BADGE_CONFIG = {
 
 const DISTANCE_OPTIONS = [5, 10, 20, 50];
 
+// ── Skeleton placeholder card ──────────────────────────────────────────────────
+function SkeletonCard() {
+  return (
+    <View style={styles.skeletonCard}>
+      <View style={styles.skeletonAvatar} />
+      <View style={styles.skeletonBody}>
+        <View style={[styles.skeletonLine, { width: '55%', marginBottom: 8 }]} />
+        <View style={[styles.skeletonLine, { width: '80%', marginBottom: 8 }]} />
+        <View style={[styles.skeletonLine, { width: '40%' }]} />
+      </View>
+    </View>
+  );
+}
+
 export default function SearchArtisansScreen({ navigation, embedded = false }) {
   const [artisans, setArtisans]               = useState([]);
-  const [loading, setLoading]                 = useState(false);
+  const [skeletal, setSkeletal]               = useState(true);  // first-load skeleton
   const [refreshing, setRefreshing]           = useState(false);
   const [loadingMore, setLoadingMore]         = useState(false);
   const [hasMore, setHasMore]                 = useState(false);
   const [page, setPage]                       = useState(1);
-  const [userLocation, setUserLocation]       = useState(null);
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedDistance, setSelectedDistance] = useState(null);
   const [onlyTrusted, setOnlyTrusted]         = useState(false);
@@ -36,94 +49,143 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
   const [safetyModalArtisanId, setSafetyModalArtisanId] = useState(null);
 
-  const locationRef = useRef(null); // cached coords so we don't re-request on every load
+  const locationRef    = useRef(null);
+  const mountedRef     = useRef(true);
+
+  useEffect(() => { return () => { mountedRef.current = false; }; }, []);
 
   const filteredSkills = ARTISAN_SKILLS.filter((s) =>
     s.toLowerCase().includes(categorySearch.toLowerCase())
   );
 
-  // ── Location helper ─────────────────────────────────────────────────────────
+  // ── Location — uses Low accuracy (cell/WiFi) which resolves in ~200ms ────────
   const getLocation = async () => {
     if (locationRef.current) return locationRef.current;
     try {
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') return null;
-      const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Low,  // fast: ~200ms vs 2s for Balanced/High
+      });
       locationRef.current = pos.coords;
-      setUserLocation(pos.coords);
       return pos.coords;
     } catch {
       return null;
     }
   };
 
-  // ── Core fetch ───────────────────────────────────────────────────────────────
-  // fetchPage(1, replace=true)  → fresh search / refresh
-  // fetchPage(n, replace=false) → append for pagination
-  const fetchPage = useCallback(async (targetPage, replace = true) => {
-    if (replace) setLoading(true);
-    else setLoadingMore(true);
+  // ── Build query params ────────────────────────────────────────────────────────
+  const buildParams = (coords, targetPage) => {
+    const p = {
+      page:      targetPage,
+      limit:     PAGE_LIMIT,
+      category:  selectedCategory  || undefined,
+      minRating: minRating         || undefined,
+      isPro:     onlyTrusted ? true : undefined,
+    };
+    if (selectedDistance)   p.maxDistance = selectedDistance;
+    if (coords?.latitude)   p.latitude    = coords.latitude;
+    if (coords?.longitude)  p.longitude   = coords.longitude;
+    return p;
+  };
 
+  // ── Phase 1: fetch without location (fast, ~300ms) ──────────────────────────
+  const fetchWithoutLocation = async (replace = true) => {
     try {
-      const coords = await getLocation();
-
-      const params = {
-        page:  targetPage,
-        limit: PAGE_LIMIT,
-        category:  selectedCategory || undefined,
-        minRating: minRating || undefined,
-        isPro:     onlyTrusted ? true : undefined,
-      };
-
-      if (selectedDistance) params.maxDistance = selectedDistance;
-      if (coords) {
-        params.latitude  = coords.latitude;
-        params.longitude = coords.longitude;
-      }
-
-      const res  = await searchArtisans(params);
+      const res  = await searchArtisans(buildParams(null, 1));
+      if (!mountedRef.current) return;
       const data = res.data.data || [];
-
-      if (replace) {
-        setArtisans(data);
-        setPage(1);
-      } else {
-        setArtisans((prev) => [...prev, ...data]);
-        setPage(targetPage);
-      }
-
-      // If we got a full page, assume there are more
+      if (replace) { setArtisans(data); setPage(1); }
       setHasMore(data.length === PAGE_LIMIT);
-    } catch (err) {
-      Alert.alert('Error', err?.response?.data?.message || 'Could not load artisans.');
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-      setLoadingMore(false);
-    }
-  }, [selectedCategory, selectedDistance, onlyTrusted, minRating]); // eslint-disable-line
+    } catch { /* silently ignore — Phase 2 may still succeed */ }
+  };
 
-  // Auto-load on mount
-  useEffect(() => {
-    fetchPage(1, true);
+  // ── Phase 2: refetch with location once GPS resolves ────────────────────────
+  const fetchWithLocation = async (coords) => {
+    try {
+      const res  = await searchArtisans(buildParams(coords, 1));
+      if (!mountedRef.current) return;
+      const data = res.data.data || [];
+      setArtisans(data);
+      setPage(1);
+      setHasMore(data.length === PAGE_LIMIT);
+    } catch { /* keep Phase 1 results */ }
+  };
+
+  // ── Initial load: both phases run in parallel ────────────────────────────────
+  const initialLoad = useCallback(async () => {
+    setSkeletal(true);
+
+    // Fire both simultaneously — no waiting
+    const [, coords] = await Promise.all([
+      fetchWithoutLocation(true),
+      getLocation(),
+    ]);
+
+    if (!mountedRef.current) return;
+    setSkeletal(false);
+
+    // If we got location, silently upgrade the results
+    if (coords) await fetchWithLocation(coords);
   }, []); // eslint-disable-line
 
-  const handleRefresh = () => {
+  useEffect(() => { initialLoad(); }, []); // eslint-disable-line
+
+  // ── Pull-to-refresh ───────────────────────────────────────────────────────────
+  const handleRefresh = async () => {
     setRefreshing(true);
-    fetchPage(1, true);
+    const coords = locationRef.current || await getLocation();
+    try {
+      const res  = await searchArtisans(buildParams(coords, 1));
+      if (!mountedRef.current) return;
+      const data = res.data.data || [];
+      setArtisans(data);
+      setPage(1);
+      setHasMore(data.length === PAGE_LIMIT);
+    } catch (err) {
+      Alert.alert('Error', err?.response?.data?.message || 'Could not refresh.');
+    } finally {
+      setRefreshing(false);
+    }
   };
 
-  const handleApplyFilters = () => {
+  // ── Apply filters (manual re-search) ─────────────────────────────────────────
+  const handleApplyFilters = async () => {
     setShowCategoryPicker(false);
-    fetchPage(1, true);
+    setSkeletal(true);
+    const coords = locationRef.current || await getLocation();
+    try {
+      const res  = await searchArtisans(buildParams(coords, 1));
+      if (!mountedRef.current) return;
+      const data = res.data.data || [];
+      setArtisans(data);
+      setPage(1);
+      setHasMore(data.length === PAGE_LIMIT);
+    } catch (err) {
+      Alert.alert('Error', err?.response?.data?.message || 'Search failed.');
+    } finally {
+      setSkeletal(false);
+    }
   };
 
-  const handleLoadMore = () => {
-    if (!hasMore || loadingMore || loading) return;
-    fetchPage(page + 1, false);
+  // ── Pagination ────────────────────────────────────────────────────────────────
+  const handleLoadMore = async () => {
+    if (!hasMore || loadingMore || skeletal) return;
+    setLoadingMore(true);
+    const coords = locationRef.current;
+    try {
+      const nextPage = page + 1;
+      const res  = await searchArtisans(buildParams(coords, nextPage));
+      if (!mountedRef.current) return;
+      const data = res.data.data || [];
+      setArtisans((prev) => [...prev, ...data]);
+      setPage(nextPage);
+      setHasMore(data.length === PAGE_LIMIT);
+    } catch { /* silently ignore */ }
+    finally { setLoadingMore(false); }
   };
 
-  // ── Render artisan card ──────────────────────────────────────────────────────
+  // ── Artisan card ──────────────────────────────────────────────────────────────
   const renderArtisan = ({ item }) => {
     const badge     = BADGE_CONFIG[item.badgeLevel] || BADGE_CONFIG.new;
     const avgRating = item.stats?.averageRating;
@@ -196,21 +258,17 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
   };
 
   const renderFooter = () => {
-    if (loadingMore) {
-      return (
-        <View style={styles.footerLoader}>
-          <ActivityIndicator color="#2563EB" size="small" />
-          <Text style={styles.footerText}>Loading more artisans…</Text>
-        </View>
-      );
-    }
-    if (!hasMore && artisans.length > 0) {
-      return (
-        <View style={styles.footerEnd}>
-          <Text style={styles.footerEndText}>— All artisans shown —</Text>
-        </View>
-      );
-    }
+    if (loadingMore) return (
+      <View style={styles.footerLoader}>
+        <ActivityIndicator color="#2563EB" size="small" />
+        <Text style={styles.footerText}>Loading more…</Text>
+      </View>
+    );
+    if (!hasMore && artisans.length > 0) return (
+      <View style={styles.footerEnd}>
+        <Text style={styles.footerEndText}>— All artisans shown —</Text>
+      </View>
+    );
     return null;
   };
 
@@ -269,7 +327,7 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
         </TouchableOpacity>
       </View>
 
-      {/* Category picker dropdown */}
+      {/* Category picker */}
       {showCategoryPicker && (
         <View style={styles.categoryDropdown}>
           <TextInput
@@ -302,34 +360,34 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
         </View>
       )}
 
-      {/* Apply Filters button */}
+      {/* Apply filters button */}
       <TouchableOpacity
         style={styles.searchBtn}
         onPress={handleApplyFilters}
-        disabled={loading}
+        disabled={skeletal}
         activeOpacity={0.85}
       >
-        {loading ? (
-          <ActivityIndicator color="#FFF" />
-        ) : (
-          <Text style={styles.searchBtnText}>Apply Filters 🔍</Text>
-        )}
+        <Text style={styles.searchBtnText}>Apply Filters 🔍</Text>
       </TouchableOpacity>
 
-      {/* Results list */}
-      <FlatList
-        data={artisans}
-        keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
-        renderItem={renderArtisan}
-        contentContainerStyle={styles.list}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#2563EB" />
-        }
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.3}
-        ListFooterComponent={renderFooter}
-        ListEmptyComponent={
-          !loading ? (
+      {/* Skeleton OR results */}
+      {skeletal ? (
+        <View style={styles.list}>
+          {[1, 2, 3, 4].map((k) => <SkeletonCard key={k} />)}
+        </View>
+      ) : (
+        <FlatList
+          data={artisans}
+          keyExtractor={(item) => item.id?.toString() || Math.random().toString()}
+          renderItem={renderArtisan}
+          contentContainerStyle={styles.list}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#2563EB" />
+          }
+          onEndReached={handleLoadMore}
+          onEndReachedThreshold={0.3}
+          ListFooterComponent={renderFooter}
+          ListEmptyComponent={
             <View style={styles.empty}>
               <Text style={styles.emptyIcon}>🔍</Text>
               <Text style={styles.emptyTitle}>No artisans found</Text>
@@ -337,9 +395,9 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
                 Try adjusting your filters or increasing the distance.
               </Text>
             </View>
-          ) : null
-        }
-      />
+          }
+        />
+      )}
 
       <DispatchSafetyModal
         visible={safetyModalArtisanId !== null}
@@ -367,24 +425,18 @@ const styles = StyleSheet.create({
     padding: 12, backgroundColor: '#FFF',
     borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
   },
-  filterChip: {
-    paddingHorizontal: 12, paddingVertical: 7,
-    borderRadius: 20, borderWidth: 1.5, borderColor: '#E5E5E5',
-    backgroundColor: '#FFF',
-  },
-  filterChipActive:       { borderColor: '#2563EB', backgroundColor: '#EFF6FF' },
-  filterChipTrusted:      { borderColor: '#B45309', backgroundColor: '#FFFBEB' },
-  filterChipText:         { fontSize: 13, color: '#555', fontWeight: '600' },
-  filterChipTextActive:   { color: '#2563EB' },
-  filterChipTextTrusted:  { color: '#B45309' },
+  filterChip:           { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5, borderColor: '#E5E5E5', backgroundColor: '#FFF' },
+  filterChipActive:     { borderColor: '#2563EB', backgroundColor: '#EFF6FF' },
+  filterChipTrusted:    { borderColor: '#B45309', backgroundColor: '#FFFBEB' },
+  filterChipText:       { fontSize: 13, color: '#555', fontWeight: '600' },
+  filterChipTextActive: { color: '#2563EB' },
+  filterChipTextTrusted:{ color: '#B45309' },
   categoryDropdown: {
     backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E5E5',
     marginHorizontal: 16, borderRadius: 10, overflow: 'hidden',
     elevation: 6, zIndex: 20,
   },
-  categorySearch: {
-    padding: 10, borderBottomWidth: 1, borderBottomColor: '#F0F0F0', fontSize: 14,
-  },
+  categorySearch:     { padding: 10, borderBottomWidth: 1, borderBottomColor: '#F0F0F0', fontSize: 14 },
   categoryItem:       { padding: 13, borderBottomWidth: 1, borderBottomColor: '#F9F9F9' },
   categoryItemText:   { fontSize: 14, color: '#444' },
   categoryItemActive: { color: '#2563EB', fontWeight: '700' },
@@ -394,52 +446,46 @@ const styles = StyleSheet.create({
     borderRadius: 12, alignItems: 'center',
   },
   searchBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
-  list: { padding: 16, gap: 10, paddingBottom: 30 },
-  artisanCard: {
+
+  // ── Skeleton ──
+  skeletonCard: {
+    flexDirection: 'row', gap: 12,
     backgroundColor: '#FFF', borderRadius: 14, padding: 14,
-    borderWidth: 1, borderColor: '#F0F0F0', elevation: 1,
+    borderWidth: 1, borderColor: '#F0F0F0', marginBottom: 10,
   },
-  artisanCardPro:  { borderLeftWidth: 3, borderLeftColor: '#F59E0B' },
-  artisanRow:      { flexDirection: 'row', gap: 12 },
-  avatarContainer: { justifyContent: 'flex-start' },
-  avatar:          { width: 56, height: 56, borderRadius: 28 },
-  avatarPlaceholder: {
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: '#2563EB', justifyContent: 'center', alignItems: 'center',
-  },
-  avatarInitial: { color: '#FFF', fontSize: 22, fontWeight: '700' },
-  artisanInfo:   { flex: 1 },
-  nameRow: {
-    flexDirection: 'row', alignItems: 'center',
-    justifyContent: 'space-between', marginBottom: 4,
-  },
-  artisanName: { fontSize: 16, fontWeight: '700', color: '#1A1A1A', flex: 1 },
-  badgeRow:    { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  badgePill: {
-    paddingHorizontal: 8, paddingVertical: 3,
-    borderRadius: 12, backgroundColor: '#F3F4F6',
-  },
-  badgeText:    { fontSize: 11, fontWeight: '700' },
-  proBadge: {
-    paddingHorizontal: 7, paddingVertical: 3, borderRadius: 12,
-    backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#F59E0B',
-  },
-  proBadgeText:  { fontSize: 11, fontWeight: '700', color: '#B45309' },
-  skills:        { fontSize: 15, fontWeight: '700', color: '#374151', marginBottom: 6 },
-  statsRow:      { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 4 },
-  rating:        { fontSize: 13, color: '#F59E0B', fontWeight: '700' },
-  completedJobs: { fontSize: 12, color: '#666' },
-  responseTime:  { fontSize: 12, color: '#3B82F6' },
-  address:       { fontSize: 11, color: '#BBB' },
-  empty: { alignItems: 'center', paddingTop: 60, paddingHorizontal: 30 },
-  emptyIcon:  { fontSize: 48, marginBottom: 16 },
-  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#333', marginBottom: 8 },
-  emptyText:  { fontSize: 14, color: '#999', textAlign: 'center', lineHeight: 20 },
-  footerLoader: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    gap: 10, paddingVertical: 20,
-  },
-  footerText:    { fontSize: 13, color: '#999' },
-  footerEnd:     { alignItems: 'center', paddingVertical: 20 },
-  footerEndText: { fontSize: 12, color: '#CCC' },
+  skeletonAvatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#E5E7EB' },
+  skeletonBody:   { flex: 1, justifyContent: 'center' },
+  skeletonLine:   { height: 12, borderRadius: 6, backgroundColor: '#E5E7EB' },
+
+  // ── List ──
+  list: { padding: 16, gap: 10, paddingBottom: 30 },
+  artisanCard:    { backgroundColor: '#FFF', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#F0F0F0', elevation: 1 },
+  artisanCardPro: { borderLeftWidth: 3, borderLeftColor: '#F59E0B' },
+  artisanRow:     { flexDirection: 'row', gap: 12 },
+  avatarContainer:{ justifyContent: 'flex-start' },
+  avatar:         { width: 56, height: 56, borderRadius: 28 },
+  avatarPlaceholder: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#2563EB', justifyContent: 'center', alignItems: 'center' },
+  avatarInitial:  { color: '#FFF', fontSize: 22, fontWeight: '700' },
+  artisanInfo:    { flex: 1 },
+  nameRow:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  artisanName:    { fontSize: 16, fontWeight: '700', color: '#1A1A1A', flex: 1 },
+  badgeRow:       { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  badgePill:      { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, backgroundColor: '#F3F4F6' },
+  badgeText:      { fontSize: 11, fontWeight: '700' },
+  proBadge:       { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 12, backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#F59E0B' },
+  proBadgeText:   { fontSize: 11, fontWeight: '700', color: '#B45309' },
+  skills:         { fontSize: 15, fontWeight: '700', color: '#374151', marginBottom: 6 },
+  statsRow:       { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 4 },
+  rating:         { fontSize: 13, color: '#F59E0B', fontWeight: '700' },
+  completedJobs:  { fontSize: 12, color: '#666' },
+  responseTime:   { fontSize: 12, color: '#3B82F6' },
+  address:        { fontSize: 11, color: '#BBB' },
+  empty:          { alignItems: 'center', paddingTop: 60, paddingHorizontal: 30 },
+  emptyIcon:      { fontSize: 48, marginBottom: 16 },
+  emptyTitle:     { fontSize: 17, fontWeight: '700', color: '#333', marginBottom: 8 },
+  emptyText:      { fontSize: 14, color: '#999', textAlign: 'center', lineHeight: 20 },
+  footerLoader:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 20 },
+  footerText:     { fontSize: 13, color: '#999' },
+  footerEnd:      { alignItems: 'center', paddingVertical: 20 },
+  footerEndText:  { fontSize: 12, color: '#CCC' },
 });
