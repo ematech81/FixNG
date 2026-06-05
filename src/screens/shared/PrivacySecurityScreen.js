@@ -31,7 +31,7 @@ const SECTIONS = [
         onPress: () =>
           Alert.alert(
             'Change Phone Number',
-            'To update your phone number, please contact our support team at support@fixng.com with your account details.',
+            'To update your phone number, please contact our support team at support@techsphereapp.com with your account details.',
             [{ text: 'OK' }]
           ),
       },
@@ -115,7 +115,7 @@ const SECTIONS = [
         onPress: () =>
           Alert.alert(
             'Download My Data',
-            'To request a copy of your personal data, send an email to privacy@fixng.com with the subject "Data Request". We will respond within 30 days as required by Nigerian data protection law.',
+            'To request a copy of your personal data, send an email to support@techsphereapp.com with the subject "Data Request". We will respond within 30 days as required by Nigerian data protection law.',
             [{ text: 'OK' }]
           ),
       },
@@ -126,14 +126,14 @@ const SECTIONS = [
         onPress: () =>
           Alert.alert(
             'Delete Account',
-            'This action is permanent and cannot be undone. All your jobs, chats, and profile data will be erased.\n\nTo proceed, email support@fixng.com with the subject "Delete My Account".',
+            'This action is permanent and cannot be undone. All your jobs, chats, and profile data will be erased.\n\nTo proceed, email support@techsphereapp.com with the subject "Delete My Account".',
             [
               { text: 'Cancel', style: 'cancel' },
               {
                 text: 'Email Support',
                 style: 'destructive',
                 onPress: () =>
-                  Linking.openURL('mailto:support@fixng.com?subject=Delete%20My%20Account'),
+                  Linking.openURL('mailto:support@techsphereapp.com?subject=Delete%20My%20Account'),
               },
             ]
           ),
