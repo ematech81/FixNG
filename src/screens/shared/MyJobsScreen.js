@@ -491,21 +491,22 @@ const styles = StyleSheet.create({
   // ── Tabs ─────────────────────────────────────────────────────────────────────
   tabsContainer: {
     paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingVertical: 10,
     gap: 8,
+    alignItems: 'center',
   },
   tab: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderRadius: 50,
+    alignSelf: 'flex-start',
+    gap: 5,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
     backgroundColor: COLORS.surface,
     borderWidth: 1.5,
     borderColor: COLORS.divider,
-    marginRight: 8,
-    position: 'relative',
+    marginRight: 6,
   },
   tabActive: {
     backgroundColor: COLORS.primary,
@@ -521,10 +522,10 @@ const styles = StyleSheet.create({
     }),
   },
   tabIcon: {
-    fontSize: 13,
+    fontSize: 12,
   },
   tabText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: COLORS.textSecondary,
   },
