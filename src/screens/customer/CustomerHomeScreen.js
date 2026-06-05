@@ -46,6 +46,7 @@ const BADGE_CONFIG = {
 // id must match the exact skill string stored in ArtisanProfile.skills (backend)
 const CATEGORIES = [
   { id: 'all',                      label: 'All',          icon: '⚡' },
+  { id: 'Rider',                  label: 'Dispatch Rider',     icon: '🚘' },
   { id: 'Plumber',                  label: 'Plumbing',     icon: '🔧' },
   { id: 'Electrician',              label: 'Electrical',   icon: '💡' },
   { id: 'Carpenter',                label: 'Carpentry',    icon: '🪚' },
