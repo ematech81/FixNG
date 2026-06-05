@@ -77,7 +77,9 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
         onAuthSuccess,
       });
     } catch (err) {
-      const data = err?.response?.data;
+      // API interceptor rejects with response.data directly, so err IS the
+      // response body. Fall back to err itself if .response.data is absent.
+      const data = err?.response?.data ?? err;
       if (data?.isAccountDisabled) {
         Alert.alert(
           'Account Disabled',
