@@ -2,6 +2,7 @@ export const ARTISAN_SKILLS = [
   // ── Trades & Home Services ────────────────────────────────────────────────
   'Plumber',
   'Electrician',
+  'Dispatch Rider',
   'Carpenter',
   'Painter',
   'Tiler',
@@ -40,7 +41,6 @@ export const ARTISAN_SKILLS = [
   // ── Security, Transport & Logistics ──────────────────────────────────────
   'Security Guard',
   'Driver',
-  'Dispatch Rider',
   'Logistics / Courier Service',
 
   // ── Media, Design & Events ────────────────────────────────────────────────
