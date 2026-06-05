@@ -81,14 +81,42 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
       if (data?.isAccountDisabled) {
         Alert.alert(
           'Account Disabled',
-          'Your account has been disabled and you are no longer allowed to use FixNG.',
-          [{ text: 'OK' }]
+          'Your account has been disabled. If you believe this is a mistake, please contact support.',
+          [
+            { text: 'OK', style: 'cancel' },
+            {
+              text: '💬 WhatsApp',
+              onPress: () => Linking.openURL(
+                'https://wa.me/2349011495230?text=Hi%2C%20my%20FixNG%20account%20has%20been%20disabled.%20Please%20help.'
+              ),
+            },
+            {
+              text: '✉️ Email',
+              onPress: () => Linking.openURL(
+                'mailto:support@techsphereapp.com?subject=FixNG%20Account%20Disabled&body=Hi%2C%20my%20account%20has%20been%20disabled.%20Please%20review.'
+              ),
+            },
+          ]
         );
       } else if (data?.isDeviceBanned) {
         Alert.alert(
           'Device Blocked',
-          'This device has been blocked from accessing FixNG.',
-          [{ text: 'OK' }]
+          'This device has been blocked from accessing FixNG. If you believe this is a mistake, please contact support.',
+          [
+            { text: 'OK', style: 'cancel' },
+            {
+              text: '💬 WhatsApp',
+              onPress: () => Linking.openURL(
+                'https://wa.me/2349011495230?text=Hi%2C%20my%20device%20has%20been%20blocked%20on%20FixNG.%20Please%20help.'
+              ),
+            },
+            {
+              text: '✉️ Email',
+              onPress: () => Linking.openURL(
+                'mailto:support@techsphereapp.com?subject=FixNG%20Device%20Blocked&body=Hi%2C%20my%20device%20has%20been%20blocked.%20Please%20review.'
+              ),
+            },
+          ]
         );
       } else {
         Alert.alert('Error', data?.message || err?.message || 'Could not sign in. Please try again.');

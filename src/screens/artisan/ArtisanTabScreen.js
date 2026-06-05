@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   View, Text, TouchableOpacity, StyleSheet,
-  Animated, Easing,
+  Animated, Easing, Alert, Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -93,12 +93,45 @@ export default function ArtisanTabScreen({ navigation, onLogout, onRefreshAuth }
 
   usePushNotifications(userId, handlePushTap);
 
+  const SUPPORT_ACTIONS = [
+    { text: 'OK', style: 'cancel' },
+    {
+      text: '💬 WhatsApp',
+      onPress: () => Linking.openURL('https://wa.me/2349011495230?text=Hi%2C%20I%20need%20help%20with%20my%20FixNG%20account.'),
+    },
+    {
+      text: '✉️ Email',
+      onPress: () => Linking.openURL('mailto:support@techsphereapp.com?subject=FixNG%20Account%20Issue'),
+    },
+  ];
+
   const handleIncomingNotification = useCallback((notif) => {
+    if (notif.type === 'account_suspended') {
+      Alert.alert(
+        'Account Suspended',
+        notif.body || 'Your account has been suspended. Contact support if you believe this is a mistake.',
+        [
+          ...SUPPORT_ACTIONS,
+          { text: 'Log Out', style: 'destructive', onPress: onLogout },
+        ]
+      );
+      return;
+    }
+
+    if (notif.type === 'account_warning') {
+      Alert.alert(
+        '⚠️ Account Warning',
+        notif.body || 'You have received a warning on your account.',
+        SUPPORT_ACTIONS
+      );
+      return;
+    }
+
     showToast(notif);
     if (notif.type === 'new_message' && activeTabRef.current !== 'messages') {
       setUnreadMsgCount((c) => c + 1);
     }
-  }, []);
+  }, []); // eslint-disable-line
 
   // Toast helpers
   const showToast = (notif) => {
