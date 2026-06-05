@@ -47,7 +47,7 @@ const FAQS = [
   },
   {
     q: 'Can I delete my account?',
-    a: 'Yes. Please email us at support@fixng.com with the subject "Account Deletion Request" and include your registered phone number. We process requests within 3 business days.',
+    a: 'Yes. Please email us at support@techsphereapp.com with the subject "Account Deletion Request" and include your registered phone number. We process requests within 3 business days.',
   },
   {
     q: 'How do I upgrade to a Pro/Elite plan?',
@@ -60,8 +60,8 @@ const CONTACTS = [
   {
     icon: '✉️',
     label: 'Email Support',
-    value: 'support@fixng.com',
-    action: () => Linking.openURL('mailto:support@fixng.com'),
+    value: 'support@techsphereapp.com',
+    action: () => Linking.openURL('mailto:support@techsphereapp.com'),
     color: PRIMARY,
     bg: '#EFF6FF',
     border: '#BFDBFE',
@@ -74,15 +74,6 @@ const CONTACTS = [
     color: GREEN,
     bg: '#F0FDF4',
     border: '#BBF7D0',
-  },
-  {
-    icon: '🐦',
-    label: 'Twitter / X',
-    value: '@FixNG_official',
-    action: () => Linking.openURL('https://twitter.com/FixNG_official'),
-    color: '#0EA5E9',
-    bg: '#F0F9FF',
-    border: '#BAE6FD',
   },
 ];
 
