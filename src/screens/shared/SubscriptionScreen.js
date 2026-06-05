@@ -198,8 +198,15 @@ export default function SubscriptionScreen({ navigation }) {
         await runVerify(pendingRef.current);
       }
     } catch (err) {
-      const msg = err?.response?.data?.message || 'Could not open payment page. Please try again.';
-      Alert.alert('Payment Error', msg);
+      const status = err?.response?.status;
+      const msg    = err?.response?.data?.message;
+      if (status === 409) {
+        Alert.alert('Payment In Progress', msg || 'A payment is already in progress. Please wait a moment and try again.');
+      } else if (status === 403) {
+        Alert.alert('Not Eligible', msg || 'Your account must be verified before subscribing.');
+      } else {
+        Alert.alert('Payment Error', msg || 'Could not open payment page. Please try again.');
+      }
     } finally {
       setSubscribing(false);
     }

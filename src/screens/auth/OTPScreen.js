@@ -38,11 +38,11 @@ export default function OTPScreen({ route, navigation }) {
   }, []);
 
   const handleDigitChange = (text, index) => {
-    const cleaned = text.replace(/\D/g, '');
+    // OTPs are alphanumeric — allow letters AND digits, strip everything else
+    const cleaned = text.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
 
     // ── Autofill / paste — received the full code at once ──────────────────
-    // iOS textContentType="oneTimeCode" and Android autoComplete="sms-otp"
-    // fire onChangeText with all 6 digits in the first box.
+    // iOS textContentType="oneTimeCode" fires onChangeText with all chars.
     if (cleaned.length >= OTP_LENGTH) {
       const newDigits = cleaned.slice(0, OTP_LENGTH).split('');
       setDigits(newDigits);
@@ -160,7 +160,7 @@ export default function OTPScreen({ route, navigation }) {
         <View style={styles.body}>
           <Text style={styles.title}>OTP Verification</Text>
           <Text style={styles.subtitle}>
-            Enter the 6-digit code sent to{'\n'}
+            Enter the 6-character code sent to{'\n'}
             <Text style={styles.phoneHighlight}>{maskedPhone}</Text>
           </Text>
 
@@ -174,7 +174,9 @@ export default function OTPScreen({ route, navigation }) {
                 value={digit}
                 onChangeText={(text) => handleDigitChange(text, i)}
                 onKeyPress={(e) => handleKeyPress(e, i)}
-                keyboardType="number-pad"
+                keyboardType="default"
+                autoCapitalize="characters"
+                autoCorrect={false}
                 maxLength={OTP_LENGTH}
                 textAlign="center"
                 selectTextOnFocus

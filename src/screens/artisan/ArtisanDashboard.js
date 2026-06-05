@@ -87,10 +87,16 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
   const badge      = BADGE_CONFIG[artisanProfile?.badgeLevel || 'new'];
   const stats      = artisanProfile?.stats || {};
   const isVerified = ['verified', 'trusted'].includes(artisanProfile?.badgeLevel);
-  const subPlan    = subscription?.plan || 'free';
-  const subActive  = subscription?.status === 'active' && subPlan !== 'free';
-  const subExpiry  = subscription?.expiresAt
-    ? new Date(subscription.expiresAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
+
+  // Admin-granted Pro (isPro=true) is identical to a paid subscription.
+  // Check both paths so admin-granted artisans never see the subscribe prompt.
+  const adminGranted = artisanProfile?.isPro === true;
+  const subStatus    = (adminGranted && !['trial', 'active', 'grace'].includes(subscription?.status))
+    ? 'active'
+    : subscription?.status;
+  const subActive    = ['trial', 'active', 'grace'].includes(subStatus);
+  const subExpiry    = subscription?.endsAt
+    ? new Date(subscription.endsAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' })
     : null;
 
   const STATUS_COLOR = {
@@ -148,8 +154,61 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
           </View>
         </View>
 
-        {/* ── Subscription card (all artisans) ────────────────────────────── */}
-        {!subActive && (
+        {/* ── Subscription card ─────────────────────────────────────────── */}
+        {subStatus === 'trial' && (
+          <TouchableOpacity
+            style={subCard.trialWrap}
+            onPress={() => navigation.navigate('Subscription')}
+            activeOpacity={0.88}
+          >
+            <View style={subCard.freeLeft}>
+              <Text style={subCard.freeHeadline}>🎁 Free Trial Active</Text>
+              <Text style={subCard.freeSub}>
+                Subscribe before your trial ends to keep full access and stay discoverable.
+              </Text>
+            </View>
+            <View style={subCard.freeRight}>
+              <View style={subCard.freeBtn}>
+                <Text style={subCard.freeBtnText}>Subscribe →</Text>
+              </View>
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {(subStatus === 'active' || subStatus === 'grace') && (
+          <View style={[subCard.proWrap, subStatus === 'grace' && subCard.graceWrap]}>
+            <View style={subCard.activePlanRow}>
+              <View style={[subCard.activePlanBadge, subStatus === 'grace' && { backgroundColor: '#EA580C' }]}>
+                <Text style={subCard.activePlanBadgeText}>
+                  {subStatus === 'grace' ? '⚠️ GRACE' : '✓ PRO'}
+                </Text>
+              </View>
+              <Text style={[subCard.activePlanStatus, subStatus === 'grace' && { color: '#EA580C' }]}>
+                {subStatus === 'grace' ? 'Renew Soon' : 'Active'}
+              </Text>
+            </View>
+            <Text style={subCard.activeHeadline}>FixNG Pro</Text>
+            <Text style={subCard.activeSub}>
+              Unlimited jobs • Priority placement • Pro badge
+            </Text>
+            {subExpiry && (
+              <Text style={subCard.activeExpiry}>
+                {subStatus === 'grace' ? 'Grace ends' : 'Renews'} {subExpiry}
+              </Text>
+            )}
+            {subStatus === 'grace' && (
+              <TouchableOpacity
+                style={subCard.renewBtn}
+                onPress={() => navigation.navigate('Subscription')}
+                activeOpacity={0.85}
+              >
+                <Text style={subCard.renewBtnText}>Renew Now →</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+
+        {!subActive && subStatus !== 'trial' && (
           <TouchableOpacity
             style={subCard.freeWrap}
             onPress={() => navigation.navigate('Subscription')}
@@ -162,68 +221,27 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
                     <Text style={subCard.verifiedIcon}>✓</Text>
                     <Text style={subCard.verifiedLabel}>Verified Artisan</Text>
                   </View>
-                  <Text style={subCard.freeHeadline}>Your account is fully verified.</Text>
+                  <Text style={subCard.freeHeadline}>Subscribe to be discoverable</Text>
                   <Text style={subCard.freeSub}>
-                    Upgrade to Basic or Premium to unlock priority placement, more jobs & a Pro badge.
+                    Unlock priority placement, unlimited jobs & a Pro badge.
                   </Text>
                 </>
               ) : (
                 <>
                   <Text style={subCard.freeHeadline}>Grow your business with FixNG</Text>
                   <Text style={subCard.freeSub}>
-                    Subscribe to get priority placement, unlimited jobs & a Pro badge once verified.
+                    Subscribe to get priority placement, unlimited jobs & a Pro badge.
                   </Text>
                 </>
               )}
             </View>
             <View style={subCard.freeRight}>
-              <Text style={subCard.freePrice}>from{'\n'}₦3,000</Text>
+              <Text style={subCard.freePrice}>from{'\n'}₦5,000</Text>
               <View style={subCard.freeBtn}>
                 <Text style={subCard.freeBtnText}>Subscribe →</Text>
               </View>
             </View>
           </TouchableOpacity>
-        )}
-
-        {subActive && subPlan === 'basic' && (
-          <View style={subCard.basicWrap}>
-            <View style={subCard.activeLeft}>
-              <View style={subCard.activePlanRow}>
-                <View style={subCard.activePlanBadge}>
-                  <Text style={subCard.activePlanBadgeText}>BASIC</Text>
-                </View>
-                <Text style={subCard.activePlanStatus}>Active</Text>
-              </View>
-              <Text style={subCard.activeHeadline}>Basic Plan</Text>
-              <Text style={subCard.activeSub}>
-                10 active jobs • Priority placement • Pro badge
-              </Text>
-              {subExpiry && <Text style={subCard.activeExpiry}>Renews {subExpiry}</Text>}
-            </View>
-            <TouchableOpacity
-              style={subCard.upgradeBtn}
-              onPress={() => navigation.navigate('Subscription')}
-              activeOpacity={0.85}
-            >
-              <Text style={subCard.upgradeBtnText}>Upgrade to Premium ↑</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {subActive && subPlan === 'premium' && (
-          <View style={subCard.premiumWrap}>
-            <View style={subCard.premiumTop}>
-              <View style={subCard.premiumBadge}>
-                <Text style={subCard.premiumBadgeText}>👑 PREMIUM</Text>
-              </View>
-              <Text style={subCard.premiumStatus}>Active</Text>
-            </View>
-            <Text style={subCard.premiumHeadline}>Premium Plan</Text>
-            <Text style={subCard.premiumSub}>
-              Unlimited jobs • Featured placement • Priority support
-            </Text>
-            {subExpiry && <Text style={subCard.premiumExpiry}>Renews {subExpiry}</Text>}
-          </View>
         )}
 
         {/* Quick Actions */}
@@ -349,7 +367,7 @@ const styles = StyleSheet.create({
 
 // ── Subscription card styles ──────────────────────────────────────────────────
 const subCard = StyleSheet.create({
-  // Free → upgrade prompt
+  // Not subscribed / expired → upgrade prompt
   freeWrap: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#1E293B', borderRadius: 18,
@@ -371,12 +389,19 @@ const subCard = StyleSheet.create({
   },
   freeBtnText: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
 
-  // Basic plan — active
-  basicWrap: {
+  // Trial prompt
+  trialWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#1E3A8A', borderRadius: 18,
+    padding: 16, marginBottom: 24, gap: 12,
+  },
+
+  // Pro active / grace
+  proWrap: {
     backgroundColor: '#EFF6FF', borderRadius: 18, padding: 16,
     marginBottom: 24, borderWidth: 2, borderColor: '#2563EB',
   },
-  activeLeft:       { marginBottom: 10 },
+  graceWrap:        { backgroundColor: '#FFF7ED', borderColor: '#EA580C' },
   activePlanRow:    { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
   activePlanBadge:  { backgroundColor: '#2563EB', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 3 },
   activePlanBadgeText: { fontSize: 10, fontWeight: '900', color: '#FFF', letterSpacing: 0.5 },
@@ -384,22 +409,9 @@ const subCard = StyleSheet.create({
   activeHeadline:   { fontSize: 16, fontWeight: '800', color: '#1E3A8A', marginBottom: 2 },
   activeSub:        { fontSize: 12, color: '#3B82F6', lineHeight: 17 },
   activeExpiry:     { fontSize: 11, color: '#64748B', marginTop: 4 },
-  upgradeBtn: {
-    backgroundColor: '#1E293B', borderRadius: 10,
-    paddingVertical: 10, alignItems: 'center',
+  renewBtn: {
+    backgroundColor: '#EA580C', borderRadius: 10,
+    paddingVertical: 10, alignItems: 'center', marginTop: 10,
   },
-  upgradeBtnText: { fontSize: 13, fontWeight: '800', color: '#FFF' },
-
-  // Premium plan — active
-  premiumWrap: {
-    backgroundColor: '#FFFBEB', borderRadius: 18, padding: 16,
-    marginBottom: 24, borderWidth: 2, borderColor: '#F59E0B',
-  },
-  premiumTop:          { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6 },
-  premiumBadge:        { backgroundColor: '#F59E0B', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 },
-  premiumBadgeText:    { fontSize: 10, fontWeight: '900', color: '#FFF', letterSpacing: 0.5 },
-  premiumStatus:       { fontSize: 12, fontWeight: '700', color: '#16A34A' },
-  premiumHeadline:     { fontSize: 16, fontWeight: '800', color: '#92400E', marginBottom: 2 },
-  premiumSub:          { fontSize: 12, color: '#B45309', lineHeight: 17 },
-  premiumExpiry:       { fontSize: 11, color: '#64748B', marginTop: 4 },
+  renewBtnText: { fontSize: 13, fontWeight: '800', color: '#FFF' },
 });

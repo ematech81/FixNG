@@ -77,17 +77,22 @@ export default function ArtisanJobScreen({ navigation }) {
     }
   };
 
+  const removeNearbyJob = (jobId) =>
+    setNearbyJobs((prev) => prev.filter((j) => j._id !== jobId));
+
   const handleAccept = async (jobId) => {
     try {
       await acceptJob(jobId, { estimatedArrivalMinutes: 15 });
       await fetchAll();
     } catch (err) {
-      const data = err?.response?.data;
+      const data    = err?.response?.data;
+      const message = data?.message || err?.message || '';
+
       if (data?.limitReached) {
         const isPro = data.currentPlan === 'pro';
         Alert.alert(
           isPro ? '10-Job Limit Reached' : '2-Job Limit Reached',
-          data.message,
+          message,
           [
             { text: 'Not Now', style: 'cancel' },
             {
@@ -98,8 +103,16 @@ export default function ArtisanJobScreen({ navigation }) {
             },
           ]
         );
+      } else if (message.toLowerCase().includes('expired')) {
+        // Job expired between the time it was listed and when the artisan tapped Accept.
+        // Remove it from the list when the artisan dismisses the alert.
+        Alert.alert(
+          'Job No Longer Available',
+          'This job has expired and is no longer accepting responses.',
+          [{ text: 'OK', onPress: () => removeNearbyJob(jobId) }]
+        );
       } else {
-        Alert.alert('Error', data?.message || err?.message || 'Could not accept job.');
+        Alert.alert('Error', message || 'Could not accept job.');
       }
     }
   };
@@ -112,7 +125,8 @@ export default function ArtisanJobScreen({ navigation }) {
         onPress: async () => {
           try {
             await declineJob(jobId);
-            await fetchAll();
+            // Remove immediately from local state — no need for a full refetch
+            removeNearbyJob(jobId);
           } catch (err) {
             Alert.alert('Error', err?.message || 'Could not decline job.');
           }
