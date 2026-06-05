@@ -13,7 +13,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { ARTISAN_SKILLS } from '../../../constants/skills';
-import { updateSkills, updateBio } from '../../../api/artisanApi';
+import { updateSkills, updateBio, saveDispatchInfo } from '../../../api/artisanApi';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
 
 const PRIMARY = '#2563EB';
@@ -22,6 +22,13 @@ const TOTAL_STEPS = 5;
 const CURRENT_STEP = 2;
 const BIO_MAX = 300;
 
+const VEHICLE_TYPES = ['Motorcycle', 'Bicycle', 'Car', 'Van'];
+
+const validatePlate = (plate) => {
+  if (!plate || plate.trim().length < 5) return false;
+  return /^[A-Za-z0-9 \-]+$/.test(plate.trim());
+};
+
 export default function Step2_Skills({ navigation }) {
   const { onCancelRegistration } = useOnboarding();
   const [selectedSkills, setSelectedSkills] = useState([]);
@@ -29,6 +36,15 @@ export default function Step2_Skills({ navigation }) {
   const [bio, setBio] = useState('');
   const [saving, setSaving] = useState(false);
   const othersInputRef = useRef(null);
+
+  // Dispatch rider fields
+  const [vehicleType, setVehicleType]           = useState(null);
+  const [plateNumber, setPlateNumber]           = useState('');
+  const [plateError, setPlateError]             = useState('');
+  const [hasHelmet, setHasHelmet]               = useState(false);
+  const [providesPackaging, setProvidesPackaging] = useState(false);
+
+  const isDispatchRider = selectedSkills.includes('Dispatch Rider');
 
   const othersSelected = selectedSkills.includes('Others');
 
@@ -66,17 +82,31 @@ export default function Step2_Skills({ navigation }) {
       return;
     }
 
+    // Dispatch Rider validation
+    if (isDispatchRider) {
+      if (!vehicleType) {
+        Alert.alert('Vehicle Required', 'Please select your vehicle type.');
+        return;
+      }
+      if (!validatePlate(plateNumber)) {
+        setPlateError('Please enter a valid vehicle plate number');
+        return;
+      }
+      setPlateError('');
+    }
+
     const skillsToSubmit = buildSubmitSkills();
 
     setSaving(true);
     try {
       await updateSkills(skillsToSubmit);
-      if (bio.trim()) {
-        await updateBio(bio.trim());
+      if (bio.trim()) await updateBio(bio.trim());
+      if (isDispatchRider) {
+        await saveDispatchInfo({ vehicleType, plateNumber: plateNumber.trim(), hasHelmet, providesPackaging });
       }
       navigation.navigate('Step3_Location');
     } catch (err) {
-      Alert.alert('Error', err?.message || 'Failed to save. Please try again.');
+      Alert.alert('Error', err?.response?.data?.message || err?.message || 'Failed to save. Please try again.');
     } finally {
       setSaving(false);
     }
@@ -160,6 +190,80 @@ export default function Step2_Skills({ navigation }) {
                   • {s === 'Others' && othersText.trim() ? othersText.trim() : s}
                 </Text>
               ))}
+            </View>
+          )}
+
+          {/* Dispatch Rider extra fields */}
+          {isDispatchRider && (
+            <View style={styles.dispatchBox}>
+              <View style={styles.dispatchHeader}>
+                <Text style={styles.dispatchIcon}>🏍️</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.dispatchTitle}>Dispatch Rider Details</Text>
+                  <Text style={styles.dispatchSubtitle}>
+                    These details help customers trust and book you safely.
+                  </Text>
+                </View>
+              </View>
+
+              {/* Tip card */}
+              <View style={styles.dispatchTip}>
+                <Text style={styles.dispatchTipText}>
+                  💡 Riders with a helmet and packaging option get more bookings. Customers value safety and reliability.
+                </Text>
+              </View>
+
+              {/* Vehicle type */}
+              <Text style={styles.dispatchLabel}>Vehicle Type <Text style={styles.required}>*</Text></Text>
+              <View style={styles.vehicleRow}>
+                {VEHICLE_TYPES.map((v) => (
+                  <TouchableOpacity
+                    key={v}
+                    style={[styles.vehicleChip, vehicleType === v && styles.vehicleChipSelected]}
+                    onPress={() => setVehicleType(v)}
+                    activeOpacity={0.75}
+                  >
+                    <Text style={[styles.vehicleChipText, vehicleType === v && styles.vehicleChipTextSelected]}>
+                      {v}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Plate number */}
+              <Text style={styles.dispatchLabel}>
+                Vehicle Plate Number <Text style={styles.required}>*</Text>
+              </Text>
+              <TextInput
+                style={[styles.plateInput, plateError ? styles.plateInputError : null]}
+                placeholder="e.g. LAG-123AB"
+                value={plateNumber}
+                onChangeText={(t) => {
+                  setPlateNumber(t);
+                  if (plateError) setPlateError('');
+                }}
+                autoCapitalize="characters"
+                returnKeyType="done"
+              />
+              {plateError ? <Text style={styles.plateErrorText}>{plateError}</Text> : null}
+
+              {/* Toggles */}
+              <View style={styles.toggleRow}>
+                <TouchableOpacity
+                  style={[styles.toggleChip, hasHelmet && styles.toggleChipOn]}
+                  onPress={() => setHasHelmet((v) => !v)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.toggleChipText}>{hasHelmet ? '✓ ' : ''}Provides Helmet</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.toggleChip, providesPackaging && styles.toggleChipOn]}
+                  onPress={() => setProvidesPackaging((v) => !v)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={styles.toggleChipText}>{providesPackaging ? '✓ ' : ''}Provides Packaging</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           )}
 
@@ -268,6 +372,47 @@ const styles = StyleSheet.create({
   previewBox: { backgroundColor: '#F9F9F9', borderRadius: 10, padding: 16, marginBottom: 24 },
   previewTitle: { fontSize: 13, fontWeight: '700', color: '#333', marginBottom: 8 },
   previewItem: { fontSize: 14, color: '#555', marginBottom: 4 },
+
+  // Dispatch rider
+  dispatchBox: {
+    backgroundColor: '#FFF7ED', borderRadius: 14, padding: 16,
+    marginBottom: 20, borderWidth: 1.5, borderColor: '#FED7AA',
+  },
+  dispatchHeader:   { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12 },
+  dispatchIcon:     { fontSize: 26 },
+  dispatchTitle:    { fontSize: 15, fontWeight: '800', color: '#92400E', marginBottom: 2 },
+  dispatchSubtitle: { fontSize: 13, color: '#B45309', lineHeight: 18 },
+  dispatchTip: {
+    backgroundColor: '#FFFBEB', borderRadius: 8, padding: 12,
+    marginBottom: 16, borderWidth: 1, borderColor: '#FDE68A',
+  },
+  dispatchTipText: { fontSize: 13, color: '#92400E', lineHeight: 18 },
+  dispatchLabel:   { fontSize: 14, fontWeight: '700', color: '#1A1A1A', marginBottom: 8 },
+  required:        { color: '#EF4444' },
+  vehicleRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+  vehicleChip: {
+    paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20,
+    borderWidth: 1.5, borderColor: '#D1D5DB', backgroundColor: '#FFF',
+  },
+  vehicleChipSelected: { borderColor: '#EA580C', backgroundColor: '#FFF7ED' },
+  vehicleChipText:     { fontSize: 14, color: '#374151' },
+  vehicleChipTextSelected: { color: '#EA580C', fontWeight: '700' },
+  plateInput: {
+    backgroundColor: '#FFF', borderWidth: 1.5, borderColor: '#D1D5DB',
+    borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
+    fontSize: 15, color: '#1A1A1A', marginBottom: 6,
+    letterSpacing: 1,
+  },
+  plateInputError:  { borderColor: '#EF4444' },
+  plateErrorText:   { fontSize: 12, color: '#EF4444', marginBottom: 12 },
+  toggleRow:        { flexDirection: 'row', gap: 10, marginTop: 8 },
+  toggleChip: {
+    flex: 1, paddingVertical: 10, borderRadius: 10,
+    borderWidth: 1.5, borderColor: '#D1D5DB', backgroundColor: '#FFF',
+    alignItems: 'center',
+  },
+  toggleChipOn:     { borderColor: '#16A34A', backgroundColor: '#F0FDF4' },
+  toggleChipText:   { fontSize: 13, fontWeight: '600', color: '#374151' },
 
   bioLabel: { fontSize: 15, fontWeight: '700', color: '#1A1A1A', marginTop: 4, marginBottom: 6 },
   bioOptional: { fontSize: 13, fontWeight: '400', color: '#9CA3AF' },

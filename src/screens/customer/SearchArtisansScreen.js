@@ -8,6 +8,7 @@ import * as Location from 'expo-location';
 import { searchArtisans } from '../../api/discoveryApi';
 import { ARTISAN_SKILLS } from '../../constants/skills';
 import BackButton from '../../components/BackButton';
+import DispatchSafetyModal from '../../components/DispatchSafetyModal';
 
 const BADGE_CONFIG = {
   new: { label: 'New', color: '#9CA3AF', icon: '🌱' },
@@ -28,6 +29,7 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
   const [minRating, setMinRating] = useState(0);
   const [categorySearch, setCategorySearch] = useState('');
   const [showCategoryPicker, setShowCategoryPicker] = useState(false);
+  const [safetyModalArtisanId, setSafetyModalArtisanId] = useState(null);
   const [hasSearched, setHasSearched] = useState(false);
 
   const filteredSkills = ARTISAN_SKILLS.filter((s) =>
@@ -86,7 +88,13 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
     return (
       <TouchableOpacity
         style={[styles.artisanCard, item.isPro && styles.artisanCardPro]}
-        onPress={() => navigation.navigate('ArtisanProfile', { artisanId: item.id })}
+        onPress={() => {
+          if (item.skills?.includes('Dispatch Rider')) {
+            setSafetyModalArtisanId(item.id);
+          } else {
+            navigation.navigate('ArtisanProfile', { artisanId: item.id });
+          }
+        }}
         activeOpacity={0.8}
       >
         <View style={styles.artisanRow}>
@@ -277,6 +285,16 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
             </View>
           ) : null
         }
+      />
+
+      <DispatchSafetyModal
+        visible={safetyModalArtisanId !== null}
+        onConfirm={() => {
+          const id = safetyModalArtisanId;
+          setSafetyModalArtisanId(null);
+          navigation.navigate('ArtisanProfile', { artisanId: id });
+        }}
+        onGoBack={() => setSafetyModalArtisanId(null)}
       />
     </SafeAreaView>
   );

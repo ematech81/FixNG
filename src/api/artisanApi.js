@@ -78,3 +78,6 @@ export const saveProfilePhotoUrl = ({ url, publicId }) =>
 
 export const saveSkillVideoUrl = ({ url, publicId }) =>
   api.post('/artisan/onboarding/skill-video-url', { url, publicId });
+
+export const saveDispatchInfo = ({ vehicleType, plateNumber, hasHelmet, providesPackaging }) =>
+  api.post('/artisan/onboarding/dispatch-info', { vehicleType, plateNumber, hasHelmet, providesPackaging });

@@ -40,7 +40,10 @@ const SKILL_ICONS = {
   Electrician: '⚡', Plumber: '🔧', Carpenter: '🪚', Painter: '🎨',
   Welder: '🔥', Mason: '🧱', Tiler: '🟫', Roofer: '🏠', 'AC Technician': '❄️',
   'Generator Repair': '⚙️', Wiring: '🔌', 'AC Maintenance': '🌡️',
-  'Solar Installation': '☀️', 'CCTV Installation': '📹', default: '🔨',
+  'Solar Installation': '☀️', 'CCTV Installation': '📹',
+  'Dispatch Rider': '🏍️', Driver: '🚗', 'Security Guard': '🛡️',
+  'Logistics / Courier Service': '📦',
+  default: '🔨',
 };
 const skillIcon = (s) => SKILL_ICONS[s] || SKILL_ICONS.default;
 
@@ -366,6 +369,42 @@ export default function ArtisanProfileScreen({ route, navigation }) {
             </View>
           </View>
         )}
+
+        {/* ════════════════════════════════════════
+            DISPATCH RIDER VEHICLE INFO
+        ════════════════════════════════════════ */}
+        {profile.skills?.includes('Dispatch Rider') && profile.dispatchInfo?.plateNumber ? (
+          <View style={[styles.sectionCard, { borderLeftWidth: 3, borderLeftColor: '#EA580C' }]}>
+            <View style={styles.sectionCardHeader}>
+              <Text style={{ fontSize: 18, marginRight: 8 }}>🏍️</Text>
+              <Text style={styles.sectionCardTitle}>Vehicle Info</Text>
+            </View>
+            <View style={styles.dispatchRow}>
+              <View style={styles.dispatchItem}>
+                <Text style={styles.dispatchItemLabel}>Vehicle</Text>
+                <Text style={styles.dispatchItemValue}>{profile.dispatchInfo.vehicleType || '—'}</Text>
+              </View>
+              <View style={styles.dispatchItem}>
+                <Text style={styles.dispatchItemLabel}>Plate No.</Text>
+                <Text style={[styles.dispatchItemValue, styles.plateValue]}>
+                  {profile.dispatchInfo.plateNumber}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.dispatchBadgeRow}>
+              {profile.dispatchInfo.hasHelmet && (
+                <View style={styles.dispatchBadge}>
+                  <Text style={styles.dispatchBadgeText}>⛑️ Provides Helmet</Text>
+                </View>
+              )}
+              {profile.dispatchInfo.providesPackaging && (
+                <View style={styles.dispatchBadge}>
+                  <Text style={styles.dispatchBadgeText}>📦 Provides Packaging</Text>
+                </View>
+              )}
+            </View>
+          </View>
+        ) : null}
 
         {/* ════════════════════════════════════════
             PORTFOLIO / COMPLETED WORK
@@ -1035,6 +1074,16 @@ const styles = StyleSheet.create({
   },
 
   // ── Skills ───────────────────────────────────────────────────────────────────
+  // Dispatch vehicle info
+  dispatchRow:       { flexDirection: 'row', gap: 16, marginBottom: 12 },
+  dispatchItem:      { flex: 1 },
+  dispatchItemLabel: { fontSize: 11, color: '#9CA3AF', fontWeight: '700', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 0.5 },
+  dispatchItemValue: { fontSize: 15, fontWeight: '700', color: '#1A1A1A' },
+  plateValue:        { letterSpacing: 1.5, color: '#EA580C' },
+  dispatchBadgeRow:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  dispatchBadge:     { backgroundColor: '#FFF7ED', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: '#FED7AA' },
+  dispatchBadgeText: { fontSize: 12, fontWeight: '700', color: '#92400E' },
+
   skillsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
