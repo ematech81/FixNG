@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput,
-  ActivityIndicator, RefreshControl, Alert, Image,
+  ActivityIndicator, RefreshControl, Alert, Image, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
@@ -20,16 +20,35 @@ const BADGE_CONFIG = {
 
 const DISTANCE_OPTIONS = [5, 10, 20, 50];
 
-// ── Skeleton placeholder card ──────────────────────────────────────────────────
-function SkeletonCard() {
+// ── Animated skeleton cards ────────────────────────────────────────────────────
+function SkeletonLoader() {
+  const pulse = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulse, { toValue: 0.35, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulse, { toValue: 1,    duration: 700, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [pulse]);
+
   return (
-    <View style={styles.skeletonCard}>
-      <View style={styles.skeletonAvatar} />
-      <View style={styles.skeletonBody}>
-        <View style={[styles.skeletonLine, { width: '55%', marginBottom: 8 }]} />
-        <View style={[styles.skeletonLine, { width: '80%', marginBottom: 8 }]} />
-        <View style={[styles.skeletonLine, { width: '40%' }]} />
+    <View style={styles.list}>
+      <View style={styles.skeletonHeader}>
+        <ActivityIndicator color="#2563EB" size="small" />
+        <Text style={styles.skeletonHeaderText}>Finding artisans near you…</Text>
       </View>
+      {[1, 2, 3, 4].map((k) => (
+        <Animated.View key={k} style={[styles.skeletonCard, { opacity: pulse }]}>
+          <View style={styles.skeletonAvatar} />
+          <View style={styles.skeletonBody}>
+            <View style={[styles.skeletonLine, { width: '55%', marginBottom: 8 }]} />
+            <View style={[styles.skeletonLine, { width: '80%', marginBottom: 8 }]} />
+            <View style={[styles.skeletonLine, { width: '40%' }]} />
+          </View>
+        </Animated.View>
+      ))}
     </View>
   );
 }
@@ -372,9 +391,7 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
 
       {/* Skeleton OR results */}
       {skeletal ? (
-        <View style={styles.list}>
-          {[1, 2, 3, 4].map((k) => <SkeletonCard key={k} />)}
-        </View>
+        <SkeletonLoader />
       ) : (
         <FlatList
           data={artisans}
@@ -448,6 +465,11 @@ const styles = StyleSheet.create({
   searchBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
 
   // ── Skeleton ──
+  skeletonHeader: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    marginBottom: 16,
+  },
+  skeletonHeaderText: { fontSize: 13, color: '#6B7280', fontWeight: '600' },
   skeletonCard: {
     flexDirection: 'row', gap: 12,
     backgroundColor: '#FFF', borderRadius: 14, padding: 14,
