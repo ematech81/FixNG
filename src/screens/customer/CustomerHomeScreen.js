@@ -11,6 +11,7 @@ import { getMyJobs } from '../../api/jobApi';
 import { getUnreadCount } from '../../api/notificationApi';
 import { getUser } from '../../utils/storage';
 import { DUMMY_NEARBY_ARTISANS } from '../../constants/dummyProfiles';
+import DispatchSafetyModal from '../../components/DispatchSafetyModal';
 
 // ── Design Tokens ──────────────────────────────────────────────────────────────
 const COLORS = {
@@ -95,8 +96,9 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
   const [loadingMore, setLoadingMore]       = useState(false);
 
   const [loading, setLoading]           = useState(true);
-  const [refreshing, setRefreshing]     = useState(false);
-  const [filterLoading, setFilterLoading] = useState(false);
+  const [refreshing, setRefreshing]           = useState(false);
+  const [filterLoading, setFilterLoading]     = useState(false);
+  const [safetyModalArtisanId, setSafetyModalArtisanId] = useState(null);
   const [locationLabel, setLocationLabel] = useState('Your Area');
   const [activeCategory, setActiveCategory] = useState('all');
   const [pendingJobCount, setPendingJobCount]       = useState(0);
@@ -223,6 +225,10 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
   };
 
   const goToProfile = (artisan) => {
+    if (artisan.skills?.includes('Dispatch Rider')) {
+      setSafetyModalArtisanId({ id: artisan.id, isDummy: artisan._isDummy, artisan });
+      return;
+    }
     if (artisan._isDummy) {
       navigation.navigate('ArtisanProfile', { artisanId: artisan.id, _dummyProfile: artisan });
     } else {
@@ -531,6 +537,20 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
 
         <View style={{ height: 32 }} />
       </ScrollView>
+
+      <DispatchSafetyModal
+        visible={safetyModalArtisanId !== null}
+        onConfirm={() => {
+          const target = safetyModalArtisanId;
+          setSafetyModalArtisanId(null);
+          if (target.isDummy) {
+            navigation.navigate('ArtisanProfile', { artisanId: target.id, _dummyProfile: target.artisan });
+          } else {
+            navigation.navigate('ArtisanProfile', { artisanId: target.id });
+          }
+        }}
+        onGoBack={() => setSafetyModalArtisanId(null)}
+      />
     </SafeAreaView>
   );
 }
