@@ -178,7 +178,11 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth }) {
     );
 
     if (subStatus === 'active') return (
-      <View style={subStyles.basicWrap}>
+      <TouchableOpacity
+        style={subStyles.basicWrap}
+        onPress={() => navigation.navigate('Subscription')}
+        activeOpacity={0.88}
+      >
         <View style={subStyles.accentBar} />
         <View style={subStyles.inner}>
           <View style={subStyles.planRow}>
@@ -193,8 +197,9 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth }) {
           <Text style={subStyles.planHeadline}>FixNG Pro</Text>
           <Text style={subStyles.planSub}>Unlimited jobs · Priority placement · Pro badge</Text>
           {subExpiry && <Text style={subStyles.expiry}>Renews {subExpiry}</Text>}
+          <Text style={subStyles.manageLink}>Manage subscription →</Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
 
     if (subStatus === 'grace') return (
@@ -673,7 +678,8 @@ const subStyles = StyleSheet.create({
 
   planHeadline: { fontSize: 17, fontWeight: '900', color: '#0F172A', marginBottom: 4 },
   planSub:      { fontSize: 13, color: '#475569', lineHeight: 18, marginBottom: 8 },
-  expiry:       { fontSize: 12, color: '#94A3B8', marginBottom: 12 },
+  expiry:       { fontSize: 12, color: '#94A3B8', marginBottom: 8 },
+  manageLink:   { fontSize: 12, color: PRIMARY, fontWeight: '700' },
 
   upgradeBtn: {
     backgroundColor: PRIMARY, borderRadius: 10,
