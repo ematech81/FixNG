@@ -632,7 +632,14 @@ function TrustedProfessionalsCard({ artisan, onPress }) {
         {artisan.distanceKm != null && (
           <View style={proCard.statChip}>
             <Text style={[proCard.statChipText, { color: COLORS.primary }]}>
-              📍 {artisan.distanceKm}km
+              {artisan.distanceKm}km away
+            </Text>
+          </View>
+        )}
+        {(artisan.address || artisan.state) && (
+          <View style={proCard.statChip}>
+            <Text style={[proCard.statChipText, { color: COLORS.primary }]} numberOfLines={1}>
+              📍 {artisan.address || artisan.state}
             </Text>
           </View>
         )}
@@ -650,9 +657,11 @@ function TrustedProfessionalsCard({ artisan, onPress }) {
 // NEARBY ARTISAN CARD  (vertical list)
 // ══════════════════════════════════════════════════════════════════════════════
 function ArtisanCard({ artisan, onPress }) {
-  const badge  = BADGE_CONFIG[artisan.badgeLevel] || BADGE_CONFIG.new;
-  const rating = artisan.stats?.averageRating;
-  const jobs   = artisan.stats?.completedJobs || 0;
+  const badge       = BADGE_CONFIG[artisan.badgeLevel] || BADGE_CONFIG.new;
+  const rating      = artisan.stats?.averageRating;
+  const jobs        = artisan.stats?.completedJobs || 0;
+  const placeName   = artisan.address || artisan.state || null;
+  const distText    = artisan.distanceKm != null ? `${artisan.distanceKm}km from here` : null;
 
   return (
     <TouchableOpacity
@@ -715,15 +724,16 @@ function ArtisanCard({ artisan, onPress }) {
           {rating > 0 && (
             <Text style={nearbyCard.rating}>⭐ {rating.toFixed(1)}</Text>
           )}
-          <Text style={nearbyCard.dividerDot}>·</Text>
+          {rating > 0 && <Text style={nearbyCard.dividerDot}>·</Text>}
           <Text style={nearbyCard.jobs}>{jobs} jobs</Text>
-          {artisan.distanceKm != null && (
-            <>
-              <Text style={nearbyCard.dividerDot}>·</Text>
-              <Text style={nearbyCard.dist}>📍 {artisan.distanceKm}km</Text>
-            </>
-          )}
         </View>
+
+        {/* Distance + Location Name */}
+        {(distText || placeName) && (
+          <Text style={nearbyCard.locationLine} numberOfLines={1}>
+            {[distText, placeName ? `📍 ${placeName}` : null].filter(Boolean).join('  ·  ')}
+          </Text>
+        )}
       </View>
 
       {/* Right: Book button */}
@@ -1537,6 +1547,12 @@ const nearbyCard = StyleSheet.create({
     fontSize: 12,
     color: COLORS.primary,
     fontWeight: '600',
+  },
+  locationLine: {
+    fontSize: 11,
+    color: COLORS.primary,
+    fontWeight: '600',
+    marginTop: 3,
   },
 
   // Book button
