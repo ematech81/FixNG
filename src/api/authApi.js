@@ -10,7 +10,14 @@ export const checkDevice = (phone, deviceId) =>
   api.post('/auth/check-device', { phone, deviceId });
 
 // Step 1: request OTP (works for both register and login)
-export const sendOTP = (phone) => api.post('/auth/otp/send', { phone });
+// email: optional fallback delivery address
+// forceEmail: true → skip SMS, deliver straight to email
+export const sendOTP = (phone, email, forceEmail) =>
+  api.post('/auth/otp/send', {
+    phone,
+    email:      email      || undefined,
+    forceEmail: forceEmail || undefined,
+  });
 
 // Step 2a: submit OTP + create new account
 export const verifyRegister = (data) => api.post('/auth/otp/verify-register', data);

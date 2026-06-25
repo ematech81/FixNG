@@ -13,12 +13,20 @@ const RESEND_COUNTDOWN = 60; // seconds
 
 export default function OTPScreen({ route, navigation }) {
   // mode: 'register' | 'login'
-  const { mode, phone, name, role, deviceId, onAuthSuccess } = route.params;
+  const {
+    mode, phone, name, role, deviceId, onAuthSuccess,
+    email,
+    emailUsed:   emailUsedParam,
+    maskedEmail: maskedEmailParam,
+    hasEmail,
+  } = route.params;
 
   const [digits, setDigits] = useState(Array(OTP_LENGTH).fill(''));
   const [loading, setLoading] = useState(false);
   const [resendCountdown, setResendCountdown] = useState(RESEND_COUNTDOWN);
   const [resending, setResending] = useState(false);
+  const [sentToEmail, setSentToEmail] = useState(!!emailUsedParam);
+  const [maskedEmail, setMaskedEmail] = useState(maskedEmailParam || null);
   const inputRefs = useRef([]);
 
   // Start the resend countdown on mount
@@ -82,7 +90,7 @@ export default function OTPScreen({ route, navigation }) {
     try {
       let res;
       if (mode === 'register') {
-        res = await verifyRegister({ name, phone, role, otp, deviceId });
+        res = await verifyRegister({ name, phone, role, otp, deviceId, email });
       } else {
         // Pass deviceId so backend can register this device as trusted
         res = await verifyLoginOTP({ phone, otp, deviceId });
@@ -117,21 +125,46 @@ export default function OTPScreen({ route, navigation }) {
     }
   };
 
+  const startCountdown = () => {
+    setResendCountdown(RESEND_COUNTDOWN);
+    const timer = setInterval(() => {
+      setResendCountdown((prev) => {
+        if (prev <= 1) { clearInterval(timer); return 0; }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const handleSendToEmail = async () => {
+    setResending(true);
+    try {
+      const res = await sendOTP(phone, email || undefined, true);
+      setSentToEmail(true);
+      if (res.data?.maskedEmail) setMaskedEmail(res.data.maskedEmail);
+      setDigits(Array(OTP_LENGTH).fill(''));
+      startCountdown();
+      setTimeout(() => inputRefs.current[0]?.focus(), 100);
+      Alert.alert('Sent', 'Your access key has been sent to your email.');
+    } catch (err) {
+      Alert.alert('Error', err?.message || 'Could not send to email. Please try again.');
+    } finally {
+      setResending(false);
+    }
+  };
+
   const handleResend = async () => {
     setResending(true);
     try {
-      await sendOTP(phone);
+      const res = await sendOTP(phone, email || undefined);
+      const result = res.data || {};
+      setSentToEmail(result.emailUsed ?? false);
+      if (result.maskedEmail) setMaskedEmail(result.maskedEmail);
       setDigits(Array(OTP_LENGTH).fill(''));
-      setResendCountdown(RESEND_COUNTDOWN);
-      // Restart countdown
-      const timer = setInterval(() => {
-        setResendCountdown((prev) => {
-          if (prev <= 1) { clearInterval(timer); return 0; }
-          return prev - 1;
-        });
-      }, 1000);
+      startCountdown();
       setTimeout(() => inputRefs.current[0]?.focus(), 100);
-      Alert.alert('Sent', 'A new code has been sent to your phone.');
+      Alert.alert('Sent', result.emailUsed
+        ? 'A new code has been sent to your email.'
+        : 'A new code has been sent to your phone.');
     } catch (err) {
       Alert.alert('Error', err?.message || 'Could not resend OTP. Try again.');
     } finally {
@@ -159,10 +192,16 @@ export default function OTPScreen({ route, navigation }) {
 
         <View style={styles.body}>
           <Text style={styles.title}>OTP Verification</Text>
-          <Text style={styles.subtitle}>
-            Enter the 6-character code sent to{'\n'}
-            <Text style={styles.phoneHighlight}>{maskedPhone}</Text>
-          </Text>
+          {sentToEmail ? (
+            <Text style={styles.subtitle}>
+              Access key sent to your email{maskedEmail ? `\n(${maskedEmail})` : ''}
+            </Text>
+          ) : (
+            <Text style={styles.subtitle}>
+              Enter the 6-character code sent to{'\n'}
+              <Text style={styles.phoneHighlight}>{maskedPhone}</Text>
+            </Text>
+          )}
 
           {/* OTP boxes */}
           <View style={styles.otpRow}>
@@ -200,6 +239,20 @@ export default function OTPScreen({ route, navigation }) {
               <Text style={styles.verifyBtnText}>Verify  →</Text>
             )}
           </TouchableOpacity>
+
+          {/* Send to email fallback — visible when SMS was used and email is available */}
+          {(email || hasEmail) && !sentToEmail && (
+            <TouchableOpacity
+              style={styles.emailFallbackBtn}
+              onPress={handleSendToEmail}
+              disabled={resending}
+              activeOpacity={0.8}
+            >
+              <Text style={styles.emailFallbackText}>
+                {resending ? 'Sending…' : 'Send access key to my email instead'}
+              </Text>
+            </TouchableOpacity>
+          )}
 
           {/* Resend */}
           <View style={styles.resendRow}>
@@ -273,4 +326,16 @@ const styles = StyleSheet.create({
   resendLink: { fontSize: 14, color: PRIMARY, fontWeight: '700' },
 
   expiryNote: { textAlign: 'center', fontSize: 12, color: '#B0B7C3' },
+
+  emailFallbackBtn: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  emailFallbackText: {
+    fontSize: 13,
+    color: PRIMARY,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
 });

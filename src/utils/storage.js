@@ -5,13 +5,20 @@ const TOKEN_KEY      = 'fixng_token';
 const USER_KEY       = 'fixng_user';
 const LAST_PHONE_KEY = 'fixng_last_phone'; // persists across logout for autofill
 
+// Some Android devices (Xiaomi, Tecno, Infinix) have aggressive battery management
+// that can cause SecureStore.getItemAsync to hang indefinitely, producing a blank
+// screen on startup. Race against a 3-second timeout so auth init always resolves.
+const secureRead = (key, timeoutMs = 3000) =>
+  Promise.race([
+    SecureStore.getItemAsync(key),
+    new Promise((resolve) => setTimeout(() => resolve(null), timeoutMs)),
+  ]);
+
 export const saveToken = async (token) => {
   await SecureStore.setItemAsync(TOKEN_KEY, token);
 };
 
-export const getToken = async () => {
-  return await SecureStore.getItemAsync(TOKEN_KEY);
-};
+export const getToken = async () => secureRead(TOKEN_KEY);
 
 export const removeToken = async () => {
   await SecureStore.deleteItemAsync(TOKEN_KEY);

@@ -12,6 +12,7 @@ import BackButton from '../../components/BackButton';
 export default function RegisterScreen({ navigation, onAuthSuccess }) {
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [agreed, setAgreed] = useState(false);
   const [loading, setLoading] = useState(false);
 
@@ -35,27 +36,45 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
     }
 
     // Build full phone for API (+234 + digits without leading 0)
-    const normalized = phone.startsWith('0') ? `+234${phone.slice(1)}` : `+234${phone}`;
+    const normalized  = phone.startsWith('0') ? `+234${phone.slice(1)}` : `+234${phone}`;
+    const cleanEmail  = email.trim().toLowerCase() || null;
 
-    setLoading(true);
-    try {
-      const deviceId = await getDeviceId();
-      await sendOTP(normalized);
-      // Navigate to OTP screen, passing registration data
-      // Everyone registers as a customer; artisan onboarding is triggered on-demand
-      navigation.navigate('OTP', {
-        mode: 'register',
-        phone: normalized,
-        name: name.trim(),
-        role: 'customer',
-        deviceId,
-        onAuthSuccess,
-      });
-    } catch (err) {
-      Alert.alert('Error', err?.message || 'Could not send OTP. Please try again.');
-    } finally {
-      setLoading(false);
+    const doSendOtp = async () => {
+      setLoading(true);
+      try {
+        const deviceId = await getDeviceId();
+        const res = await sendOTP(normalized, cleanEmail || undefined);
+        navigation.navigate('OTP', {
+          mode:       'register',
+          phone:      normalized,
+          name:       name.trim(),
+          role:       'customer',
+          deviceId,
+          onAuthSuccess,
+          email:      cleanEmail,
+          emailUsed:  res.data?.emailUsed  || false,
+          maskedEmail: res.data?.maskedEmail || null,
+        });
+      } catch (err) {
+        Alert.alert('Error', err?.message || 'Could not send OTP. Please try again.');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (!cleanEmail) {
+      Alert.alert(
+        'Add Your Email',
+        'Without an email you cannot receive your access key at night when SMS is unavailable.',
+        [
+          { text: 'Add Email', style: 'cancel' },
+          { text: 'Continue Anyway', style: 'destructive', onPress: doSendOtp },
+        ]
+      );
+      return;
     }
+
+    doSendOtp();
   };
 
   return (
@@ -113,6 +132,23 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
               returnKeyType="done"
               maxLength={11}
             />
+          </View>
+
+          {/* Email Address */}
+          <Text style={styles.fieldLabel}>Email Address</Text>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={styles.input}
+              placeholder="yourname@example.com"
+              placeholderTextColor="#B0B7C3"
+              value={email}
+              onChangeText={setEmail}
+              keyboardType="email-address"
+              autoCapitalize="none"
+              autoCorrect={false}
+              returnKeyType="done"
+            />
+            <Text style={styles.inputIcon}>✉️</Text>
           </View>
 
           {/* Security check / Terms */}

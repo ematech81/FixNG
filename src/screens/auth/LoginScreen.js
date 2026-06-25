@@ -71,10 +71,13 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
 
       // Existing user on new device — OTP already sent by check-device
       navigation.navigate('OTP', {
-        mode: 'login',
-        phone: data.phone || normalized,
+        mode:       'login',
+        phone:      data.phone || normalized,
         deviceId,
         onAuthSuccess,
+        hasEmail:   data.hasEmail   || false,
+        emailUsed:  data.emailUsed  || false,
+        maskedEmail: data.maskedEmail || null,
       });
     } catch (err) {
       // API interceptor rejects with response.data directly, so err IS the
