@@ -55,7 +55,7 @@ const ARTISAN_STATUS_CONFIG = {
 };
 
 export default function ProfileScreen({ navigation, onLogout, onRefreshAuth }) {
-  const { colors } = useTheme();
+  const { colors, isDark, toggleTheme } = useTheme();
   const [user, setUser]                         = useState(null);
   const [stats, setStats]                       = useState({ total: 0, completed: 0, active: 0 });
   const [activeJob, setActiveJob]               = useState(null);
@@ -432,6 +432,19 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth }) {
           ))}
         </View>
 
+        {/* ── Appearance ─────────────────────────────────────────────────── */}
+        <View style={styles.menuCard}>
+          <TouchableOpacity style={styles.menuItem} onPress={toggleTheme} activeOpacity={0.7}>
+            <View style={[styles.menuIconBox, { backgroundColor: '#6366F1' }]}>
+              <Text style={styles.menuIcon}>{isDark ? '☀️' : '🌙'}</Text>
+            </View>
+            <Text style={styles.menuLabel}>{isDark ? 'Light Mode' : 'Dark Mode'}</Text>
+            <View style={[styles.themeToggleTrack, isDark && styles.themeToggleTrackOn]}>
+              <View style={[styles.themeToggleThumb, isDark && styles.themeToggleThumbOn]} />
+            </View>
+          </TouchableOpacity>
+        </View>
+
         {/* ── Logout ─────────────────────────────────────────────────────── */}
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
           <Text style={styles.logoutIcon}>🚪</Text>
@@ -629,6 +642,19 @@ const makeStyles = (colors) => StyleSheet.create({
   menuIconEmoji: { fontSize: 18 },
   menuLabel:     { flex: 1, fontSize: 15, fontWeight: '600', color: colors.text },
   menuChevron:   { fontSize: 20, color: colors.textHint },
+
+  /* Theme toggle */
+  themeToggleTrack: {
+    width: 44, height: 24, borderRadius: 12,
+    backgroundColor: colors.border, justifyContent: 'center', paddingHorizontal: 2,
+  },
+  themeToggleTrackOn: { backgroundColor: colors.info },
+  themeToggleThumb: {
+    width: 20, height: 20, borderRadius: 10, backgroundColor: '#FFF',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2,
+    elevation: 2,
+  },
+  themeToggleThumbOn: { alignSelf: 'flex-end' },
 
   /* Logout */
   logoutBtn: {
