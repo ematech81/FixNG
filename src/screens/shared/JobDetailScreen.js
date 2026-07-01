@@ -11,6 +11,7 @@ import BackButton from '../../components/BackButton';
 import { getUser } from '../../utils/storage';
 import VoiceNotePlayer from '../../components/VoiceNotePlayer';
 import BottomModal from '../../components/BottomModal';
+import { useTheme } from '../../context/ThemeContext';
 
 const STATUS_LABELS = {
   pending: { label: 'Pending', color: '#F59E0B', bg: '#FFFBEB' },
@@ -22,12 +23,14 @@ const STATUS_LABELS = {
 };
 
 export default function JobDetailScreen({ route, navigation }) {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
   const { jobId } = route.params;
   const [job, setJob] = useState(null);
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-  const [jobCodeCopied, setJobCodeCopied] = useState(false);
+  const [codeCopied, setCodeCopied] = useState(false);
   const [disputeModal, setDisputeModal] = useState(false);
   const [disputeReason, setDisputeReason] = useState('');
   const [acceptModal, setAcceptModal] = useState(false);
@@ -39,7 +42,6 @@ export default function JobDetailScreen({ route, navigation }) {
     fetchJob();
   }, []);
 
-  // Live status updates
   useSocket(currentUser?.id, {
     job_accepted: (data) => data.jobId === jobId && fetchJob(),
     artisan_arrived: (data) => data.jobId === jobId && fetchJob(),
@@ -59,12 +61,9 @@ export default function JobDetailScreen({ route, navigation }) {
     }
   };
 
-  // Robust ID comparison: handle ObjectId objects, strings, and both id/_id variants
   const currentUserId = currentUser?.id?.toString() || currentUser?._id?.toString();
   const isCustomer = !!currentUserId && job?.customerId?._id?.toString() === currentUserId;
   const isArtisan = !!currentUserId && job?.assignedArtisanId?._id?.toString() === currentUserId;
-
-  // ── Actions ───────────────────────────────────────────────────────────────
 
   const handleAccept = async () => {
     setActing(true);
@@ -181,10 +180,16 @@ export default function JobDetailScreen({ route, navigation }) {
     ]);
   };
 
+  const handleCopyCode = async () => {
+    await Clipboard.setStringAsync(job.artisanCode);
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 2000);
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
-        <ActivityIndicator size="large" color="#FF6B00" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -192,11 +197,11 @@ export default function JobDetailScreen({ route, navigation }) {
   if (!job) return null;
 
   const statusConfig = STATUS_LABELS[job.status] || STATUS_LABELS.pending;
+  const artisanCode = job.artisanCode;
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        {/* Header */}
         <View style={styles.header}>
           <BackButton onPress={() => navigation.goBack()} />
           <View style={[styles.statusBadge, { backgroundColor: statusConfig.bg }]}>
@@ -206,7 +211,6 @@ export default function JobDetailScreen({ route, navigation }) {
           </View>
         </View>
 
-        {/* Pending status banner — customer only */}
         {isCustomer && job.status === 'pending' && (
           <View style={styles.pendingBanner}>
             <Text style={styles.pendingBannerIcon}>⏳</Text>
@@ -219,14 +223,12 @@ export default function JobDetailScreen({ route, navigation }) {
               <Text style={styles.pendingBannerBody}>
                 {job.assignedArtisanId
                   ? `Your request has been sent to ${job.assignedArtisanId.name}. They will confirm shortly — you'll get a notification the moment they accept.`
-                  : "Your request has been sent to nearby artisans. Sit tight \u2014 you'll get a notification the moment someone accepts."}
+                  : "Your request has been sent to nearby artisans. Sit tight — you'll get a notification the moment someone accepts."}
               </Text>
             </View>
           </View>
         )}
 
-
-        {/* Job Info */}
         <Text style={styles.category}>{job.category}</Text>
         <View style={styles.urgencyRow}>
           <Text style={[styles.urgencyBadge, job.urgency === 'emergency' && styles.urgencyEmergency]}>
@@ -257,7 +259,6 @@ export default function JobDetailScreen({ route, navigation }) {
           <Text style={styles.description}>{job.description}</Text>
         )}
 
-        {/* Images */}
         {job.images?.length > 0 && (
           <>
             <Text style={styles.sectionTitle}>Photos</Text>
@@ -271,7 +272,6 @@ export default function JobDetailScreen({ route, navigation }) {
           </>
         )}
 
-        {/* Location */}
         {job.location?.address && (
           <>
             <Text style={styles.sectionTitle}>Location</Text>
@@ -282,27 +282,25 @@ export default function JobDetailScreen({ route, navigation }) {
           </>
         )}
 
-        {/* Artisan info (customer view) + chat */}
         {job.assignedArtisanId && isCustomer && (
           <>
             <Text style={styles.sectionTitle}>Artisan</Text>
             <View style={styles.personCard}>
               <Text style={styles.personName}>{job.assignedArtisanId.name}</Text>
-              {job.artisanCode && (
-                <TouchableOpacity
-                  style={styles.artisanIdRow}
-                  onPress={async () => {
-                    await Clipboard.setStringAsync(job.artisanCode);
-                    setJobCodeCopied(true);
-                    setTimeout(() => setJobCodeCopied(false), 2000);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.artisanIdText}>
-                    ID: <Text style={styles.artisanIdCode}>{job.artisanCode}</Text>
-                    {'  '}{jobCodeCopied ? '✓ Copied' : '📋 Copy'}
-                  </Text>
-                </TouchableOpacity>
+              {artisanCode && (
+                <View style={styles.codeRow}>
+                  <Text style={styles.codeLabel}>Code: </Text>
+                  <Text style={styles.codeValue}>{artisanCode}</Text>
+                  <TouchableOpacity
+                    style={[styles.copyBtn, codeCopied && styles.copyBtnDone]}
+                    onPress={handleCopyCode}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.copyBtnText, codeCopied && styles.copyBtnDoneText]}>
+                      {codeCopied ? 'Copied ✓' : 'Copy'}
+                    </Text>
+                  </TouchableOpacity>
+                </View>
               )}
               {job.estimatedArrivalMinutes && (
                 <Text style={styles.eta}>
@@ -331,7 +329,6 @@ export default function JobDetailScreen({ route, navigation }) {
           </>
         )}
 
-        {/* Customer info (artisan view) + chat */}
         {job.customerId && isArtisan && (
           <>
             <Text style={styles.sectionTitle}>Customer</Text>
@@ -355,7 +352,6 @@ export default function JobDetailScreen({ route, navigation }) {
           </>
         )}
 
-        {/* Timeline */}
         <Text style={styles.sectionTitle}>Timeline</Text>
         <TimelineRow label="Job Posted" date={job.createdAt} />
         <TimelineRow label="Accepted" date={job.timeline?.acceptedAt} />
@@ -365,7 +361,6 @@ export default function JobDetailScreen({ route, navigation }) {
         {job.timeline?.disputedAt && <TimelineRow label="Dispute Raised" date={job.timeline.disputedAt} isAlert />}
         {job.timeline?.cancelledAt && <TimelineRow label="Cancelled" date={job.timeline.cancelledAt} isAlert />}
 
-        {/* Dispute info */}
         {job.status === 'disputed' && job.dispute && (
           <View style={styles.disputeBox}>
             <Text style={styles.disputeTitle}>Dispute Details</Text>
@@ -378,15 +373,13 @@ export default function JobDetailScreen({ route, navigation }) {
         )}
       </ScrollView>
 
-      {/* Action Buttons */}
       {acting ? (
         <View style={styles.actingBar}>
-          <ActivityIndicator color="#FF6B00" />
+          <ActivityIndicator color={colors.primary} />
         </View>
       ) : (
         <View style={styles.actions}>
 
-          {/* ── Customer actions ───────────────────────────────────────────── */}
           {isCustomer && job.assignedArtisanId &&
            ['accepted', 'in-progress', 'completed', 'disputed'].includes(job.status) && (
             <TouchableOpacity
@@ -440,7 +433,6 @@ export default function JobDetailScreen({ route, navigation }) {
             </View>
           )}
 
-          {/* ── Artisan actions ────────────────────────────────────────────── */}
           {isArtisan && job.customerId &&
            ['accepted', 'in-progress', 'completed', 'disputed'].includes(job.status) && (
             <TouchableOpacity
@@ -483,7 +475,6 @@ export default function JobDetailScreen({ route, navigation }) {
         </View>
       )}
 
-      {/* Accept Modal */}
       <BottomModal
         visible={acceptModal}
         onClose={() => setAcceptModal(false)}
@@ -511,7 +502,6 @@ export default function JobDetailScreen({ route, navigation }) {
         />
       </BottomModal>
 
-      {/* Dispute Modal */}
       <BottomModal
         visible={disputeModal}
         onClose={() => setDisputeModal(false)}
@@ -535,6 +525,8 @@ export default function JobDetailScreen({ route, navigation }) {
 }
 
 function TimelineRow({ label, date, isAlert }) {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
   if (!date) return null;
   return (
     <View style={styles.timelineRow}>
@@ -545,134 +537,119 @@ function TimelineRow({ label, date, isAlert }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.card },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.card },
   scroll: { padding: 20, paddingBottom: 20 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20,
   },
   statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
   statusText: { fontSize: 13, fontWeight: '700' },
-  category: { fontSize: 22, fontWeight: '700', color: '#1A1A1A', marginBottom: 8 },
+  category: { fontSize: 22, fontWeight: '700', color: colors.text, marginBottom: 8 },
   urgencyRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
-  urgencyBadge: { fontSize: 13, color: '#3B82F6', fontWeight: '600' },
-  urgencyEmergency: { color: '#EF4444' },
-  timestamp: { fontSize: 12, color: '#BBB' },
-  sectionTitle: { fontSize: 13, fontWeight: '700', color: '#999', marginTop: 20, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
-  description: { fontSize: 15, color: '#444', lineHeight: 22 },
+  urgencyBadge: { fontSize: 13, color: colors.info, fontWeight: '600' },
+  urgencyEmergency: { color: colors.error },
+  timestamp: { fontSize: 12, color: colors.textHint },
+  sectionTitle: { fontSize: 13, fontWeight: '700', color: colors.textMuted, marginTop: 20, marginBottom: 8, textTransform: 'uppercase', letterSpacing: 0.5 },
+  description: { fontSize: 15, color: colors.textSub, lineHeight: 22 },
   pendingBanner: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
-    backgroundColor: '#FFFBEB', borderRadius: 14, padding: 14,
-    borderWidth: 1.5, borderColor: '#F59E0B', marginBottom: 8, marginTop: 4,
+    backgroundColor: colors.warningBg, borderRadius: 14, padding: 14,
+    borderWidth: 1.5, borderColor: colors.warning, marginBottom: 8, marginTop: 4,
   },
   pendingBannerIcon: { fontSize: 22, marginTop: 1 },
-  pendingBannerTitle: { fontSize: 14, fontWeight: '700', color: '#92400E', marginBottom: 4 },
-  pendingBannerBody: { fontSize: 13, color: '#78350F', lineHeight: 19 },
+  pendingBannerTitle: { fontSize: 14, fontWeight: '700', color: colors.textSub, marginBottom: 4 },
+  pendingBannerBody: { fontSize: 13, color: colors.textSub, lineHeight: 19 },
   voiceCard: {
-    backgroundColor: '#FFF3EC', borderRadius: 14, padding: 14,
-    borderWidth: 1.5, borderColor: '#FF6B00',
+    backgroundColor: colors.primaryLight, borderRadius: 14, padding: 14,
+    borderWidth: 1.5, borderColor: colors.primary,
   },
   voiceCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 12 },
   voiceIconCircle: {
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#FF6B00', justifyContent: 'center', alignItems: 'center',
+    backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center',
   },
   voiceIconEmoji: { fontSize: 20 },
-  voiceCardTitle: { fontSize: 14, fontWeight: '700', color: '#92400E' },
-  voiceCardHint: { fontSize: 12, color: '#B45309', marginTop: 2 },
+  voiceCardTitle: { fontSize: 14, fontWeight: '700', color: colors.textSub },
+  voiceCardHint: { fontSize: 12, color: colors.textSub, marginTop: 2 },
   imagesRow: { flexDirection: 'row', gap: 10, paddingBottom: 4 },
   jobImage: { width: 120, height: 100, borderRadius: 10 },
-  locationText: { fontSize: 15, color: '#444' },
-  locationState: { fontSize: 13, color: '#999', marginTop: 2 },
-  personCard: { backgroundColor: '#F9FAFB', borderRadius: 10, padding: 14 },
-  personName: { fontSize: 15, fontWeight: '700', color: '#1A1A1A', marginBottom: 4 },
-  artisanIdRow: { marginBottom: 6 },
-  artisanIdText: { fontSize: 12, color: '#6B7280' },
-  artisanIdCode: { fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', color: '#2563EB', fontWeight: '700', letterSpacing: 1 },
-  eta: { fontSize: 13, color: '#3B82F6' },
-  agreedPrice: { fontSize: 13, color: '#22C55E', marginTop: 4 },
+  locationText: { fontSize: 15, color: colors.textSub },
+  locationState: { fontSize: 13, color: colors.textMuted, marginTop: 2 },
+  personCard: { backgroundColor: colors.surface, borderRadius: 10, padding: 14 },
+  personName: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 4 },
+  codeRow: { flexDirection: 'row', alignItems: 'center', gap: 6, flexWrap: 'wrap', marginBottom: 6 },
+  codeLabel: { fontSize: 13, color: colors.textSub },
+  codeValue: { fontSize: 13, fontWeight: '700', color: colors.info, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  copyBtn: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1.5, borderColor: colors.info },
+  copyBtnDone: { borderColor: colors.success },
+  copyBtnText: { fontSize: 12, fontWeight: '700', color: colors.info },
+  copyBtnDoneText: { color: colors.success },
+  eta: { fontSize: 13, color: colors.info },
+  agreedPrice: { fontSize: 13, color: colors.success, marginTop: 4 },
   chatBtn: {
-    marginTop: 10, backgroundColor: '#FFF3EC', borderRadius: 8, padding: 10, alignItems: 'center',
-    borderWidth: 1, borderColor: '#FF6B00',
+    marginTop: 10, backgroundColor: colors.primaryLight, borderRadius: 8, padding: 10, alignItems: 'center',
+    borderWidth: 1, borderColor: colors.primary,
   },
-  chatBtnText: { color: '#FF6B00', fontWeight: '700', fontSize: 14 },
+  chatBtnText: { color: colors.primary, fontWeight: '700', fontSize: 14 },
   timelineRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 8 },
-  timelineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#22C55E' },
-  timelineDotAlert: { backgroundColor: '#EF4444' },
-  timelineLabel: { flex: 1, fontSize: 13, color: '#555', fontWeight: '600' },
-  timelineLabelAlert: { color: '#EF4444' },
-  timelineDate: { fontSize: 12, color: '#999' },
+  timelineDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: colors.success },
+  timelineDotAlert: { backgroundColor: colors.error },
+  timelineLabel: { flex: 1, fontSize: 13, color: colors.textSub, fontWeight: '600' },
+  timelineLabelAlert: { color: colors.error },
+  timelineDate: { fontSize: 12, color: colors.textMuted },
   disputeBox: {
-    backgroundColor: '#FEF2F2', borderRadius: 10, padding: 14,
-    borderLeftWidth: 4, borderLeftColor: '#EF4444', marginTop: 16,
+    backgroundColor: colors.errorBg, borderRadius: 10, padding: 14,
+    borderLeftWidth: 4, borderLeftColor: colors.error, marginTop: 16,
   },
-  disputeTitle: { fontSize: 13, fontWeight: '700', color: '#DC2626', marginBottom: 6 },
-  disputeBy: { fontSize: 12, color: '#777', marginBottom: 4 },
-  disputeReason: { fontSize: 14, color: '#444', lineHeight: 20 },
-  disputeResolution: { fontSize: 13, color: '#22C55E', marginTop: 6, fontWeight: '600' },
+  disputeTitle: { fontSize: 13, fontWeight: '700', color: colors.error, marginBottom: 6 },
+  disputeBy: { fontSize: 12, color: colors.textMuted, marginBottom: 4 },
+  disputeReason: { fontSize: 14, color: colors.textSub, lineHeight: 20 },
+  disputeResolution: { fontSize: 13, color: colors.success, marginTop: 6, fontWeight: '600' },
   chatActionBtn: {
-    backgroundColor: '#FFF3EC', borderRadius: 12, padding: 14,
+    backgroundColor: colors.primaryLight, borderRadius: 12, padding: 14,
     alignItems: 'center', marginBottom: 10,
-    borderWidth: 1.5, borderColor: '#FF6B00',
+    borderWidth: 1.5, borderColor: colors.primary,
   },
-  chatActionBtnText: { color: '#FF6B00', fontWeight: '700', fontSize: 15 },
+  chatActionBtnText: { color: colors.primary, fontWeight: '700', fontSize: 15 },
   ratedBadge: {
-    backgroundColor: '#FFFBEB', borderRadius: 12, padding: 14,
+    backgroundColor: colors.warningBg, borderRadius: 12, padding: 14,
     alignItems: 'center', marginBottom: 10,
-    borderWidth: 1, borderColor: '#FDE68A',
+    borderWidth: 1, borderColor: colors.warning,
   },
-  ratedBadgeText: { color: '#92400E', fontWeight: '600', fontSize: 14 },
+  ratedBadgeText: { color: colors.textSub, fontWeight: '600', fontSize: 14 },
   actingBar: { padding: 24, alignItems: 'center' },
   actions: { padding: 16, paddingBottom: 24 },
   actionRow: { flexDirection: 'row', gap: 10 },
   primaryBtn: {
-    backgroundColor: '#FF6B00', padding: 16, borderRadius: 12,
+    backgroundColor: colors.primary, padding: 16, borderRadius: 12,
     alignItems: 'center', marginBottom: 8,
   },
-  primaryBtnText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
+  primaryBtnText: { color: colors.card, fontWeight: '700', fontSize: 16 },
   acceptBtn: {
-    flex: 1, backgroundColor: '#FF6B00', padding: 14,
+    flex: 1, backgroundColor: colors.primary, padding: 14,
     borderRadius: 12, alignItems: 'center',
   },
-  acceptBtnText: { color: '#FFF', fontWeight: '700', fontSize: 15 },
+  acceptBtnText: { color: colors.card, fontWeight: '700', fontSize: 15 },
   declineBtn: {
     flex: 1, padding: 14, borderRadius: 12,
-    borderWidth: 1.5, borderColor: '#E5E5E5', alignItems: 'center',
+    borderWidth: 1.5, borderColor: colors.border, alignItems: 'center',
   },
-  declineBtnText: { color: '#666', fontWeight: '600', fontSize: 15 },
+  declineBtnText: { color: colors.textSub, fontWeight: '600', fontSize: 15 },
   disputeActionBtn: {
-    flex: 1, backgroundColor: '#FEF2F2', padding: 14,
+    flex: 1, backgroundColor: colors.errorBg, padding: 14,
     borderRadius: 12, alignItems: 'center',
   },
-  disputeActionBtnText: { color: '#EF4444', fontWeight: '700', fontSize: 15 },
+  disputeActionBtnText: { color: colors.error, fontWeight: '700', fontSize: 15 },
   disputeCompletedBtn: {
-    borderWidth: 1.5, borderColor: '#FECACA', backgroundColor: '#FEF2F2',
+    borderWidth: 1.5, borderColor: colors.error, backgroundColor: colors.errorBg,
     borderRadius: 12, padding: 14, alignItems: 'center', marginBottom: 10,
   },
-  disputeCompletedBtnText: { color: '#DC2626', fontWeight: '700', fontSize: 14 },
-  modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'flex-end',
-  },
-  modalCard: {
-    backgroundColor: '#FFF', borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    padding: 24, paddingBottom: 40,
-  },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A1A', marginBottom: 4 },
-  modalSubtitle: { fontSize: 14, color: '#777', marginBottom: 16, lineHeight: 20 },
-  modalLabel: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 6, marginTop: 12 },
+  disputeCompletedBtnText: { color: colors.error, fontWeight: '700', fontSize: 14 },
+  modalLabel: { fontSize: 13, fontWeight: '600', color: colors.textSub, marginBottom: 6, marginTop: 12 },
   modalInput: {
-    borderWidth: 1.5, borderColor: '#E5E5E5', borderRadius: 10,
-    padding: 13, fontSize: 15, backgroundColor: '#FAFAFA',
+    borderWidth: 1.5, borderColor: colors.border, borderRadius: 10,
+    padding: 13, fontSize: 15, backgroundColor: colors.inputBg, color: colors.text,
   },
-  modalActions: { flexDirection: 'row', gap: 10, marginTop: 20 },
-  modalCancel: {
-    flex: 1, padding: 14, borderRadius: 12,
-    borderWidth: 1.5, borderColor: '#E5E5E5', alignItems: 'center',
-  },
-  modalCancelText: { color: '#666', fontWeight: '600' },
-  modalAccept: { flex: 1, backgroundColor: '#FF6B00', padding: 14, borderRadius: 12, alignItems: 'center' },
-  modalDisputeSubmit: { flex: 1, backgroundColor: '#EF4444', padding: 14, borderRadius: 12, alignItems: 'center' },
-  modalAcceptText: { color: '#FFF', fontWeight: '700' },
 });

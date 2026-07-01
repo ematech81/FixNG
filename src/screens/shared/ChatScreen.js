@@ -11,26 +11,27 @@ import { getUser } from '../../utils/storage';
 import { connectSocket } from '../../hooks/useSocket';
 import VoiceNoteRecorder from '../../components/VoiceNoteRecorder';
 import VoiceNotePlayer from '../../components/VoiceNotePlayer';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function ChatScreen({ route, navigation }) {
+  const { colors } = useTheme();
   const { jobId, jobCategory, otherPartyName } = route.params;
 
   const [messages, setMessages]     = useState([]);
   const [inputText, setInputText]   = useState('');
   const [loading, setLoading]       = useState(true);
-  const [imageSending, setImageSending] = useState(false); // only images show a loader
+  const [imageSending, setImageSending] = useState(false);
   const [currentUser, setCurrentUser]   = useState(null);
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false);
 
-  const currentUserRef = useRef(null); // stable ref so socket callbacks never go stale
-  const sendingRef     = useRef(false); // guard against double-tap without a re-render
+  const currentUserRef = useRef(null);
+  const sendingRef     = useRef(false);
   const flatListRef    = useRef(null);
   const socketRef      = useRef(null);
 
   // ── Auto-scroll whenever the message list grows ────────────────────────────
   useEffect(() => {
     if (messages.length === 0) return;
-    // Small delay lets React flush the new item into the DOM before scrolling
     const t = setTimeout(() => {
       flatListRef.current?.scrollToEnd({ animated: true });
     }, 60);
@@ -47,7 +48,6 @@ export default function ChatScreen({ route, navigation }) {
 
   const handleNewMessage = useCallback((msg) => {
     if (msg.jobId?.toString() !== jobId?.toString()) return;
-    // Ignore own messages — already added optimistically
     const myId = currentUserRef.current?._id?.toString()
               || currentUserRef.current?.id?.toString();
     if (myId && msg.senderId?.toString() === myId) return;
@@ -104,7 +104,6 @@ export default function ChatScreen({ route, navigation }) {
 
     try {
       const res = await sendMessage(jobId, text);
-      // Swap the optimistic placeholder for the confirmed server message
       setMessages((prev) =>
         prev.map((m) => m.id === tempId ? res.data.data : m)
       );
@@ -117,7 +116,7 @@ export default function ChatScreen({ route, navigation }) {
     }
   };
 
-  // ── Image send — keeps a loading overlay since upload takes time ───────────
+  // ── Image send ────────────────────────────────────────────────────────────
   const handleSendImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
@@ -187,6 +186,7 @@ export default function ChatScreen({ route, navigation }) {
     const senderIdStr = item.senderId?._id || item.senderId;
     const myId = currentUser?._id || currentUser?.id;
     const isMine = senderIdStr?.toString() === myId?.toString();
+    const styles = makeStyles(colors);
 
     return (
       <View style={[styles.messageRow, isMine && styles.messageRowRight]}>
@@ -227,11 +227,13 @@ export default function ChatScreen({ route, navigation }) {
     );
   };
 
+  const styles = makeStyles(colors);
+
   // ── Loading state ──────────────────────────────────────────────────────────
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
-        <ActivityIndicator size="large" color="#FF6B00" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -279,7 +281,7 @@ export default function ChatScreen({ route, navigation }) {
         {/* Image upload overlay */}
         {imageSending && (
           <View style={styles.imageUploadOverlay}>
-            <ActivityIndicator color="#FFF" size="small" />
+            <ActivityIndicator color={colors.card} size="small" />
             <Text style={styles.imageUploadText}>Uploading photo…</Text>
           </View>
         )}
@@ -301,6 +303,7 @@ export default function ChatScreen({ route, navigation }) {
           <TextInput
             style={styles.input}
             placeholder="Type a message..."
+            placeholderTextColor={colors.textMuted}
             value={inputText}
             onChangeText={setInputText}
             multiline
@@ -342,24 +345,24 @@ const formatTime = (dateStr) => {
   return new Date(dateStr).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.surface },
   centered:  { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 16, paddingVertical: 14, backgroundColor: '#FFF',
-    borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+    paddingHorizontal: 16, paddingVertical: 14, backgroundColor: colors.card,
+    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
   },
   headerCenter: { alignItems: 'center' },
-  headerName:   { fontSize: 16, fontWeight: '700', color: '#1A1A1A' },
-  headerJob:    { fontSize: 12, color: '#888' },
+  headerName:   { fontSize: 16, fontWeight: '700', color: colors.text },
+  headerJob:    { fontSize: 12, color: colors.textMuted },
 
   notice: {
-    backgroundColor: '#FFF3EC', padding: 8, alignItems: 'center',
-    borderBottomWidth: 1, borderBottomColor: '#FFE0CC',
+    backgroundColor: colors.primaryLight, padding: 8, alignItems: 'center',
+    borderBottomWidth: 1, borderBottomColor: colors.primaryDark,
   },
-  noticeText: { fontSize: 11, color: '#CC5500' },
+  noticeText: { fontSize: 11, color: colors.primaryDark },
 
   messageList: { padding: 16, paddingBottom: 8 },
 
@@ -367,55 +370,54 @@ const styles = StyleSheet.create({
   messageRowRight: { justifyContent: 'flex-end' },
 
   messageBubble: { maxWidth: '75%', padding: 12, borderRadius: 16 },
-  bubbleMine:    { backgroundColor: '#FF6B00', borderBottomRightRadius: 4 },
+  bubbleMine:    { backgroundColor: colors.primary, borderBottomRightRadius: 4 },
   bubbleOther: {
-    backgroundColor: '#FFF', borderBottomLeftRadius: 4,
-    borderWidth: 1, borderColor: '#F0F0F0',
+    backgroundColor: colors.card, borderBottomLeftRadius: 4,
+    borderWidth: 1, borderColor: colors.borderLight,
   },
-  // Pending (optimistic) messages look slightly transparent
   bubblePending: { opacity: 0.65 },
 
-  senderName:      { fontSize: 11, color: '#888', fontWeight: '700', marginBottom: 4 },
-  messageText:     { fontSize: 15, color: '#1A1A1A', lineHeight: 20 },
-  messageTextMine: { color: '#FFF' },
+  senderName:      { fontSize: 11, color: colors.textMuted, fontWeight: '700', marginBottom: 4 },
+  messageText:     { fontSize: 15, color: colors.text, lineHeight: 20 },
+  messageTextMine: { color: colors.card },
   messageImage:    { width: 200, height: 150, borderRadius: 10 },
-  filteredNote:    { fontSize: 10, color: '#999', marginTop: 4, fontStyle: 'italic' },
-  messageTime:     { fontSize: 10, color: '#999', marginTop: 4, textAlign: 'right' },
+  filteredNote:    { fontSize: 10, color: colors.textMuted, marginTop: 4, fontStyle: 'italic' },
+  messageTime:     { fontSize: 10, color: colors.textMuted, marginTop: 4, textAlign: 'right' },
   messageTimeMine: { color: 'rgba(255,255,255,0.7)' },
 
   emptyChat:     { alignItems: 'center', paddingTop: 60 },
   emptyChatIcon: { fontSize: 40, marginBottom: 12 },
-  emptyChatText: { fontSize: 14, color: '#AAA' },
+  emptyChatText: { fontSize: 14, color: colors.textHint },
 
   voiceModalOverlay: {
     flex: 1, justifyContent: 'flex-end',
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: colors.overlay,
   },
 
   imageUploadOverlay: {
     position: 'absolute', bottom: 72, left: 16, right: 16,
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: 'rgba(0,0,0,0.65)', borderRadius: 10,
+    backgroundColor: colors.overlay, borderRadius: 10,
     paddingVertical: 10, paddingHorizontal: 16,
   },
-  imageUploadText: { color: '#FFF', fontSize: 13 },
+  imageUploadText: { color: colors.card, fontSize: 13 },
 
   inputRow: {
     flexDirection: 'row', alignItems: 'flex-end', gap: 8,
-    padding: 12, backgroundColor: '#FFF',
-    borderTopWidth: 1, borderTopColor: '#F0F0F0', marginBottom: Platform.OS === 'ios' ? 0 : 50,  
+    padding: 12, backgroundColor: colors.card,
+    borderTopWidth: 1, borderTopColor: colors.borderLight, marginBottom: Platform.OS === 'ios' ? 0 : 50,
   },
   imageBtn:     { padding: 8, justifyContent: 'center' },
   imageBtnText: { fontSize: 22 },
   input: {
-    flex: 1, borderWidth: 1.5, borderColor: '#E5E5E5', borderRadius: 20,
+    flex: 1, borderWidth: 1.5, borderColor: colors.border, borderRadius: 20,
     paddingHorizontal: 14, paddingVertical: 10, fontSize: 15,
-    backgroundColor: '#FAFAFA', maxHeight: 100,
+    backgroundColor: colors.inputBg, maxHeight: 100, color: colors.text,
   },
   sendBtn: {
-    backgroundColor: '#FF6B00', paddingHorizontal: 18, paddingVertical: 10,
+    backgroundColor: colors.primary, paddingHorizontal: 18, paddingVertical: 10,
     borderRadius: 20, minWidth: 60, alignItems: 'center',
   },
-  sendBtnDisabled: { backgroundColor: '#FFCBA4' },
-  sendBtnText:     { color: '#FFF', fontWeight: '700', fontSize: 14 },
+  sendBtnDisabled: { backgroundColor: colors.primaryLight },
+  sendBtnText:     { color: colors.card, fontWeight: '700', fontSize: 14 },
 });

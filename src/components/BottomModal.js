@@ -3,23 +3,8 @@ import {
   Modal, View, Text, TouchableOpacity, StyleSheet,
   KeyboardAvoidingView, Platform, Pressable, ActivityIndicator,
 } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
-/**
- * Reusable bottom-sheet modal with built-in KeyboardAvoidingView so the
- * Android keyboard never covers text inputs inside it.
- *
- * Props:
- *   visible        bool
- *   onClose        () => void   — called on backdrop press or Cancel
- *   title          string
- *   subtitle       string       — optional helper text below the title
- *   confirmLabel   string       — text for the confirm button (default "Submit")
- *   confirmColor   string       — background color of confirm button
- *   onConfirm      () => void
- *   confirmLoading bool         — shows spinner instead of label
- *   confirmDisabled bool
- *   children       ReactNode    — inputs go here
- */
 export default function BottomModal({
   visible,
   onClose,
@@ -32,6 +17,8 @@ export default function BottomModal({
   confirmDisabled = false,
   children,
 }) {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
   return (
     <Modal visible={visible} transparent animationType="slide" onRequestClose={onClose}>
       <KeyboardAvoidingView
@@ -69,15 +56,15 @@ export default function BottomModal({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   kav: { flex: 1 },
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: colors.overlay,
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#FFF',
+    backgroundColor: colors.card,
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     padding: 24,
@@ -85,23 +72,23 @@ const styles = StyleSheet.create({
   },
   handle: {
     width: 40, height: 4, borderRadius: 2,
-    backgroundColor: '#E5E7EB',
+    backgroundColor: colors.border,
     alignSelf: 'center', marginBottom: 20,
   },
   title: {
-    fontSize: 18, fontWeight: '800', color: '#1A1A1A', marginBottom: 4,
+    fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: 4,
   },
   subtitle: {
-    fontSize: 13, color: '#6B7280', lineHeight: 18, marginBottom: 16,
+    fontSize: 13, color: colors.textSub, lineHeight: 18, marginBottom: 16,
   },
   actions: {
     flexDirection: 'row', gap: 12, marginTop: 20,
   },
   cancelBtn: {
     flex: 1, paddingVertical: 14, borderRadius: 12,
-    borderWidth: 1.5, borderColor: '#E5E7EB', alignItems: 'center',
+    borderWidth: 1.5, borderColor: colors.border, alignItems: 'center',
   },
-  cancelText: { fontSize: 14, fontWeight: '700', color: '#374151' },
+  cancelText: { fontSize: 14, fontWeight: '700', color: colors.textSub },
   confirmBtn: {
     flex: 2, paddingVertical: 14, borderRadius: 12, alignItems: 'center',
   },

@@ -4,20 +4,12 @@ import {
   Linking, Platform, LayoutAnimation, UIManager,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTheme } from '../../context/ThemeContext';
 
 // Enable LayoutAnimation on Android
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
-
-const PRIMARY  = '#2563EB';
-const GREEN    = '#16A34A';
-const AMBER    = '#D97706';
-const SURFACE  = '#FFFFFF';
-const BG       = '#F5F7FB';
-const TEXT     = '#1E232C';
-const MUTED    = '#6B7280';
-const DIVIDER  = '#EEF0F5';
 
 // ── FAQ data ──────────────────────────────────────────────────────────────────
 const FAQS = [
@@ -62,29 +54,32 @@ const CONTACTS = [
     label: 'Email Support',
     value: 'support@techsphereapp.com',
     action: () => Linking.openURL('mailto:support@techsphereapp.com'),
-    color: PRIMARY,
-    bg: '#EFF6FF',
-    border: '#BFDBFE',
+    colorKey: 'info',
+    bgKey: 'infoBg',
+    borderKey: 'infoDark',
   },
   {
     icon: '💬',
     label: 'WhatsApp',
     value: '+234 901 149 5230',
     action: () => Linking.openURL('https://wa.me/2349011495230'),
-    color: GREEN,
-    bg: '#F0FDF4',
-    border: '#BBF7D0',
+    colorKey: 'success',
+    bgKey: 'successBg',
+    borderKey: 'success',
   },
 ];
 
 // ══════════════════════════════════════════════════════════════════════════════
 export default function HelpSupportScreen({ navigation }) {
+  const { colors } = useTheme();
   const [openIndex, setOpenIndex] = useState(null);
 
   const toggle = (i) => {
     LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
     setOpenIndex((prev) => (prev === i ? null : i));
   };
+
+  const styles = makeStyles(colors);
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -113,18 +108,18 @@ export default function HelpSupportScreen({ navigation }) {
         {CONTACTS.map((c) => (
           <TouchableOpacity
             key={c.label}
-            style={[styles.contactCard, { backgroundColor: c.bg, borderColor: c.border }]}
+            style={[styles.contactCard, { backgroundColor: colors[c.bgKey], borderColor: colors[c.borderKey] }]}
             onPress={c.action}
             activeOpacity={0.8}
           >
             <View style={styles.contactLeft}>
               <Text style={styles.contactIcon}>{c.icon}</Text>
               <View>
-                <Text style={[styles.contactLabel, { color: c.color }]}>{c.label}</Text>
+                <Text style={[styles.contactLabel, { color: colors[c.colorKey] }]}>{c.label}</Text>
                 <Text style={styles.contactValue}>{c.value}</Text>
               </View>
             </View>
-            <Text style={[styles.contactArrow, { color: c.color }]}>›</Text>
+            <Text style={[styles.contactArrow, { color: colors[c.colorKey] }]}>›</Text>
           </TouchableOpacity>
         ))}
 
@@ -164,38 +159,38 @@ export default function HelpSupportScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BG },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14,
-    backgroundColor: SURFACE,
-    borderBottomWidth: 1, borderBottomColor: DIVIDER,
+    backgroundColor: colors.card,
+    borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   backBtn: {
     width: 36, height: 36, borderRadius: 10,
-    backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center',
+    backgroundColor: colors.borderLight, justifyContent: 'center', alignItems: 'center',
   },
-  backArrow: { fontSize: 20, color: TEXT, fontWeight: '700', marginTop: -1 },
-  headerTitle: { fontSize: 18, fontWeight: '800', color: TEXT },
+  backArrow: { fontSize: 20, color: colors.text, fontWeight: '700', marginTop: -1 },
+  headerTitle: { fontSize: 18, fontWeight: '800', color: colors.text },
 
   scroll: { paddingHorizontal: 16, paddingTop: 20, paddingBottom: 16 },
 
   // Hero
   hero: {
-    backgroundColor: SURFACE, borderRadius: 20, padding: 24,
+    backgroundColor: colors.card, borderRadius: 20, padding: 24,
     alignItems: 'center', marginBottom: 24,
-    borderWidth: 1, borderColor: DIVIDER,
+    borderWidth: 1, borderColor: colors.border,
   },
   heroIcon: { fontSize: 40, marginBottom: 12 },
-  heroTitle: { fontSize: 22, fontWeight: '900', color: TEXT, marginBottom: 8 },
+  heroTitle: { fontSize: 22, fontWeight: '900', color: colors.text, marginBottom: 8 },
   heroSub: {
-    fontSize: 14, color: MUTED, textAlign: 'center', lineHeight: 21,
+    fontSize: 14, color: colors.textSub, textAlign: 'center', lineHeight: 21,
   },
 
   sectionTitle: {
-    fontSize: 16, fontWeight: '800', color: TEXT, marginBottom: 12,
+    fontSize: 16, fontWeight: '800', color: colors.text, marginBottom: 12,
   },
 
   // Contact cards
@@ -207,41 +202,41 @@ const styles = StyleSheet.create({
   contactLeft: { flexDirection: 'row', alignItems: 'center', gap: 14 },
   contactIcon: { fontSize: 24 },
   contactLabel: { fontSize: 14, fontWeight: '800', marginBottom: 2 },
-  contactValue: { fontSize: 12, color: MUTED },
+  contactValue: { fontSize: 12, color: colors.textSub },
   contactArrow: { fontSize: 24, fontWeight: '700' },
 
   // Hours
   hoursCard: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: '#FFFBEB', borderRadius: 14,
+    backgroundColor: colors.warningBg, borderRadius: 14,
     padding: 14, marginBottom: 24,
-    borderWidth: 1, borderColor: '#FDE68A',
+    borderWidth: 1, borderColor: colors.warning,
   },
   hoursIcon: { fontSize: 22 },
-  hoursTitle: { fontSize: 13, fontWeight: '800', color: AMBER, marginBottom: 2 },
-  hoursSub: { fontSize: 12, color: MUTED },
+  hoursTitle: { fontSize: 13, fontWeight: '800', color: colors.warning, marginBottom: 2 },
+  hoursSub: { fontSize: 12, color: colors.textSub },
 
   // FAQ
   faqCard: {
-    backgroundColor: SURFACE, borderRadius: 20,
-    borderWidth: 1, borderColor: DIVIDER,
+    backgroundColor: colors.card, borderRadius: 20,
+    borderWidth: 1, borderColor: colors.border,
     overflow: 'hidden', marginBottom: 20,
   },
   faqItem: { paddingHorizontal: 18, paddingVertical: 4 },
-  faqItemBorder: { borderBottomWidth: 1, borderBottomColor: DIVIDER },
+  faqItemBorder: { borderBottomWidth: 1, borderBottomColor: colors.border },
   faqQuestion: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 16,
   },
-  faqQ: { fontSize: 14, fontWeight: '700', color: TEXT, flex: 1, paddingRight: 12, lineHeight: 20 },
-  faqChevron: { fontSize: 22, color: MUTED, fontWeight: '700', transform: [{ rotate: '0deg' }] },
+  faqQ: { fontSize: 14, fontWeight: '700', color: colors.text, flex: 1, paddingRight: 12, lineHeight: 20 },
+  faqChevron: { fontSize: 22, color: colors.textSub, fontWeight: '700', transform: [{ rotate: '0deg' }] },
   faqChevronOpen: { transform: [{ rotate: '90deg' }] },
   faqA: {
-    fontSize: 13, color: MUTED, lineHeight: 20,
+    fontSize: 13, color: colors.textSub, lineHeight: 20,
     paddingBottom: 16, paddingRight: 8,
   },
 
   footer: {
-    textAlign: 'center', fontSize: 12, color: '#C4C9D4',
+    textAlign: 'center', fontSize: 12, color: colors.textHint,
   },
 });

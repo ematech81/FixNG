@@ -13,11 +13,8 @@ import { getUser }              from '../../utils/storage';
 import { connectSocket, getSocket } from '../../hooks/useSocket';
 import usePushNotifications     from '../../hooks/usePushNotifications';
 import { getUnreadMsgCount }    from '../../api/notificationApi';
+import { useTheme }             from '../../context/ThemeContext';
 
-const PRIMARY = '#2563EB';
-const RED     = '#EF4444';
-
-// Icon shown in toast per notification type
 const TOAST_ICON = {
   new_job:            '⚡',
   job_broadcast:      '📢',
@@ -46,23 +43,21 @@ const TABS = [
 export default function CustomerTabScreen({
   navigation, onLogout, onRefreshAuth, initialTab, onInitialTabConsumed,
 }) {
+  const { colors } = useTheme();
   const [activeTab, setActiveTab]         = useState(initialTab || 'home');
   const [userId, setUserId]               = useState(null);
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
   const activeTabRef                      = useRef(initialTab || 'home');
 
-  // Toast state
-  const [toast, setToast]         = useState(null); // { title, body, type, jobId }
+  const [toast, setToast]         = useState(null);
   const toastY                    = useRef(new Animated.Value(-100)).current;
   const toastTimer                = useRef(null);
   const insets                    = useSafeAreaInsets();
 
-  // Keep activeTabRef in sync so socket handlers never hold stale tab value
   useEffect(() => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
 
-  // ── Bootstrap: load user + connect socket ──────────────────────────────────
   useEffect(() => {
     getUser().then((u) => {
       if (!u?._id && !u?.id) return;
@@ -73,8 +68,6 @@ export default function CustomerTabScreen({
         socket.on('notification', handleIncomingNotification);
       });
 
-      // Seed the badge with unread message notifications from the server so it
-      // persists across app restarts (socket-only count resets to 0 on every launch).
       getUnreadMsgCount()
         .then((res) => { if (res?.data?.count > 0) setUnreadMsgCount(res.data.count); })
         .catch(() => {});
@@ -85,7 +78,6 @@ export default function CustomerTabScreen({
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Push notification tap handler (user tapped notification while app was closed) ──
   const handlePushTap = useCallback((data) => {
     const { type, jobId } = data || {};
     if (type === 'new_message' && jobId) {
@@ -97,18 +89,12 @@ export default function CustomerTabScreen({
     }
   }, [navigation]);
 
-  // Register device for push notifications
   usePushNotifications(userId, handlePushTap);
 
-  // Tell AppNavigator the initialTab has been consumed
   useEffect(() => {
     if (initialTab) onInitialTabConsumed?.();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ── Incoming real-time notification ────────────────────────────────────────
-  // Single source of truth for the badge: the notification event includes type,
-  // so new_message notifications bump the Messages tab badge here — no separate
-  // new_message socket listener needed (avoids double-counting entirely).
   const handleIncomingNotification = useCallback((notif) => {
     showToast(notif);
     if (notif.type === 'new_message' && activeTabRef.current !== 'messages') {
@@ -116,31 +102,19 @@ export default function CustomerTabScreen({
     }
   }, []);
 
-  // ── Toast helpers ──────────────────────────────────────────────────────────
   const showToast = (notif) => {
-    // Clear any pending auto-dismiss
     if (toastTimer.current) clearTimeout(toastTimer.current);
-
     setToast(notif);
-
-    // Slide in
     Animated.spring(toastY, {
-      toValue: 0,
-      useNativeDriver: true,
-      speed: 18,
-      bounciness: 4,
+      toValue: 0, useNativeDriver: true, speed: 18, bounciness: 4,
     }).start();
-
-    // Auto-dismiss after 4.5s
     toastTimer.current = setTimeout(() => dismissToast(), 4500);
   };
 
   const dismissToast = () => {
     Animated.timing(toastY, {
-      toValue: -100,
-      duration: 260,
-      easing: Easing.in(Easing.ease),
-      useNativeDriver: true,
+      toValue: -100, duration: 260,
+      easing: Easing.in(Easing.ease), useNativeDriver: true,
     }).start(() => setToast(null));
   };
 
@@ -157,16 +131,10 @@ export default function CustomerTabScreen({
     }
   };
 
-  // ── Screen renderer ────────────────────────────────────────────────────────
   const renderScreen = () => {
     switch (activeTab) {
       case 'home':
-        return (
-          <CustomerHomeScreen
-            navigation={navigation}
-            onSwitchTab={setActiveTab}
-          />
-        );
+        return <CustomerHomeScreen navigation={navigation} onSwitchTab={setActiveTab} />;
       case 'search':
         return <SearchArtisansScreen navigation={navigation} embedded />;
       case 'messages':
@@ -185,13 +153,11 @@ export default function CustomerTabScreen({
     }
   };
 
-  // ── Render ─────────────────────────────────────────────────────────────────
   return (
-    <View style={styles.root}>
-      {/* Main content */}
-      <View style={styles.content}>{renderScreen()}</View>
+    <View style={{ flex: 1, backgroundColor: colors.bgAlt }}>
+      <View style={{ flex: 1 }}>{renderScreen()}</View>
 
-      {/* ── In-app notification toast ── */}
+      {/* In-app notification toast */}
       {toast && (
         <Animated.View
           style={[
@@ -204,9 +170,7 @@ export default function CustomerTabScreen({
             onPress={handleToastPress}
             activeOpacity={0.9}
           >
-            <Text style={styles.toastIcon}>
-              {TOAST_ICON[toast.type] || '🔔'}
-            </Text>
+            <Text style={styles.toastIcon}>{TOAST_ICON[toast.type] || '🔔'}</Text>
             <View style={styles.toastText}>
               <Text style={styles.toastTitle} numberOfLines={1}>{toast.title}</Text>
               <Text style={styles.toastBody}  numberOfLines={2}>{toast.body}</Text>
@@ -218,8 +182,11 @@ export default function CustomerTabScreen({
         </Animated.View>
       )}
 
-      {/* ── Tab bar ── */}
-      <View style={[styles.tabBar, { paddingBottom: insets.bottom || 10 }]}>
+      {/* Tab bar */}
+      <View style={[
+        styles.tabBar,
+        { backgroundColor: colors.tabBar, borderTopColor: colors.tabBorder, paddingBottom: insets.bottom || 10 },
+      ]}>
         {TABS.map((tab) => {
           const isActive   = activeTab === tab.key;
           const showBadge  = tab.key === 'messages' && unreadMsgCount > 0;
@@ -231,23 +198,20 @@ export default function CustomerTabScreen({
               style={styles.tabItem}
               onPress={() => {
                 setActiveTab(tab.key);
-                // Clear message badge when switching to messages tab
                 if (tab.key === 'messages') setUnreadMsgCount(0);
               }}
               activeOpacity={0.75}
             >
-              {isActive && <View style={styles.activeIndicator} />}
-
+              {isActive && <View style={[styles.activeIndicator, { backgroundColor: colors.info }]} />}
               <View style={styles.iconWrap}>
                 <Text style={styles.tabIcon}>{tab.icon}</Text>
                 {showBadge && (
-                  <View style={styles.badge}>
+                  <View style={[styles.badge, { borderColor: colors.tabBar }]}>
                     <Text style={styles.badgeText}>{badgeLabel}</Text>
                   </View>
                 )}
               </View>
-
-              <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+              <Text style={[styles.tabLabel, { color: isActive ? colors.info : colors.tabInactive }, isActive && styles.tabLabelActive]}>
                 {tab.label}
               </Text>
             </TouchableOpacity>
@@ -259,10 +223,6 @@ export default function CustomerTabScreen({
 }
 
 const styles = StyleSheet.create({
-  root:    { flex: 1, backgroundColor: '#F5F7FB' },
-  content: { flex: 1 },
-
-  // ── Toast ──
   toast: {
     position: 'absolute', left: 12, right: 12, zIndex: 999,
     borderRadius: 14, overflow: 'hidden',
@@ -280,11 +240,9 @@ const styles = StyleSheet.create({
   toastBody:  { color: '#94A3B8', fontSize: 12, lineHeight: 16 },
   toastClose: { color: '#64748B', fontSize: 14, paddingLeft: 4 },
 
-  // ── Tab bar ──
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#FFF',
-    borderTopWidth: 1, borderTopColor: '#EEF0F5',
+    borderTopWidth: 1,
     paddingTop: 10,
     elevation: 10,
     shadowColor: '#000', shadowOffset: { width: 0, height: -3 },
@@ -295,22 +253,19 @@ const styles = StyleSheet.create({
     position: 'relative', paddingBottom: 2,
   },
   activeIndicator: {
-    position: 'absolute', top: -10, width: 32, height: 3,
-    backgroundColor: PRIMARY, borderRadius: 2,
+    position: 'absolute', top: -10, width: 32, height: 3, borderRadius: 2,
   },
   iconWrap: { position: 'relative' },
   tabIcon:  { fontSize: 22, marginBottom: 2 },
-  tabLabel: { fontSize: 11, color: '#9CA3AF', fontWeight: '600' },
-  tabLabelActive: { color: PRIMARY, fontWeight: '700' },
+  tabLabel: { fontSize: 11, fontWeight: '600' },
+  tabLabelActive: { fontWeight: '700' },
 
-  // Badge on tab icon
   badge: {
     position: 'absolute', top: -4, right: -8,
-    backgroundColor: RED, borderRadius: 9,
+    backgroundColor: '#EF4444', borderRadius: 9,
     minWidth: 18, height: 18,
     alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 3,
-    borderWidth: 1.5, borderColor: '#FFF',
+    paddingHorizontal: 3, borderWidth: 1.5,
   },
   badgeText: { color: '#FFF', fontSize: 9, fontWeight: '800' },
 });

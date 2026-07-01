@@ -11,8 +11,10 @@ import { saveToken, saveUser, saveLastPhone, getLastPhone, clearSession, removeT
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import BackButton from '../../components/BackButton';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function LoginScreen({ navigation, onAuthSuccess }) {
+  const { colors } = useTheme();
   const [phone, setPhone] = useState('');
   const [loading, setLoading] = useState(false);
   const [showRecovery, setShowRecovery] = useState(false);
@@ -22,7 +24,6 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
   }, []);
 
   const handlePhoneChange = (text) => {
-    // The input value is raw digits only — strip anything else (e.g. paste with spaces)
     const digits = text.replace(/\D/g, '');
     setPhone(digits);
   };
@@ -33,7 +34,6 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
       return;
     }
 
-    // Build E.164 from local input
     const normalized = phone.startsWith('0')
       ? `+234${phone.slice(1)}`
       : `+234${phone}`;
@@ -43,20 +43,15 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
       const deviceId = await getDeviceId();
       const res = await checkDevice(normalized, deviceId);
       const data = res.data;
-      // Persist digits so next login autofills this field
       saveLastPhone(phone);
 
       if (!data.needsOTP) {
-        // Known device — backend returned a token directly, no OTP needed
         await saveToken(data.token);
         await saveUser(data.user);
         onAuthSuccess({ user: data.user, artisanProfile: data.artisanProfile });
         return;
       }
 
-      // Unknown device or new user — go through OTP screen
-      // Note: OTP was already sent by the check-device endpoint for existing users
-      // For new users (isNewUser: true), OTP will be sent from the Register screen
       if (data.isNewUser) {
         Alert.alert(
           'Account Not Found',
@@ -69,7 +64,6 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
         return;
       }
 
-      // Existing user on new device — OTP already sent by check-device
       navigation.navigate('OTP', {
         mode:       'login',
         phone:      data.phone || normalized,
@@ -80,8 +74,6 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
         maskedEmail: data.maskedEmail || null,
       });
     } catch (err) {
-      // API interceptor rejects with response.data directly, so err IS the
-      // response body. Fall back to err itself if .response.data is absent.
       const data = err?.response?.data ?? err;
       if (data?.isAccountDisabled) {
         Alert.alert(
@@ -131,6 +123,8 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
     }
   };
 
+  const styles = makeStyles(colors);
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -160,13 +154,11 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
             </View>
           </View>
 
-          {/* Title + subtitle */}
           <Text style={styles.title}>Welcome Back</Text>
           <Text style={styles.subtitle}>Log in to find the best artisans in Nigeria.</Text>
 
           {/* Login card */}
           <View style={styles.card}>
-            {/* Phone field */}
             <Text style={styles.fieldLabel}>Phone Number</Text>
             <View style={styles.phoneRow}>
               <View style={styles.prefixBox}>
@@ -175,7 +167,7 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
               <TextInput
                 style={styles.phoneInput}
                 placeholder="801 234 5678"
-                placeholderTextColor="#B0B7C3"
+                placeholderTextColor={colors.textHint}
                 value={phone}
                 onChangeText={handlePhoneChange}
                 keyboardType="number-pad"
@@ -185,7 +177,6 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
               />
             </View>
 
-            {/* Login button */}
             <TouchableOpacity
               style={[styles.loginBtn, loading && styles.loginBtnDisabled]}
               onPress={handleLogin}
@@ -199,19 +190,16 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
               )}
             </TouchableOpacity>
 
-            {/* Can't access number */}
             <TouchableOpacity style={styles.forgotRow} onPress={() => setShowRecovery(true)}>
               <Text style={styles.forgotText}>Can't access this number?</Text>
             </TouchableOpacity>
 
-            {/* Divider */}
             <View style={styles.dividerRow}>
               <View style={styles.dividerLine} />
               <Text style={styles.dividerLabel}>OR</Text>
               <View style={styles.dividerLine} />
             </View>
 
-            {/* Register link */}
             <Text style={styles.registerText}>
               New to FixNG?{' '}
               <Text
@@ -227,18 +215,17 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
           <View style={styles.badgesRow}>
             <View style={[styles.badge, styles.badgeGreen]}>
               <Text style={styles.badgeIcon}>✅</Text>
-              <Text style={[styles.badgeText, { color: '#166534' }]}>VERIFIED ARTISANS</Text>
+              <Text style={[styles.badgeText, { color: colors.successDark }]}>VERIFIED ARTISANS</Text>
             </View>
             <View style={[styles.badge, styles.badgeAmber]}>
               <Text style={styles.badgeIcon}>🔒</Text>
-              <Text style={[styles.badgeText, { color: '#92400E' }]}>SECURE PAYMENTS</Text>
+              <Text style={[styles.badgeText, { color: colors.warningDark }]}>SECURE PAYMENTS</Text>
             </View>
           </View>
 
-          {/* DEV ONLY — clear all local storage for fresh testing */}
           {__DEV__ && (
             <TouchableOpacity
-              style={devStyles.clearBtn}
+              style={styles.clearBtn}
               onPress={() => {
                 Alert.alert(
                   'Clear Storage',
@@ -259,7 +246,7 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
                 );
               }}
             >
-              <Text style={devStyles.clearBtnText}>🧹 DEV: Clear Storage</Text>
+              <Text style={styles.clearBtnText}>🧹 DEV: Clear Storage</Text>
             </TouchableOpacity>
           )}
 
@@ -284,7 +271,7 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* ── Account Recovery Modal ── */}
+      {/* Account Recovery Modal */}
       <Modal visible={showRecovery} transparent animationType="slide" onRequestClose={() => setShowRecovery(false)}>
         <Pressable style={styles.recoveryOverlay} onPress={() => setShowRecovery(false)}>
           <Pressable style={styles.recoverySheet} onPress={(e) => e.stopPropagation()}>
@@ -335,89 +322,86 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
   );
 }
 
-const PRIMARY = '#2563EB';   // blue matching design
-const BG = '#F1F5FB';
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: BG },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bgAlt },
   scroll: { flexGrow: 1, paddingBottom: 30 },
 
   navBar: {
     flexDirection: 'row', alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 14,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1, borderBottomColor: '#E8ECF4',
+    backgroundColor: colors.card,
+    borderBottomWidth: 1, borderBottomColor: colors.borderInput,
   },
-  navTitle: { fontSize: 20, fontWeight: '900', color: PRIMARY, letterSpacing: -0.5 },
+  navTitle: { fontSize: 20, fontWeight: '900', color: colors.info, letterSpacing: -0.5 },
 
   iconWrapper: { alignItems: 'center', marginTop: 36, marginBottom: 20 },
   iconBox: {
     width: 90, height: 90, borderRadius: 22,
-    backgroundColor: PRIMARY,
+    backgroundColor: colors.info,
     justifyContent: 'center', alignItems: 'center',
     overflow: 'hidden',
     elevation: 6,
-    shadowColor: PRIMARY, shadowOffset: { width: 0, height: 4 },
+    shadowColor: colors.shadow, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3, shadowRadius: 8,
   },
   iconImg: { width: 80, height: 80 },
 
   title: {
-    fontSize: 28, fontWeight: '800', color: '#1E232C',
+    fontSize: 28, fontWeight: '800', color: colors.text,
     textAlign: 'center', marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14, color: '#8391A1',
+    fontSize: 14, color: colors.textMuted,
     textAlign: 'center', marginBottom: 28, paddingHorizontal: 40,
   },
 
   card: {
-    marginHorizontal: 20, backgroundColor: '#FFF',
+    marginHorizontal: 20, backgroundColor: colors.card,
     borderRadius: 20, padding: 24,
     elevation: 2,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
+    shadowColor: colors.shadow, shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07, shadowRadius: 8,
     marginBottom: 28,
   },
 
-  fieldLabel: { fontSize: 14, fontWeight: '700', color: '#1E232C', marginBottom: 10 },
+  fieldLabel: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 10 },
 
   phoneRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#F0F4FB', borderRadius: 12,
+    backgroundColor: colors.surface, borderRadius: 12,
     overflow: 'hidden', marginBottom: 20,
   },
   prefixBox: {
     paddingHorizontal: 16, paddingVertical: 16,
-    backgroundColor: '#E4EBFA',
-    borderRightWidth: 1, borderRightColor: '#D0D9EE',
+    backgroundColor: colors.borderInput,
+    borderRightWidth: 1, borderRightColor: colors.border,
   },
-  prefixText: { fontSize: 15, fontWeight: '700', color: '#1E232C' },
+  prefixText: { fontSize: 15, fontWeight: '700', color: colors.text },
   phoneInput: {
     flex: 1, paddingHorizontal: 14, paddingVertical: 16,
-    fontSize: 15, color: '#1E232C',
+    fontSize: 15, color: colors.text,
   },
 
   loginBtn: {
-    backgroundColor: PRIMARY, paddingVertical: 17,
+    backgroundColor: colors.info, paddingVertical: 17,
     borderRadius: 14, alignItems: 'center', marginBottom: 20,
   },
-  loginBtnDisabled: { backgroundColor: '#93C5FD' },
+  loginBtnDisabled: { backgroundColor: colors.infoBg },
   loginBtnText: { color: '#FFF', fontWeight: '800', fontSize: 16, letterSpacing: 0.3 },
 
   forgotRow: { alignItems: 'center', marginBottom: 20 },
-  forgotText: { color: PRIMARY, fontWeight: '700', fontSize: 14 },
+  forgotText: { color: colors.info, fontWeight: '700', fontSize: 14 },
 
   dividerRow: {
     flexDirection: 'row', alignItems: 'center',
     gap: 12, marginBottom: 20,
   },
-  dividerLine: { flex: 1, height: 1, backgroundColor: '#E8ECF4' },
-  dividerLabel: { fontSize: 13, color: '#8391A1', fontWeight: '600' },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.borderInput },
+  dividerLabel: { fontSize: 13, color: colors.textMuted, fontWeight: '600' },
 
-  registerText: { textAlign: 'center', fontSize: 14, color: '#6B7280' },
-  registerLink: { color: '#16A34A', fontWeight: '800' },
+  registerText: { textAlign: 'center', fontSize: 14, color: colors.textMuted },
+  registerLink: { color: colors.success, fontWeight: '800' },
 
   badgesRow: {
     flexDirection: 'row', gap: 12,
@@ -428,69 +412,61 @@ const styles = StyleSheet.create({
     gap: 8, paddingVertical: 14, paddingHorizontal: 12,
     borderRadius: 14,
   },
-  badgeGreen: { backgroundColor: '#DCFCE7' },
-  badgeAmber: { backgroundColor: '#FEF3C7' },
+  badgeGreen: { backgroundColor: colors.successBg },
+  badgeAmber: { backgroundColor: colors.warningBg },
   badgeIcon: { fontSize: 18 },
   badgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.5, flexShrink: 1 },
 
   footer: { alignItems: 'center', paddingHorizontal: 20 },
-  footerLinks: {
-    flexDirection: 'row', gap: 40, marginBottom: 14,
-  },
+  footerLinks: { flexDirection: 'row', gap: 40, marginBottom: 14 },
   footerItem: { alignItems: 'center', gap: 4 },
-  footerIcon: { fontSize: 22, color: '#9CA3AF' },
-  footerLabel: { fontSize: 12, color: '#9CA3AF' },
+  footerIcon: { fontSize: 22, color: colors.textHint },
+  footerLabel: { fontSize: 12, color: colors.textHint },
   copyright: {
-    fontSize: 10, color: '#C4C9D4',
+    fontSize: 10, color: colors.textHint,
     letterSpacing: 1, textTransform: 'uppercase',
   },
 
-  // ── Recovery modal ──
+  clearBtn: {
+    alignSelf: 'center', marginBottom: 16,
+    paddingHorizontal: 20, paddingVertical: 10,
+    borderRadius: 10, borderWidth: 1.5,
+    borderColor: '#FCA5A5', backgroundColor: colors.errorBg,
+  },
+  clearBtnText: { fontSize: 13, fontWeight: '700', color: colors.errorDark },
+
+  // Recovery modal
   recoveryOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end',
+    flex: 1, backgroundColor: colors.overlay, justifyContent: 'flex-end',
   },
   recoverySheet: {
-    backgroundColor: '#FFF', borderTopLeftRadius: 28, borderTopRightRadius: 28,
+    backgroundColor: colors.card, borderTopLeftRadius: 28, borderTopRightRadius: 28,
     paddingHorizontal: 24, paddingTop: 16, paddingBottom: 36,
   },
   recoveryHandle: {
-    width: 40, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB',
+    width: 40, height: 4, borderRadius: 2, backgroundColor: colors.border,
     alignSelf: 'center', marginBottom: 20,
   },
-  recoveryTitle: { fontSize: 20, fontWeight: '900', color: '#1E232C', marginBottom: 10 },
-  recoverySub: { fontSize: 14, color: '#6B7280', lineHeight: 21, marginBottom: 20 },
+  recoveryTitle: { fontSize: 20, fontWeight: '900', color: colors.text, marginBottom: 10 },
+  recoverySub: { fontSize: 14, color: colors.textMuted, lineHeight: 21, marginBottom: 20 },
 
   recoverySteps: { gap: 12, marginBottom: 24 },
   recoveryStep: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   recoveryStepIcon: { fontSize: 18, marginTop: 1 },
-  recoveryStepText: { flex: 1, fontSize: 13, color: '#374151', lineHeight: 20 },
+  recoveryStepText: { flex: 1, fontSize: 13, color: colors.textSub, lineHeight: 20 },
 
   whatsappBtn: {
-    backgroundColor: '#16A34A', borderRadius: 14,
+    backgroundColor: colors.success, borderRadius: 14,
     paddingVertical: 15, alignItems: 'center', marginBottom: 10,
   },
   whatsappBtnText: { fontSize: 15, fontWeight: '800', color: '#FFF' },
 
   emailBtn: {
-    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 14,
+    borderWidth: 1.5, borderColor: colors.border, borderRadius: 14,
     paddingVertical: 15, alignItems: 'center', marginBottom: 20,
   },
-  emailBtnText: { fontSize: 15, fontWeight: '700', color: '#374151' },
+  emailBtnText: { fontSize: 15, fontWeight: '700', color: colors.textSub },
 
   recoveryCloseBtn: { alignItems: 'center' },
-  recoveryCloseBtnText: { fontSize: 14, color: '#9CA3AF', fontWeight: '600' },
-});
-
-const devStyles = StyleSheet.create({
-  clearBtn: {
-    alignSelf: 'center',
-    marginBottom: 16,
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#FCA5A5',
-    backgroundColor: '#FEF2F2',
-  },
-  clearBtnText: { fontSize: 13, fontWeight: '700', color: '#B91C1C' },
+  recoveryCloseBtnText: { fontSize: 14, color: colors.textHint, fontWeight: '600' },
 });

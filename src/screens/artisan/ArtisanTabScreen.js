@@ -14,9 +14,7 @@ import { getUser }               from '../../utils/storage';
 import { connectSocket, getSocket } from '../../hooks/useSocket';
 import usePushNotifications      from '../../hooks/usePushNotifications';
 import { getUnreadMsgCount }     from '../../api/notificationApi';
-
-const PRIMARY = '#2563EB';
-const RED     = '#EF4444';
+import { useTheme }              from '../../context/ThemeContext';
 
 const TOAST_ICON = {
   new_job:            '⚡',
@@ -44,6 +42,7 @@ const TABS = [
 ];
 
 export default function ArtisanTabScreen({ navigation, onLogout, onRefreshAuth }) {
+  const { colors } = useTheme();
   const [activeTab, setActiveTab]           = useState('jobs');
   const [userId, setUserId]                 = useState(null);
   const [unreadMsgCount, setUnreadMsgCount] = useState(0);
@@ -58,7 +57,6 @@ export default function ArtisanTabScreen({ navigation, onLogout, onRefreshAuth }
     activeTabRef.current = activeTab;
   }, [activeTab]);
 
-  // Bootstrap: load user, connect socket, seed unread badge
   useEffect(() => {
     getUser().then((u) => {
       if (!u?._id && !u?.id) return;
@@ -79,7 +77,6 @@ export default function ArtisanTabScreen({ navigation, onLogout, onRefreshAuth }
     };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Push tap: user tapped a notification from background/killed state
   const handlePushTap = useCallback((data) => {
     const { type, jobId } = data || {};
     if (type === 'new_message' && jobId) {
@@ -133,7 +130,6 @@ export default function ArtisanTabScreen({ navigation, onLogout, onRefreshAuth }
     }
   }, []); // eslint-disable-line
 
-  // Toast helpers
   const showToast = (notif) => {
     if (toastTimer.current) clearTimeout(toastTimer.current);
     setToast(notif);
@@ -186,8 +182,8 @@ export default function ArtisanTabScreen({ navigation, onLogout, onRefreshAuth }
   };
 
   return (
-    <View style={styles.root}>
-      <View style={styles.content}>{renderScreen()}</View>
+    <View style={{ flex: 1, backgroundColor: colors.bgAlt }}>
+      <View style={{ flex: 1 }}>{renderScreen()}</View>
 
       {/* In-app notification toast */}
       {toast && (
@@ -215,7 +211,10 @@ export default function ArtisanTabScreen({ navigation, onLogout, onRefreshAuth }
       )}
 
       {/* Tab bar */}
-      <View style={[styles.tabBar, { paddingBottom: insets.bottom || 10 }]}>
+      <View style={[
+        styles.tabBar,
+        { backgroundColor: colors.tabBar, borderTopColor: colors.tabBorder, paddingBottom: insets.bottom || 10 },
+      ]}>
         {TABS.map((tab) => {
           const isActive  = activeTab === tab.key;
           const showBadge = tab.key === 'messages' && unreadMsgCount > 0;
@@ -231,16 +230,16 @@ export default function ArtisanTabScreen({ navigation, onLogout, onRefreshAuth }
               }}
               activeOpacity={0.75}
             >
-              {isActive && <View style={styles.activeIndicator} />}
+              {isActive && <View style={[styles.activeIndicator, { backgroundColor: colors.info }]} />}
               <View style={styles.iconWrap}>
                 <Text style={styles.tabIcon}>{tab.icon}</Text>
                 {showBadge && (
-                  <View style={styles.badge}>
+                  <View style={[styles.badge, { borderColor: colors.tabBar }]}>
                     <Text style={styles.badgeText}>{badgeLabel}</Text>
                   </View>
                 )}
               </View>
-              <Text style={[styles.tabLabel, isActive && styles.tabLabelActive]}>
+              <Text style={[styles.tabLabel, { color: isActive ? colors.info : colors.tabInactive }, isActive && styles.tabLabelActive]}>
                 {tab.label}
               </Text>
             </TouchableOpacity>
@@ -252,15 +251,13 @@ export default function ArtisanTabScreen({ navigation, onLogout, onRefreshAuth }
 }
 
 const styles = StyleSheet.create({
-  root:    { flex: 1, backgroundColor: '#F5F7FB' },
-  content: { flex: 1 },
-
   toast: {
     position: 'absolute', left: 12, right: 12, zIndex: 999,
     borderRadius: 14, overflow: 'hidden',
     shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15, shadowRadius: 12, elevation: 12,
   },
+  // Toast is intentionally dark in both themes — it's an overlay element
   toastInner: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#1E293B',
@@ -274,8 +271,7 @@ const styles = StyleSheet.create({
 
   tabBar: {
     flexDirection: 'row',
-    backgroundColor: '#FFF',
-    borderTopWidth: 1, borderTopColor: '#EEF0F5',
+    borderTopWidth: 1,
     paddingTop: 10,
     elevation: 10,
     shadowColor: '#000', shadowOffset: { width: 0, height: -3 },
@@ -286,21 +282,19 @@ const styles = StyleSheet.create({
     position: 'relative', paddingBottom: 2,
   },
   activeIndicator: {
-    position: 'absolute', top: -10, width: 32, height: 3,
-    backgroundColor: PRIMARY, borderRadius: 2,
+    position: 'absolute', top: -10, width: 32, height: 3, borderRadius: 2,
   },
   iconWrap: { position: 'relative' },
   tabIcon:  { fontSize: 22, marginBottom: 2 },
-  tabLabel: { fontSize: 11, color: '#9CA3AF', fontWeight: '600' },
-  tabLabelActive: { color: PRIMARY, fontWeight: '700' },
+  tabLabel: { fontSize: 11, fontWeight: '600' },
+  tabLabelActive: { fontWeight: '700' },
 
   badge: {
     position: 'absolute', top: -4, right: -8,
-    backgroundColor: RED, borderRadius: 9,
+    backgroundColor: '#EF4444', borderRadius: 9,
     minWidth: 18, height: 18,
     alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 3,
-    borderWidth: 1.5, borderColor: '#FFF',
+    paddingHorizontal: 3, borderWidth: 1.5,
   },
   badgeText: { color: '#FFF', fontSize: 9, fontWeight: '800' },
 });

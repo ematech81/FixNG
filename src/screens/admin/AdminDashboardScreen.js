@@ -25,54 +25,40 @@ import {
   suspendCustomer,
   unsuspendCustomer,
 } from '../../api/adminApi';
+import { useTheme } from '../../context/ThemeContext';
 
-const PRIMARY = '#2563EB';
-const GREEN   = '#16A34A';
-const RED     = '#DC2626';
-const AMBER   = '#D97706';
 const { width: SCREEN_W } = Dimensions.get('window');
 
-// ── Main screen ───────────────────────────────────────────────────────────────
 export default function AdminDashboardScreen({ onLogout }) {
+  const { colors } = useTheme();
   const [drawerOpen, setDrawerOpen]   = useState(false);
   const [activePage, setActivePage]   = useState('dashboard');
   const [adminUser, setAdminUser]     = useState(null);
   const [refreshing, setRefreshing]   = useState(false);
   const insets = useSafeAreaInsets();
 
-  // Stats
-  const [stats, setStats]             = useState(null);
+  const [stats, setStats]               = useState(null);
   const [statsLoading, setStatsLoading] = useState(true);
-
-  // Verification queue
-  const [queue, setQueue]             = useState([]);
+  const [queue, setQueue]               = useState([]);
   const [queueLoading, setQueueLoading] = useState(true);
-
-  // Complaints
-  const [complaints, setComplaints]   = useState([]);
+  const [complaints, setComplaints]     = useState([]);
   const [complaintsLoading, setComplaintsLoading] = useState(true);
 
-  // Action modal
-  const [actionModal, setActionModal] = useState(null);
-  // { type: 'warn'|'suspend'|'reject', userId, name, onDone }
-  const [actionReason, setActionReason] = useState('');
+  const [actionModal, setActionModal]     = useState(null);
+  const [actionReason, setActionReason]   = useState('');
   const [actionLoading, setActionLoading] = useState(false);
 
-  // View Form modal
-  const [viewFormData, setViewFormData] = useState(null);
+  const [viewFormData, setViewFormData]     = useState(null);
   const [viewFormLoading, setViewFormLoading] = useState(false);
+  const [idFullScreen, setIdFullScreen]     = useState(null);
 
-  // Full-screen ID image viewer
-  const [idFullScreen, setIdFullScreen] = useState(null); // url string or null
-
-  // User Management
-  const [usersTab, setUsersTab]           = useState('artisans'); // 'artisans' | 'pro' | 'customers'
-  const [users, setUsers]                 = useState([]);
-  const [usersLoading, setUsersLoading]   = useState(false);
-  const [usersPage, setUsersPage]         = useState(1);
-  const [usersHasMore, setUsersHasMore]   = useState(false);
+  const [usersTab, setUsersTab]                 = useState('artisans');
+  const [users, setUsers]                       = useState([]);
+  const [usersLoading, setUsersLoading]         = useState(false);
+  const [usersPage, setUsersPage]               = useState(1);
+  const [usersHasMore, setUsersHasMore]         = useState(false);
   const [usersLoadingMore, setUsersLoadingMore] = useState(false);
-  const [userActionLoading, setUserActionLoading] = useState(null); // userId being actioned
+  const [userActionLoading, setUserActionLoading] = useState(null);
 
   useEffect(() => {
     getUser().then(setAdminUser);
@@ -118,7 +104,6 @@ export default function AdminDashboardScreen({ onLogout }) {
 
   const navigate = (page) => { setActivePage(page); setDrawerOpen(false); };
 
-  // ── Approve artisan ──────────────────────────────────────────────────────────
   const handleApprove = (userId, name) => {
     Alert.alert(
       'Approve Artisan',
@@ -142,7 +127,6 @@ export default function AdminDashboardScreen({ onLogout }) {
     );
   };
 
-  // ── Open reason modal (reject / warn / suspend) ──────────────────────────────
   const openActionModal = (type, userId, name, onDone) => {
     setActionReason('');
     setActionModal({ type, userId, name, onDone });
@@ -173,7 +157,6 @@ export default function AdminDashboardScreen({ onLogout }) {
     }
   };
 
-  // ── View Form ────────────────────────────────────────────────────────────────
   const handleViewForm = async (userId) => {
     setViewFormData(null);
     setViewFormLoading(true);
@@ -188,7 +171,6 @@ export default function AdminDashboardScreen({ onLogout }) {
     }
   };
 
-  // ── User Management ──────────────────────────────────────────────────────────
   const loadUsers = useCallback(async (tab, page = 1, append = false) => {
     if (page === 1) setUsersLoading(true);
     else setUsersLoadingMore(true);
@@ -301,57 +283,57 @@ export default function AdminDashboardScreen({ onLogout }) {
     ]);
   };
 
-  // ── STAT CARDS config (driven by live data) ──────────────────────────────────
   const STAT_CARDS = stats ? [
     {
       id: 'verifications',
       icon: 'shield-checkmark',
-      iconColor: PRIMARY,
+      iconColor: colors.info,
       value: String(stats.pendingVerifications),
       label: 'Pending Verifications',
       badge: stats.pendingVerifications > 0 ? 'HIGH PRIORITY' : null,
-      badgeColor: PRIMARY, badgeBg: '#DBEAFE', borderColor: PRIMARY,
+      badgeColor: colors.info, badgeBg: colors.infoBg, borderColor: colors.info,
       onPress: null,
     },
     {
       id: 'artisans',
       icon: 'people',
-      iconColor: PRIMARY,
+      iconColor: colors.info,
       value: stats.totalVerifiedArtisans?.toLocaleString() || '0',
       label: 'Verified Artisans',
-      badge: 'TAP TO MANAGE', badgeColor: PRIMARY, badgeBg: '#DBEAFE',
-      borderColor: PRIMARY,
+      badge: 'TAP TO MANAGE', badgeColor: colors.info, badgeBg: colors.infoBg,
+      borderColor: colors.info,
       onPress: () => navigate('users'),
     },
     {
       id: 'jobs',
       icon: 'briefcase',
-      iconColor: '#6B7280',
+      iconColor: colors.textMuted,
       value: String(stats.activeJobs),
       label: 'Active Jobs',
-      badge: null, borderColor: '#E5E7EB',
+      badge: null, borderColor: colors.border,
       onPress: null,
     },
     {
       id: 'complaints',
       icon: 'alert-circle',
-      iconColor: RED,
+      iconColor: colors.error,
       value: String(stats.openComplaints),
       label: 'Open Complaints',
       badge: stats.openComplaints > 0 ? 'ACTION REQUIRED' : null,
-      badgeColor: RED, badgeBg: '#FEE2E2', borderColor: RED,
+      badgeColor: colors.error, badgeBg: colors.errorBg, borderColor: colors.error,
       onPress: null,
     },
   ] : [];
 
+  const styles = makeStyles(colors);
+
   return (
     <SafeAreaView style={styles.root} edges={['top', 'bottom']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F5F7FB" />
+      <StatusBar barStyle={colors.statusBar === 'dark' ? 'dark-content' : 'light-content'} backgroundColor={colors.bgAlt} />
 
-      {/* ── Top bar ── */}
       <View style={styles.topBar}>
         <TouchableOpacity style={styles.hamburger} onPress={() => setDrawerOpen(true)} activeOpacity={0.7}>
-          <Ionicons name="menu" size={26} color="#1E232C" />
+          <Ionicons name="menu" size={26} color={colors.text} />
         </TouchableOpacity>
         <Text style={styles.appName}>FixNG</Text>
         <View style={styles.adminAvatar}>
@@ -359,7 +341,6 @@ export default function AdminDashboardScreen({ onLogout }) {
         </View>
       </View>
 
-      {/* ── Page content ── */}
       {activePage === 'profile' ? (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
           <View style={styles.profileCard}>
@@ -371,19 +352,17 @@ export default function AdminDashboardScreen({ onLogout }) {
             <Text style={styles.profilePhone}>{adminUser?.phone || ''}</Text>
           </View>
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
-            <Ionicons name="log-out-outline" size={22} color={RED} />
+            <Ionicons name="log-out-outline" size={22} color={colors.error} />
             <Text style={styles.logoutText}>Log Out</Text>
           </TouchableOpacity>
         </ScrollView>
 
       ) : activePage === 'users' ? (
         <View style={{ flex: 1 }}>
-          {/* Page title */}
           <View style={styles.pageHeader}>
             <Text style={styles.pageTitle}>User Management</Text>
           </View>
 
-          {/* Tabs */}
           <View style={styles.tabRow}>
             {[
               { key: 'artisans',  label: 'Artisans' },
@@ -403,15 +382,14 @@ export default function AdminDashboardScreen({ onLogout }) {
             ))}
           </View>
 
-          {/* User list */}
           {usersLoading ? (
             <View style={styles.loadingBox2}>
-              <ActivityIndicator color={PRIMARY} size="large" />
+              <ActivityIndicator color={colors.info} size="large" />
               <Text style={styles.loadingText}>Loading…</Text>
             </View>
           ) : users.length === 0 ? (
             <View style={styles.loadingBox2}>
-              <Ionicons name="people-outline" size={40} color="#D1D5DB" />
+              <Ionicons name="people-outline" size={40} color={colors.textHint} />
               <Text style={[styles.loadingText, { marginTop: 8 }]}>No users found</Text>
             </View>
           ) : (
@@ -424,6 +402,8 @@ export default function AdminDashboardScreen({ onLogout }) {
                 <UserCard
                   user={item}
                   tab={usersTab}
+                  colors={colors}
+                  styles={styles}
                   actionLoading={userActionLoading}
                   onToggleActive={() => handleToggleActive(item._id, item.isActive)}
                   onGrantPro={() => handleGrantPro(item._id, item.name)}
@@ -450,7 +430,7 @@ export default function AdminDashboardScreen({ onLogout }) {
                     activeOpacity={0.8}
                   >
                     {usersLoadingMore
-                      ? <ActivityIndicator color={PRIMARY} size="small" />
+                      ? <ActivityIndicator color={colors.info} size="small" />
                       : <Text style={styles.loadMoreText}>Load More</Text>
                     }
                   </TouchableOpacity>
@@ -466,10 +446,9 @@ export default function AdminDashboardScreen({ onLogout }) {
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => loadAll(true)} tintColor={PRIMARY} />
+            <RefreshControl refreshing={refreshing} onRefresh={() => loadAll(true)} tintColor={colors.info} />
           }
         >
-          {/* Greeting */}
           <View style={styles.greeting}>
             <Text style={styles.greetingTitle}>{getGreeting()}, {adminName}</Text>
             <Text style={styles.greetingSubtitle}>
@@ -477,17 +456,15 @@ export default function AdminDashboardScreen({ onLogout }) {
             </Text>
           </View>
 
-          {/* Stats */}
           {statsLoading ? (
             <View style={styles.loadingBox}>
-              <ActivityIndicator color={PRIMARY} />
+              <ActivityIndicator color={colors.info} />
               <Text style={styles.loadingText}>Loading stats…</Text>
             </View>
           ) : (
-            STAT_CARDS.map((stat) => <StatCard key={stat.id} stat={stat} />)
+            STAT_CARDS.map((stat) => <StatCard key={stat.id} stat={stat} styles={styles} />)
           )}
 
-          {/* Recent Complaints */}
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Recent Complaints</Text>
             <Text style={styles.sectionCount}>
@@ -496,14 +473,16 @@ export default function AdminDashboardScreen({ onLogout }) {
           </View>
 
           {complaintsLoading ? (
-            <ActivityIndicator color={PRIMARY} style={{ marginBottom: 16 }} />
+            <ActivityIndicator color={colors.info} style={{ marginBottom: 16 }} />
           ) : complaints.length === 0 ? (
-            <EmptyCard icon="checkmark-circle-outline" text="No open complaints" />
+            <EmptyCard icon="checkmark-circle-outline" text="No open complaints" styles={styles} colors={colors} />
           ) : (
             complaints.map((item) => (
               <ComplaintCard
                 key={item._id}
                 item={item}
+                colors={colors}
+                styles={styles}
                 onWarn={() =>
                   openActionModal('warn', item.againstUserId?._id, item.againstUserId?.name, () => loadAll())
                 }
@@ -514,7 +493,6 @@ export default function AdminDashboardScreen({ onLogout }) {
             ))
           )}
 
-          {/* Verification Queue */}
           <View style={[styles.sectionHeader, { marginTop: 8 }]}>
             <Text style={styles.sectionTitle}>Verification Queue</Text>
             <Text style={styles.sectionCount}>
@@ -523,14 +501,15 @@ export default function AdminDashboardScreen({ onLogout }) {
           </View>
 
           {queueLoading ? (
-            <ActivityIndicator color={PRIMARY} style={{ marginBottom: 16 }} />
+            <ActivityIndicator color={colors.info} style={{ marginBottom: 16 }} />
           ) : queue.length === 0 ? (
-            <EmptyCard icon="shield-checkmark-outline" text="Verification queue is clear" />
+            <EmptyCard icon="shield-checkmark-outline" text="Verification queue is clear" styles={styles} colors={colors} />
           ) : (
             queue.map((item) => (
               <VerificationCard
                 key={item.artisanProfileId}
                 item={item}
+                styles={styles}
                 onApprove={() => handleApprove(item.userId, item.name)}
                 onReject={() =>
                   openActionModal('reject', item.userId, item.name, () =>
@@ -546,7 +525,7 @@ export default function AdminDashboardScreen({ onLogout }) {
         </ScrollView>
       )}
 
-      {/* ── Side drawer ── */}
+      {/* Side drawer */}
       <Modal visible={drawerOpen} transparent animationType="fade" onRequestClose={() => setDrawerOpen(false)}>
         <Pressable style={styles.drawerOverlay} onPress={() => setDrawerOpen(false)}>
           <Pressable
@@ -561,16 +540,16 @@ export default function AdminDashboardScreen({ onLogout }) {
               <Text style={styles.drawerRole}>Administrator</Text>
             </View>
             <View style={styles.drawerDivider} />
-            <DrawerItem icon="grid-outline"   label="Dashboard"        active={activePage === 'dashboard'} onPress={() => navigate('dashboard')} />
-            <DrawerItem icon="people-outline" label="User Management"  active={activePage === 'users'}     onPress={() => navigate('users')} />
-            <DrawerItem icon="person-outline" label="Profile"          active={activePage === 'profile'}   onPress={() => navigate('profile')} />
+            <DrawerItem icon="grid-outline"   label="Dashboard"       active={activePage === 'dashboard'} colors={colors} styles={styles} onPress={() => navigate('dashboard')} />
+            <DrawerItem icon="people-outline" label="User Management" active={activePage === 'users'}     colors={colors} styles={styles} onPress={() => navigate('users')} />
+            <DrawerItem icon="person-outline" label="Profile"         active={activePage === 'profile'}   colors={colors} styles={styles} onPress={() => navigate('profile')} />
             <View style={styles.drawerDivider} />
-            <DrawerItem icon="log-out-outline" label="Log Out" danger onPress={handleLogout} />
+            <DrawerItem icon="log-out-outline" label="Log Out" danger colors={colors} styles={styles} onPress={handleLogout} />
           </Pressable>
         </Pressable>
       </Modal>
 
-      {/* ── Reason input modal (warn / suspend / reject) ── */}
+      {/* Reason modal */}
       <BottomModal
         visible={!!actionModal}
         onClose={() => !actionLoading && setActionModal(null)}
@@ -589,7 +568,7 @@ export default function AdminDashboardScreen({ onLogout }) {
           : 'Reject'
         }
         confirmColor={
-          (actionModal?.type === 'warn' || actionModal?.type === 'warn_customer') ? AMBER : RED
+          (actionModal?.type === 'warn' || actionModal?.type === 'warn_customer') ? colors.warningDark : colors.error
         }
         onConfirm={submitAction}
         confirmLoading={actionLoading}
@@ -597,7 +576,7 @@ export default function AdminDashboardScreen({ onLogout }) {
         <TextInput
           style={styles.reasonInput}
           placeholder="Enter reason…"
-          placeholderTextColor="#9CA3AF"
+          placeholderTextColor={colors.textHint}
           multiline
           numberOfLines={3}
           value={actionReason}
@@ -606,7 +585,7 @@ export default function AdminDashboardScreen({ onLogout }) {
         />
       </BottomModal>
 
-      {/* ── ID Full-Screen viewer ── */}
+      {/* ID Full-Screen */}
       <Modal
         visible={idFullScreen !== null}
         transparent
@@ -626,7 +605,7 @@ export default function AdminDashboardScreen({ onLogout }) {
         </Pressable>
       </Modal>
 
-      {/* ── View Form modal ── */}
+      {/* View Form modal */}
       <Modal
         visible={viewFormData !== null || viewFormLoading}
         transparent
@@ -641,33 +620,31 @@ export default function AdminDashboardScreen({ onLogout }) {
             <View style={styles.viewFormHeader}>
               <Text style={styles.viewFormTitle}>Artisan Profile</Text>
               <TouchableOpacity onPress={() => { setViewFormData(null); setViewFormLoading(false); }}>
-                <Ionicons name="close" size={24} color="#6B7280" />
+                <Ionicons name="close" size={24} color={colors.textMuted} />
               </TouchableOpacity>
             </View>
 
             {viewFormLoading ? (
               <View style={styles.viewFormLoading}>
-                <ActivityIndicator color={PRIMARY} size="large" />
+                <ActivityIndicator color={colors.info} size="large" />
                 <Text style={styles.loadingText}>Loading profile…</Text>
               </View>
             ) : viewFormData ? (
               <ScrollView showsVerticalScrollIndicator={false}>
-                {/* Photo */}
                 {viewFormData.profilePhoto?.url ? (
                   <Image source={{ uri: viewFormData.profilePhoto.url }} style={styles.vfPhoto} />
                 ) : (
                   <View style={styles.vfPhotoPlaceholder}>
-                    <Ionicons name="person" size={40} color="#D1D5DB" />
+                    <Ionicons name="person" size={40} color={colors.textHint} />
                   </View>
                 )}
 
-                <FormRow label="Name"    value={viewFormData.userId?.name} />
-                <FormRow label="Phone"   value={viewFormData.userId?.phone} />
-                <FormRow label="Skills"  value={viewFormData.skills?.join(', ') || '—'} />
-                <FormRow label="Location" value={viewFormData.location?.address || viewFormData.location?.lga || '—'} />
-                <FormRow label="Status"  value={viewFormData.verificationStatus} highlight />
+                <FormRow label="Name"    value={viewFormData.userId?.name} styles={styles} colors={colors} />
+                <FormRow label="Phone"   value={viewFormData.userId?.phone} styles={styles} colors={colors} />
+                <FormRow label="Skills"  value={viewFormData.skills?.join(', ') || '—'} styles={styles} colors={colors} />
+                <FormRow label="Location" value={viewFormData.location?.address || viewFormData.location?.lga || '—'} styles={styles} colors={colors} />
+                <FormRow label="Status"  value={viewFormData.verificationStatus} highlight styles={styles} colors={colors} />
 
-                {/* Verification ID */}
                 <Text style={styles.vfSectionLabel}>Verification ID</Text>
                 {viewFormData.verificationId?.url ? (
                   <TouchableOpacity onPress={() => setIdFullScreen(viewFormData.verificationId.url)} activeOpacity={0.85}>
@@ -678,11 +655,10 @@ export default function AdminDashboardScreen({ onLogout }) {
                   <Text style={styles.vfMissing}>Not submitted</Text>
                 )}
 
-                {/* Skill Video */}
                 <Text style={styles.vfSectionLabel}>Skill Video</Text>
                 {viewFormData.skillVideo?.url ? (
                   <View style={styles.vfVideoBox}>
-                    <Ionicons name="videocam" size={28} color={PRIMARY} />
+                    <Ionicons name="videocam" size={28} color={colors.info} />
                     <Text style={styles.vfVideoText}>Video submitted</Text>
                   </View>
                 ) : (
@@ -699,11 +675,10 @@ export default function AdminDashboardScreen({ onLogout }) {
   );
 }
 
-// ── Sub-components ────────────────────────────────────────────────────────────
-function DrawerItem({ icon, label, active, danger, onPress }) {
+function DrawerItem({ icon, label, active, danger, onPress, colors, styles }) {
   return (
     <TouchableOpacity style={[styles.drawerItem, active && styles.drawerItemActive]} onPress={onPress} activeOpacity={0.7}>
-      <Ionicons name={icon} size={20} color={danger ? RED : active ? PRIMARY : '#374151'} />
+      <Ionicons name={icon} size={20} color={danger ? colors.error : active ? colors.info : colors.textSub} />
       <Text style={[styles.drawerItemLabel, active && styles.drawerItemLabelActive, danger && styles.drawerItemLabelDanger]}>
         {label}
       </Text>
@@ -711,7 +686,7 @@ function DrawerItem({ icon, label, active, danger, onPress }) {
   );
 }
 
-function StatCard({ stat }) {
+function StatCard({ stat, styles }) {
   const Wrapper = stat.onPress ? TouchableOpacity : View;
   return (
     <Wrapper
@@ -733,16 +708,16 @@ function StatCard({ stat }) {
   );
 }
 
-function ComplaintCard({ item, onWarn, onSuspend }) {
-  const against = item.againstUserId;
+function ComplaintCard({ item, onWarn, onSuspend, colors, styles }) {
+  const against  = item.againstUserId;
   const reporter = item.submittedBy;
-  const timeAgo = item.createdAt ? getTimeAgo(item.createdAt) : '';
+  const timeAgo  = item.createdAt ? getTimeAgo(item.createdAt) : '';
 
   return (
     <View style={styles.complaintCard}>
       <View style={styles.complaintTop}>
         <View style={styles.complaintAvatar}>
-          <Ionicons name="person" size={18} color="#9CA3AF" />
+          <Ionicons name="person" size={18} color={colors.textMuted} />
         </View>
         <View style={styles.complaintInfo}>
           <Text style={styles.complaintName}>{against?.name || 'Unknown'}</Text>
@@ -764,7 +739,7 @@ function ComplaintCard({ item, onWarn, onSuspend }) {
   );
 }
 
-function VerificationCard({ item, onApprove, onReject, onViewForm }) {
+function VerificationCard({ item, onApprove, onReject, onViewForm, styles }) {
   return (
     <View style={styles.verificationCard}>
       <View style={styles.verificationTop}>
@@ -775,7 +750,6 @@ function VerificationCard({ item, onApprove, onReject, onViewForm }) {
       {item.skills?.length > 0 && (
         <Text style={styles.verificationSkills}>{item.skills.slice(0, 3).join(' · ')}</Text>
       )}
-
       <View style={styles.verificationActions}>
         <TouchableOpacity style={styles.approveBtn} onPress={onApprove} activeOpacity={0.8}>
           <Text style={styles.approveBtnText}>Approve</Text>
@@ -791,28 +765,28 @@ function VerificationCard({ item, onApprove, onReject, onViewForm }) {
   );
 }
 
-function EmptyCard({ icon, text }) {
+function EmptyCard({ icon, text, styles, colors }) {
   return (
     <View style={styles.emptyCard}>
-      <Ionicons name={icon} size={32} color="#D1D5DB" />
+      <Ionicons name={icon} size={32} color={colors.textHint} />
       <Text style={styles.emptyText}>{text}</Text>
     </View>
   );
 }
 
-function UserCard({ user, tab, actionLoading, onToggleActive, onGrantPro, onRevokePro, onWarnCustomer, onSuspendCustomer, onUnsuspendCustomer }) {
-  const isCustomer    = tab === 'customers';
-  const profession    = user.skills?.length ? user.skills.slice(0, 2).join(' · ') : null;
-  const statusLabel   = user.isSuspended ? 'Suspended'
-                      : !user.isActive   ? 'Disabled'
-                      : user.verificationStatus === 'verified' ? 'Verified'
-                      : user.verificationStatus === 'pending'  ? 'Pending'
-                      : 'Active';
-  const statusColor   = user.isSuspended ? RED
-                      : !user.isActive   ? '#9CA3AF'
-                      : user.verificationStatus === 'verified' ? GREEN
-                      : user.verificationStatus === 'pending'  ? AMBER
-                      : '#6B7280';
+function UserCard({ user, tab, actionLoading, onToggleActive, onGrantPro, onRevokePro, onWarnCustomer, onSuspendCustomer, onUnsuspendCustomer, colors, styles }) {
+  const isCustomer  = tab === 'customers';
+  const profession  = user.skills?.length ? user.skills.slice(0, 2).join(' · ') : null;
+  const statusLabel = user.isSuspended ? 'Suspended'
+                    : !user.isActive   ? 'Disabled'
+                    : user.verificationStatus === 'verified' ? 'Verified'
+                    : user.verificationStatus === 'pending'  ? 'Pending'
+                    : 'Active';
+  const statusColor = user.isSuspended ? colors.error
+                    : !user.isActive   ? colors.textMuted
+                    : user.verificationStatus === 'verified' ? colors.success
+                    : user.verificationStatus === 'pending'  ? colors.warningDark
+                    : colors.textMuted;
 
   const toggleLoading  = actionLoading === user._id + '_toggle';
   const proLoading     = actionLoading === user._id + '_pro';
@@ -837,8 +811,8 @@ function UserCard({ user, tab, actionLoading, onToggleActive, onGrantPro, onRevo
               </View>
             )}
             {isCustomer && (user.warningCount || 0) > 0 && (
-              <View style={[styles.proChip, { backgroundColor: '#FEF3C7' }]}>
-                <Text style={[styles.proChipText, { color: '#92400E' }]}>{user.warningCount}W</Text>
+              <View style={[styles.proChip, { backgroundColor: colors.warningBg }]}>
+                <Text style={[styles.proChipText, { color: colors.warningDark }]}>{user.warningCount}W</Text>
               </View>
             )}
           </View>
@@ -851,7 +825,6 @@ function UserCard({ user, tab, actionLoading, onToggleActive, onGrantPro, onRevo
         </View>
       </View>
 
-      {/* Actions */}
       <View style={styles.userCardActions}>
         {isCustomer ? (
           user.isSuspended ? (
@@ -868,18 +841,10 @@ function UserCard({ user, tab, actionLoading, onToggleActive, onGrantPro, onRevo
             </TouchableOpacity>
           ) : (
             <>
-              <TouchableOpacity
-                style={styles.warnBtn}
-                onPress={onWarnCustomer}
-                activeOpacity={0.8}
-              >
+              <TouchableOpacity style={styles.warnBtn} onPress={onWarnCustomer} activeOpacity={0.8}>
                 <Text style={styles.warnBtnText}>Warn</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.suspendBtn}
-                onPress={onSuspendCustomer}
-                activeOpacity={0.8}
-              >
+              <TouchableOpacity style={styles.suspendBtn} onPress={onSuspendCustomer} activeOpacity={0.8}>
                 <Text style={styles.suspendBtnText}>Suspend</Text>
               </TouchableOpacity>
             </>
@@ -907,7 +872,7 @@ function UserCard({ user, tab, actionLoading, onToggleActive, onGrantPro, onRevo
                 activeOpacity={0.8}
               >
                 {proLoading
-                  ? <ActivityIndicator color={AMBER} size="small" />
+                  ? <ActivityIndicator color={colors.warningDark} size="small" />
                   : <Text style={styles.revokeProBtnText}>Revoke Trusted</Text>
                 }
               </TouchableOpacity>
@@ -919,7 +884,7 @@ function UserCard({ user, tab, actionLoading, onToggleActive, onGrantPro, onRevo
               activeOpacity={0.8}
             >
               {toggleLoading
-                ? <ActivityIndicator color={user.isActive ? RED : GREEN} size="small" />
+                ? <ActivityIndicator color={user.isActive ? colors.error : colors.success} size="small" />
                 : <Text style={[styles.toggleActiveBtnText, user.isActive && styles.toggleActiveBtnTextOn]}>
                     {user.isActive ? 'Disable' : 'Enable'}
                   </Text>
@@ -932,11 +897,13 @@ function UserCard({ user, tab, actionLoading, onToggleActive, onGrantPro, onRevo
   );
 }
 
-function FormRow({ label, value, highlight }) {
+function FormRow({ label, value, highlight, styles, colors }) {
   return (
     <View style={styles.formRow}>
       <Text style={styles.formLabel}>{label}</Text>
-      <Text style={[styles.formValue, highlight && styles.formValueHighlight]}>{value || '—'}</Text>
+      <Text style={[styles.formValue, highlight && { color: colors.info, fontWeight: '700', textTransform: 'capitalize' }]}>
+        {value || '—'}
+      </Text>
     </View>
   );
 }
@@ -952,170 +919,169 @@ function getTimeAgo(dateStr) {
   return `${Math.floor(hrs / 24)}d ago`;
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#F5F7FB' },
+const makeStyles = (colors) => StyleSheet.create({
+  root: { flex: 1, backgroundColor: colors.bgAlt },
 
   topBar: {
     flexDirection: 'row', alignItems: 'center',
-    paddingHorizontal: 20, paddingVertical: 14, backgroundColor: '#F5F7FB',
+    paddingHorizontal: 20, paddingVertical: 14, backgroundColor: colors.bgAlt,
   },
   hamburger: { padding: 4, marginRight: 12 },
-  appName: { flex: 1, fontSize: 20, fontWeight: '900', color: PRIMARY, letterSpacing: -0.5 },
+  appName: { flex: 1, fontSize: 20, fontWeight: '900', color: colors.info, letterSpacing: -0.5 },
   adminAvatar: {
-    width: 40, height: 40, borderRadius: 20, backgroundColor: '#1E232C',
+    width: 40, height: 40, borderRadius: 20, backgroundColor: colors.text,
     justifyContent: 'center', alignItems: 'center',
   },
-  adminInitial: { fontSize: 18, fontWeight: '800', color: '#FFF' },
+  adminInitial: { fontSize: 18, fontWeight: '800', color: colors.textInverse },
 
   scroll: { flex: 1 },
   scrollContent: { paddingHorizontal: 16, paddingTop: 4, paddingBottom: 20 },
 
   greeting: { marginBottom: 20 },
-  greetingTitle: { fontSize: 26, fontWeight: '800', color: '#1E232C', marginBottom: 4 },
-  greetingSubtitle: { fontSize: 13, color: '#6B7280', lineHeight: 18 },
+  greetingTitle: { fontSize: 26, fontWeight: '800', color: colors.text, marginBottom: 4 },
+  greetingSubtitle: { fontSize: 13, color: colors.textMuted, lineHeight: 18 },
 
   loadingBox: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
-  loadingText: { fontSize: 13, color: '#6B7280' },
+  loadingText: { fontSize: 13, color: colors.textMuted },
 
   statCard: {
-    backgroundColor: '#FFF', borderRadius: 14, padding: 16, marginBottom: 12,
-    borderLeftWidth: 4, borderWidth: 1, borderColor: '#EEF0F5', elevation: 1,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4,
+    backgroundColor: colors.card, borderRadius: 14, padding: 16, marginBottom: 12,
+    borderLeftWidth: 4, borderWidth: 1, borderColor: colors.borderLight, elevation: 1,
+    shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 4,
   },
   statCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 },
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   badgeText: { fontSize: 11, fontWeight: '800', letterSpacing: 0.3 },
-  statValue: { fontSize: 32, fontWeight: '900', color: '#1E232C', marginBottom: 2 },
-  statLabel: { fontSize: 14, color: '#6B7280', fontWeight: '500' },
+  statValue: { fontSize: 32, fontWeight: '900', color: colors.text, marginBottom: 2 },
+  statLabel: { fontSize: 14, color: colors.textMuted, fontWeight: '500' },
 
   sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, marginTop: 4 },
-  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1E232C' },
-  sectionCount: { fontSize: 13, fontWeight: '600', color: '#9CA3AF' },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: colors.text },
+  sectionCount: { fontSize: 13, fontWeight: '600', color: colors.textHint },
 
   emptyCard: {
-    backgroundColor: '#FFF', borderRadius: 14, padding: 24, alignItems: 'center',
-    gap: 8, marginBottom: 16, borderWidth: 1, borderColor: '#EEF0F5',
+    backgroundColor: colors.card, borderRadius: 14, padding: 24, alignItems: 'center',
+    gap: 8, marginBottom: 16, borderWidth: 1, borderColor: colors.borderLight,
   },
-  emptyText: { fontSize: 13, color: '#9CA3AF' },
+  emptyText: { fontSize: 13, color: colors.textMuted },
 
   complaintCard: {
-    backgroundColor: '#FFF', borderRadius: 14, padding: 16, marginBottom: 10,
-    borderWidth: 1, borderColor: '#EEF0F5', elevation: 1,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4,
+    backgroundColor: colors.card, borderRadius: 14, padding: 16, marginBottom: 10,
+    borderWidth: 1, borderColor: colors.borderLight, elevation: 1,
+    shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4,
   },
   complaintTop: { flexDirection: 'row', gap: 12, marginBottom: 14 },
   complaintAvatar: {
-    width: 42, height: 42, borderRadius: 21, backgroundColor: '#F3F4F6',
+    width: 42, height: 42, borderRadius: 21, backgroundColor: colors.surface,
     justifyContent: 'center', alignItems: 'center',
   },
   complaintInfo: { flex: 1 },
-  complaintName: { fontSize: 15, fontWeight: '700', color: '#1E232C', marginBottom: 2 },
-  complaintType: { fontSize: 13, fontWeight: '600', color: RED, marginBottom: 3 },
-  complaintReporter: { fontSize: 12, color: '#9CA3AF' },
+  complaintName: { fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 2 },
+  complaintType: { fontSize: 13, fontWeight: '600', color: colors.error, marginBottom: 3 },
+  complaintReporter: { fontSize: 12, color: colors.textMuted },
   complaintActions: { flexDirection: 'row', gap: 10 },
   warnBtn: {
     paddingVertical: 9, paddingHorizontal: 24, borderRadius: 10,
-    borderWidth: 1.5, borderColor: '#D1D5DB', alignItems: 'center',
+    borderWidth: 1.5, borderColor: colors.border, alignItems: 'center',
   },
-  warnBtnText: { fontSize: 13, fontWeight: '700', color: '#374151' },
-  suspendBtn: { flex: 1, paddingVertical: 9, borderRadius: 10, backgroundColor: RED, alignItems: 'center' },
+  warnBtnText: { fontSize: 13, fontWeight: '700', color: colors.textSub },
+  suspendBtn: { flex: 1, paddingVertical: 9, borderRadius: 10, backgroundColor: colors.error, alignItems: 'center' },
   suspendBtnText: { fontSize: 13, fontWeight: '700', color: '#FFF' },
 
   verificationCard: {
-    backgroundColor: '#FFF', borderRadius: 14, padding: 16, marginBottom: 12,
-    borderWidth: 1, borderColor: '#EEF0F5', elevation: 1,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4,
+    backgroundColor: colors.card, borderRadius: 14, padding: 16, marginBottom: 12,
+    borderWidth: 1, borderColor: colors.borderLight, elevation: 1,
+    shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4,
   },
   verificationTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 },
-  artId: { fontSize: 13, fontWeight: '800', color: PRIMARY },
-  verificationTime: { fontSize: 12, color: '#9CA3AF' },
-  verificationName: { fontSize: 17, fontWeight: '800', color: '#1E232C', marginBottom: 2 },
-  verificationSkills: { fontSize: 12, color: '#6B7280', marginBottom: 12 },
+  artId: { fontSize: 13, fontWeight: '800', color: colors.info },
+  verificationTime: { fontSize: 12, color: colors.textMuted },
+  verificationName: { fontSize: 17, fontWeight: '800', color: colors.text, marginBottom: 2 },
+  verificationSkills: { fontSize: 12, color: colors.textMuted, marginBottom: 12 },
   verificationActions: { flexDirection: 'row', gap: 8 },
-  approveBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: GREEN, alignItems: 'center' },
+  approveBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, backgroundColor: colors.success, alignItems: 'center' },
   approveBtnText: { fontSize: 13, fontWeight: '800', color: '#FFF' },
   viewFormBtn: {
     flex: 1, paddingVertical: 12, borderRadius: 12,
-    borderWidth: 1.5, borderColor: '#D1D5DB', backgroundColor: '#F9FAFB', alignItems: 'center',
+    borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center',
   },
-  viewFormBtnText: { fontSize: 13, fontWeight: '700', color: '#374151' },
+  viewFormBtnText: { fontSize: 13, fontWeight: '700', color: colors.textSub },
   rejectBtn: {
     flex: 1, paddingVertical: 12, borderRadius: 12,
-    borderWidth: 1.5, borderColor: '#FECACA', backgroundColor: '#FEF2F2', alignItems: 'center',
+    borderWidth: 1.5, borderColor: colors.error, backgroundColor: colors.errorBg, alignItems: 'center',
   },
-  rejectBtnText: { fontSize: 13, fontWeight: '800', color: RED },
+  rejectBtnText: { fontSize: 13, fontWeight: '800', color: colors.error },
 
   profileCard: {
-    backgroundColor: '#FFF', borderRadius: 20, padding: 28, alignItems: 'center',
-    marginBottom: 16, borderWidth: 1, borderColor: '#EEF0F5', elevation: 1,
+    backgroundColor: colors.card, borderRadius: 20, padding: 28, alignItems: 'center',
+    marginBottom: 16, borderWidth: 1, borderColor: colors.borderLight, elevation: 1,
   },
   profileAvatarBox: {
-    width: 80, height: 80, borderRadius: 40, backgroundColor: '#1E232C',
+    width: 80, height: 80, borderRadius: 40, backgroundColor: colors.text,
     justifyContent: 'center', alignItems: 'center', marginBottom: 14,
   },
-  profileName: { fontSize: 20, fontWeight: '800', color: '#1E232C', marginBottom: 4 },
-  profileRole: { fontSize: 13, fontWeight: '700', color: PRIMARY, marginBottom: 4 },
-  profilePhone: { fontSize: 13, color: '#6B7280' },
+  profileName: { fontSize: 20, fontWeight: '800', color: colors.text, marginBottom: 4 },
+  profileRole: { fontSize: 13, fontWeight: '700', color: colors.info, marginBottom: 4 },
+  profilePhone: { fontSize: 13, color: colors.textMuted },
   logoutBtn: {
-    flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: '#FEE2E2',
+    flexDirection: 'row', alignItems: 'center', gap: 12, backgroundColor: colors.errorBg,
     borderRadius: 16, paddingHorizontal: 20, paddingVertical: 16,
   },
-  logoutText: { fontSize: 15, fontWeight: '700', color: RED },
+  logoutText: { fontSize: 15, fontWeight: '700', color: colors.error },
 
-  drawerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', flexDirection: 'row' },
+  drawerOverlay: { flex: 1, backgroundColor: colors.overlay, flexDirection: 'row' },
   drawer: {
-    width: SCREEN_W * 0.72, backgroundColor: '#FFF',
-    elevation: 16, shadowColor: '#000', shadowOffset: { width: 4, height: 0 },
+    width: SCREEN_W * 0.72, backgroundColor: colors.card,
+    elevation: 16, shadowColor: colors.shadow, shadowOffset: { width: 4, height: 0 },
     shadowOpacity: 0.15, shadowRadius: 16,
   },
   drawerHeader: { alignItems: 'center', paddingVertical: 24, paddingHorizontal: 20 },
   drawerAvatar: {
-    width: 64, height: 64, borderRadius: 32, backgroundColor: '#1E232C',
+    width: 64, height: 64, borderRadius: 32, backgroundColor: colors.text,
     justifyContent: 'center', alignItems: 'center', marginBottom: 12,
   },
-  drawerInitial: { fontSize: 26, fontWeight: '800', color: '#FFF' },
-  drawerName: { fontSize: 16, fontWeight: '800', color: '#1E232C', marginBottom: 2 },
-  drawerRole: { fontSize: 12, fontWeight: '600', color: PRIMARY },
-  drawerDivider: { height: 1, backgroundColor: '#F3F4F6', marginVertical: 8 },
+  drawerInitial: { fontSize: 26, fontWeight: '800', color: colors.textInverse },
+  drawerName: { fontSize: 16, fontWeight: '800', color: colors.text, marginBottom: 2 },
+  drawerRole: { fontSize: 12, fontWeight: '600', color: colors.info },
+  drawerDivider: { height: 1, backgroundColor: colors.borderLight, marginVertical: 8 },
   drawerItem: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingHorizontal: 24, paddingVertical: 14 },
-  drawerItemActive: { backgroundColor: '#EFF6FF' },
-  drawerItemLabel: { fontSize: 15, fontWeight: '600', color: '#374151' },
-  drawerItemLabelActive: { color: PRIMARY, fontWeight: '700' },
-  drawerItemLabelDanger: { color: RED },
+  drawerItemActive: { backgroundColor: colors.infoBg },
+  drawerItemLabel: { fontSize: 15, fontWeight: '600', color: colors.textSub },
+  drawerItemLabelActive: { color: colors.info, fontWeight: '700' },
+  drawerItemLabelDanger: { color: colors.error },
 
   modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.5)',
+    flex: 1, backgroundColor: colors.overlay,
     justifyContent: 'flex-end',
   },
   reasonInput: {
-    borderWidth: 1.5, borderColor: '#E5E7EB', borderRadius: 12,
-    padding: 14, fontSize: 14, color: '#1E232C',
+    borderWidth: 1.5, borderColor: colors.borderInput, borderRadius: 12,
+    padding: 14, fontSize: 14, color: colors.text,
+    backgroundColor: colors.inputBg,
     minHeight: 90, textAlignVertical: 'top', marginBottom: 20,
   },
   viewFormModal: {
-    backgroundColor: '#FFF', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    backgroundColor: colors.card, borderTopLeftRadius: 24, borderTopRightRadius: 24,
     padding: 24, maxHeight: '90%',
   },
   viewFormHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  viewFormTitle: { fontSize: 18, fontWeight: '800', color: '#1E232C' },
+  viewFormTitle: { fontSize: 18, fontWeight: '800', color: colors.text },
   viewFormLoading: { alignItems: 'center', paddingVertical: 40, gap: 12 },
   vfPhoto: { width: '100%', height: 180, borderRadius: 14, marginBottom: 16 },
   vfPhotoPlaceholder: {
-    width: '100%', height: 180, borderRadius: 14, backgroundColor: '#F3F4F6',
+    width: '100%', height: 180, borderRadius: 14, backgroundColor: colors.surface,
     justifyContent: 'center', alignItems: 'center', marginBottom: 16,
   },
   formRow: {
     flexDirection: 'row', justifyContent: 'space-between',
-    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
+    paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: colors.borderLight,
   },
-  formLabel: { fontSize: 13, color: '#6B7280', fontWeight: '600' },
-  formValue: { fontSize: 13, color: '#1E232C', fontWeight: '500', flex: 1, textAlign: 'right' },
-  formValueHighlight: { color: PRIMARY, fontWeight: '700', textTransform: 'capitalize' },
-  vfSectionLabel: { fontSize: 14, fontWeight: '800', color: '#1E232C', marginTop: 16, marginBottom: 8 },
-  vfIdImage: { width: '100%', height: 180, borderRadius: 12, backgroundColor: '#F3F4F6' },
-  vfTapHint: { fontSize: 11, color: PRIMARY, textAlign: 'center', marginTop: 4, marginBottom: 4 },
-  vfMissing: { fontSize: 13, color: '#9CA3AF', fontStyle: 'italic' },
+  formLabel: { fontSize: 13, color: colors.textMuted, fontWeight: '600' },
+  formValue: { fontSize: 13, color: colors.text, fontWeight: '500', flex: 1, textAlign: 'right' },
+  vfSectionLabel: { fontSize: 14, fontWeight: '800', color: colors.text, marginTop: 16, marginBottom: 8 },
+  vfIdImage: { width: '100%', height: 180, borderRadius: 12, backgroundColor: colors.surface },
+  vfTapHint: { fontSize: 11, color: colors.info, textAlign: 'center', marginTop: 4, marginBottom: 4 },
+  vfMissing: { fontSize: 13, color: colors.textMuted, fontStyle: 'italic' },
   idFsOverlay: {
     flex: 1, backgroundColor: 'rgba(0,0,0,0.92)',
     justifyContent: 'center', alignItems: 'center',
@@ -1124,23 +1090,22 @@ const styles = StyleSheet.create({
   idFsClose: { position: 'absolute', top: 50, right: 20 },
   vfVideoBox: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: '#EFF6FF', borderRadius: 10, padding: 14,
+    backgroundColor: colors.infoBg, borderRadius: 10, padding: 14,
   },
-  vfVideoText: { fontSize: 14, fontWeight: '600', color: PRIMARY },
+  vfVideoText: { fontSize: 14, fontWeight: '600', color: colors.info },
 
-  // ── User Management page ──
   pageHeader: { paddingHorizontal: 20, paddingTop: 10, paddingBottom: 4 },
-  pageTitle:  { fontSize: 22, fontWeight: '900', color: '#1E232C' },
+  pageTitle:  { fontSize: 22, fontWeight: '900', color: colors.text },
 
   tabRow: {
     flexDirection: 'row', paddingHorizontal: 16, paddingVertical: 10, gap: 8,
   },
   tab: {
     flex: 1, paddingVertical: 9, borderRadius: 10, alignItems: 'center',
-    backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#E5E7EB',
+    backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border,
   },
-  tabActive: { backgroundColor: PRIMARY, borderColor: PRIMARY },
-  tabText: { fontSize: 12, fontWeight: '700', color: '#6B7280' },
+  tabActive: { backgroundColor: colors.info, borderColor: colors.info },
+  tabText: { fontSize: 12, fontWeight: '700', color: colors.textMuted },
   tabTextActive: { color: '#FFF' },
 
   loadingBox2: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 10 },
@@ -1148,50 +1113,50 @@ const styles = StyleSheet.create({
   userListContent: { paddingHorizontal: 16, paddingBottom: 24 },
 
   userCard: {
-    backgroundColor: '#FFF', borderRadius: 14, padding: 14, marginBottom: 10,
-    borderWidth: 1, borderColor: '#EEF0F5', elevation: 1,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4,
+    backgroundColor: colors.card, borderRadius: 14, padding: 14, marginBottom: 10,
+    borderWidth: 1, borderColor: colors.borderLight, elevation: 1,
+    shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4,
   },
   userCardTop: { flexDirection: 'row', gap: 12, marginBottom: 12 },
   userAvatar: {
-    width: 46, height: 46, borderRadius: 23, backgroundColor: '#1E232C',
+    width: 46, height: 46, borderRadius: 23, backgroundColor: colors.text,
     justifyContent: 'center', alignItems: 'center',
   },
-  userAvatarText: { fontSize: 18, fontWeight: '800', color: '#FFF' },
+  userAvatarText: { fontSize: 18, fontWeight: '800', color: colors.textInverse },
   userNameRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 2 },
-  userName: { fontSize: 15, fontWeight: '800', color: '#1E232C', flexShrink: 1 },
+  userName: { fontSize: 15, fontWeight: '800', color: colors.text, flexShrink: 1 },
   proChip: {
     paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: colors.warningBg,
   },
-  proChipText: { fontSize: 10, fontWeight: '900', color: '#B45309', letterSpacing: 0.5 },
-  userProfession: { fontSize: 12, color: '#6B7280', marginBottom: 6 },
+  proChipText: { fontSize: 10, fontWeight: '900', color: colors.warningDark, letterSpacing: 0.5 },
+  userProfession: { fontSize: 12, color: colors.textMuted, marginBottom: 6 },
   userStatusChip: { alignSelf: 'flex-start', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6 },
   userStatusText: { fontSize: 11, fontWeight: '700' },
 
   userCardActions: { flexDirection: 'row', gap: 8 },
   makeProBtn: {
     flex: 1, paddingVertical: 9, borderRadius: 10,
-    backgroundColor: '#B45309', alignItems: 'center',
+    backgroundColor: colors.warningDark, alignItems: 'center',
   },
   makeProBtnText: { fontSize: 12, fontWeight: '800', color: '#FFF' },
   revokeProBtn: {
     flex: 1, paddingVertical: 9, borderRadius: 10,
-    borderWidth: 1.5, borderColor: AMBER, alignItems: 'center',
+    borderWidth: 1.5, borderColor: colors.warningDark, alignItems: 'center',
   },
-  revokeProBtnText: { fontSize: 12, fontWeight: '800', color: AMBER },
+  revokeProBtnText: { fontSize: 12, fontWeight: '800', color: colors.warningDark },
   toggleActiveBtn: {
     flex: 1, paddingVertical: 9, borderRadius: 10,
-    borderWidth: 1.5, borderColor: '#D1D5DB', backgroundColor: '#F9FAFB', alignItems: 'center',
+    borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface, alignItems: 'center',
   },
-  toggleActiveBtnOn: { borderColor: '#FECACA', backgroundColor: '#FEF2F2' },
-  toggleActiveBtnText: { fontSize: 12, fontWeight: '700', color: GREEN },
-  toggleActiveBtnTextOn: { color: RED },
+  toggleActiveBtnOn: { borderColor: colors.error, backgroundColor: colors.errorBg },
+  toggleActiveBtnText: { fontSize: 12, fontWeight: '700', color: colors.success },
+  toggleActiveBtnTextOn: { color: colors.error },
 
   loadMoreBtn: {
     marginHorizontal: 16, marginTop: 4, marginBottom: 8,
-    paddingVertical: 14, borderRadius: 12, backgroundColor: '#EFF6FF',
-    alignItems: 'center', borderWidth: 1, borderColor: '#DBEAFE',
+    paddingVertical: 14, borderRadius: 12, backgroundColor: colors.infoBg,
+    alignItems: 'center', borderWidth: 1, borderColor: colors.info,
   },
-  loadMoreText: { fontSize: 14, fontWeight: '700', color: PRIMARY },
+  loadMoreText: { fontSize: 14, fontWeight: '700', color: colors.info },
 });

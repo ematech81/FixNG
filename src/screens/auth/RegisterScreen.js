@@ -8,8 +8,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { sendOTP } from '../../api/authApi';
 import { getDeviceId } from '../../utils/deviceId';
 import BackButton from '../../components/BackButton';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function RegisterScreen({ navigation, onAuthSuccess }) {
+  const { colors } = useTheme();
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
@@ -17,7 +19,6 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
   const [loading, setLoading] = useState(false);
 
   const handlePhoneChange = (text) => {
-    // Input value is raw digits only — no +234 prefix in the TextInput value
     setPhone(text.replace(/\D/g, ''));
   };
 
@@ -35,7 +36,6 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
       return;
     }
 
-    // Build full phone for API (+234 + digits without leading 0)
     const normalized  = phone.startsWith('0') ? `+234${phone.slice(1)}` : `+234${phone}`;
     const cleanEmail  = email.trim().toLowerCase() || null;
 
@@ -77,6 +77,8 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
     doSendOtp();
   };
 
+  const styles = makeStyles(colors);
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -88,14 +90,12 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Back arrow */}
           <View style={styles.backRow}>
             <BackButton onPress={() => navigation.goBack()} />
             <Text style={styles.appName}>FixNG</Text>
             <View style={{ width: 28 }} />
           </View>
 
-          {/* Title */}
           <Text style={styles.title}>Create Account</Text>
           <Text style={styles.subtitle}>
             Join the community of trusted professionals{'\n'}and clients.
@@ -107,7 +107,7 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
             <TextInput
               style={styles.input}
               placeholder="Enter your full name"
-              placeholderTextColor="#B0B7C3"
+              placeholderTextColor={colors.textHint}
               value={name}
               onChangeText={setName}
               autoCapitalize="words"
@@ -125,7 +125,7 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
             <TextInput
               style={styles.phoneInput}
               placeholder="801 234 5678"
-              placeholderTextColor="#B0B7C3"
+              placeholderTextColor={colors.textHint}
               value={phone}
               onChangeText={handlePhoneChange}
               keyboardType="number-pad"
@@ -140,7 +140,7 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
             <TextInput
               style={styles.input}
               placeholder="yourname@example.com"
-              placeholderTextColor="#B0B7C3"
+              placeholderTextColor={colors.textHint}
               value={email}
               onChangeText={setEmail}
               keyboardType="email-address"
@@ -151,7 +151,6 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
             <Text style={styles.inputIcon}>✉️</Text>
           </View>
 
-          {/* Security check / Terms */}
           <View style={styles.dividerRow}>
             <View style={styles.dividerLine} />
             <Text style={styles.dividerText}>SECURITY CHECK</Text>
@@ -180,7 +179,6 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
             </Text>
           </TouchableOpacity>
 
-          {/* Submit */}
           <TouchableOpacity
             style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
             onPress={handleCreateAccount}
@@ -194,7 +192,6 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
             )}
           </TouchableOpacity>
 
-          {/* Login link */}
           <TouchableOpacity
             style={styles.loginLink}
             onPress={() => navigation.navigate('Login')}
@@ -210,116 +207,83 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
   );
 }
 
-const PRIMARY = '#FF6B00';
-const BORDER = '#E8ECF4';
-const LABEL_COLOR = '#8391A1';
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FE' },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.inputBg },
   scroll: { paddingHorizontal: 24, paddingBottom: 40, flexGrow: 1 },
 
   backRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingVertical: 16,
   },
-  appName: { fontSize: 20, fontWeight: '900', color: '#1A1A1A', letterSpacing: -0.5 },
+  appName: { fontSize: 20, fontWeight: '900', color: colors.text, letterSpacing: -0.5 },
 
   title: {
-    fontSize: 30, fontWeight: '800', color: '#1E232C',
+    fontSize: 30, fontWeight: '800', color: colors.text,
     textAlign: 'center', marginTop: 12, marginBottom: 8,
   },
   subtitle: {
-    fontSize: 15, color: '#8391A1', textAlign: 'center',
+    fontSize: 15, color: colors.textMuted, textAlign: 'center',
     lineHeight: 22, marginBottom: 30,
   },
 
-  sectionLabel: {
-    fontSize: 12, fontWeight: '700', color: '#8391A1',
-    letterSpacing: 1.2, marginBottom: 12,
-  },
-
-  roleRow: { flexDirection: 'row', gap: 12, marginBottom: 28 },
-  roleCard: {
-    flex: 1, borderWidth: 1.5, borderColor: BORDER,
-    borderRadius: 16, padding: 20, alignItems: 'center',
-    backgroundColor: '#FFF', position: 'relative', minHeight: 120,
-    justifyContent: 'center',
-  },
-  roleCardActive: { borderColor: PRIMARY, borderWidth: 2 },
-  checkBadge: {
-    position: 'absolute', top: 10, right: 10,
-    width: 22, height: 22, borderRadius: 11,
-    backgroundColor: PRIMARY, justifyContent: 'center', alignItems: 'center',
-  },
-  checkIcon: { color: '#FFF', fontSize: 12, fontWeight: '800' },
-  roleIconCircle: {
-    width: 56, height: 56, borderRadius: 28,
-    backgroundColor: '#F0F3FF', justifyContent: 'center',
-    alignItems: 'center', marginBottom: 10,
-  },
-  roleIconCircleActive: { backgroundColor: '#FFF3EC' },
-  roleEmoji: { fontSize: 26 },
-  roleLabel: { fontSize: 15, fontWeight: '700', color: '#6B7280' },
-  roleLabelActive: { color: PRIMARY },
-
   fieldLabel: {
-    fontSize: 15, fontWeight: '700', color: '#1E232C', marginBottom: 8, marginTop: 4,
+    fontSize: 15, fontWeight: '700', color: colors.text, marginBottom: 8, marginTop: 4,
   },
   inputRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFF', borderWidth: 1.5, borderColor: BORDER,
+    backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.borderInput,
     borderRadius: 12, paddingHorizontal: 14, marginBottom: 16,
   },
   input: {
-    flex: 1, paddingVertical: 16, fontSize: 15, color: '#1E232C',
+    flex: 1, paddingVertical: 16, fontSize: 15, color: colors.text,
   },
   inputIcon: { fontSize: 18, marginLeft: 6 },
 
   phoneRow: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#FFF', borderWidth: 1.5, borderColor: BORDER,
+    backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.borderInput,
     borderRadius: 12, overflow: 'hidden', marginBottom: 16,
   },
   prefixBox: {
     paddingHorizontal: 14, paddingVertical: 16,
-    backgroundColor: '#F0F3FF',
-    borderRightWidth: 1.5, borderRightColor: BORDER,
+    backgroundColor: colors.surface,
+    borderRightWidth: 1.5, borderRightColor: colors.borderInput,
   },
-  prefixText: { fontSize: 15, fontWeight: '700', color: '#1E232C' },
+  prefixText: { fontSize: 15, fontWeight: '700', color: colors.text },
   phoneInput: {
     flex: 1, paddingHorizontal: 14, paddingVertical: 16,
-    fontSize: 15, color: '#1E232C',
+    fontSize: 15, color: colors.text,
   },
 
   dividerRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10, marginVertical: 20,
   },
-  dividerLine: { flex: 1, height: 1, backgroundColor: BORDER },
-  dividerText: { fontSize: 11, fontWeight: '700', color: LABEL_COLOR, letterSpacing: 1 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: colors.borderInput },
+  dividerText: { fontSize: 11, fontWeight: '700', color: colors.textMuted, letterSpacing: 1 },
 
   termsRow: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 12,
-    backgroundColor: '#FFF', borderRadius: 12, padding: 14,
-    borderWidth: 1, borderColor: BORDER, marginBottom: 28,
+    backgroundColor: colors.card, borderRadius: 12, padding: 14,
+    borderWidth: 1, borderColor: colors.borderInput, marginBottom: 28,
   },
   checkbox: {
     width: 22, height: 22, borderRadius: 6, borderWidth: 2,
-    borderColor: '#22C55E', justifyContent: 'center', alignItems: 'center',
+    borderColor: colors.success, justifyContent: 'center', alignItems: 'center',
     marginTop: 1, flexShrink: 0,
   },
-  checkboxChecked: { backgroundColor: '#22C55E', borderColor: '#22C55E' },
+  checkboxChecked: { backgroundColor: colors.success, borderColor: colors.success },
   checkboxTick: { color: '#FFF', fontSize: 13, fontWeight: '800' },
-  termsText: { flex: 1, fontSize: 13, color: '#6B7280', lineHeight: 20 },
-  termsLink: { color: PRIMARY, fontWeight: '700' },
+  termsText: { flex: 1, fontSize: 13, color: colors.textMuted, lineHeight: 20 },
+  termsLink: { color: colors.primary, fontWeight: '700' },
 
   submitBtn: {
-    backgroundColor: PRIMARY, paddingVertical: 18,
+    backgroundColor: colors.primary, paddingVertical: 18,
     borderRadius: 14, alignItems: 'center', marginBottom: 20,
   },
-  submitBtnDisabled: { backgroundColor: '#FFCBA4' },
+  submitBtnDisabled: { backgroundColor: colors.primaryDisabled },
   submitBtnText: { color: '#FFF', fontWeight: '800', fontSize: 16, letterSpacing: 0.3 },
 
   loginLink: { alignItems: 'center', paddingVertical: 4 },
-  loginLinkText: { fontSize: 14, color: '#6B7280' },
-  loginLinkBold: { color: PRIMARY, fontWeight: '700' },
+  loginLinkText: { fontSize: 14, color: colors.textMuted },
+  loginLinkBold: { color: colors.primary, fontWeight: '700' },
 });

@@ -13,8 +13,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadVerificationId, skipVerificationId } from '../../../api/artisanApi';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
+import { useTheme } from '../../../context/ThemeContext';
 
-const PRIMARY = '#2563EB';
 const TOTAL_STEPS = 5;
 const CURRENT_STEP = 4;
 
@@ -38,12 +38,15 @@ const ID_TYPES = [
 export default function Step4_VerificationID({ navigation, route }) {
   const isEdit = route?.params?.isEdit === true;
   const fromResubmit = route?.params?.fromResubmit === true;
+  const { colors } = useTheme();
   const { onCancelRegistration } = useOnboarding();
 
   const [imageUri, setImageUri] = useState(null);
   const [selectedIdType, setSelectedIdType] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [skipping, setSkipping] = useState(false);
+
+  const styles = makeStyles(colors);
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -153,7 +156,7 @@ export default function Step4_VerificationID({ navigation, route }) {
             { text: 'Stay', style: 'cancel' },
             { text: 'Cancel Registration', style: 'destructive', onPress: () => onCancelRegistration?.() },
           ]);
-        } : null} />}
+        } : null} styles={styles} colors={colors} />}
 
         <Text style={styles.title}>Verify Your Identity</Text>
         <Text style={styles.subtitle}>
@@ -233,7 +236,7 @@ export default function Step4_VerificationID({ navigation, route }) {
           disabled={!imageUri || !selectedIdType || uploading || skipping}
         >
           {uploading ? (
-            <ActivityIndicator color="#FFF" />
+            <ActivityIndicator color={colors.card} />
           ) : (
             <Text style={styles.continueBtnText}>Continue</Text>
           )}
@@ -246,7 +249,7 @@ export default function Step4_VerificationID({ navigation, route }) {
             disabled={uploading || skipping}
           >
             {skipping ? (
-              <ActivityIndicator color={PRIMARY} size="small" />
+              <ActivityIndicator color={colors.info} size="small" />
             ) : (
               <Text style={styles.skipBtnText}>Skip for Now</Text>
             )}
@@ -257,7 +260,7 @@ export default function Step4_VerificationID({ navigation, route }) {
   );
 }
 
-function ProgressBar({ current, total, onCancel }) {
+function ProgressBar({ current, total, onCancel, styles, colors }) {
   return (
     <View style={styles.progressContainer}>
       <View style={styles.progressTopRow}>
@@ -277,89 +280,89 @@ function ProgressBar({ current, total, onCancel }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF' },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.card },
   scroll: { padding: 24, paddingBottom: 40 },
   progressContainer: { marginBottom: 24 },
   progressTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  progressText: { fontSize: 13, color: '#999' },
-  cancelLink: { fontSize: 13, color: '#EF4444', fontWeight: '600' },
+  progressText: { fontSize: 13, color: colors.textMuted },
+  cancelLink: { fontSize: 13, color: colors.error, fontWeight: '600' },
   progressTrack: { flexDirection: 'row', gap: 6 },
-  progressSegment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#E5E5E5' },
-  progressSegmentActive: { backgroundColor: PRIMARY },
-  title: { fontSize: 24, fontWeight: '700', color: '#1A1A1A', marginBottom: 8 },
-  subtitle: { fontSize: 15, color: '#666', marginBottom: 24, lineHeight: 22 },
+  progressSegment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.border },
+  progressSegmentActive: { backgroundColor: colors.info },
+  title: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  subtitle: { fontSize: 15, color: colors.textSub, marginBottom: 24, lineHeight: 22 },
   nameNotice: {
     flexDirection: 'row', alignItems: 'flex-start', gap: 10,
-    backgroundColor: '#FFFBEB', borderRadius: 10, padding: 12,
+    backgroundColor: colors.warningBg, borderRadius: 10, padding: 12,
     borderWidth: 1, borderColor: '#FDE68A', marginBottom: 20,
   },
   nameNoticeIcon: { fontSize: 16, marginTop: 1 },
   nameNoticeText: { flex: 1, fontSize: 13, color: '#78350F', lineHeight: 19 },
-  label: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 10 },
+  label: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 10 },
   idTypeRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 },
   idTypeChip: {
     paddingHorizontal: 12,
     paddingVertical: 9,
     borderRadius: 20,
     borderWidth: 1.5,
-    borderColor: '#E5E5E5',
-    backgroundColor: '#FAFAFA',
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
   },
-  idTypeChipSelected: { borderColor: PRIMARY, backgroundColor: '#EFF6FF' },
+  idTypeChipSelected: { borderColor: colors.info, backgroundColor: colors.infoBg },
   idTypeChipText: { fontSize: 13, color: '#444' },
-  idTypeChipTextSelected: { color: PRIMARY, fontWeight: '700' },
+  idTypeChipTextSelected: { color: colors.info, fontWeight: '700' },
   uploadPlaceholder: {
     height: 160,
     borderWidth: 2,
-    borderColor: '#E5E5E5',
+    borderColor: colors.border,
     borderStyle: 'dashed',
     borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 16,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: colors.surface,
   },
   uploadIcon: { fontSize: 40, marginBottom: 8 },
-  uploadPlaceholderText: { fontSize: 14, color: '#BBB' },
+  uploadPlaceholderText: { fontSize: 14, color: colors.textHint },
   previewContainer: { marginBottom: 16, alignItems: 'center' },
   previewImage: {
     width: '100%',
     height: 200,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#E5E5E5',
+    borderColor: colors.border,
   },
-  retakeText: { marginTop: 8, fontSize: 13, color: PRIMARY },
+  retakeText: { marginTop: 8, fontSize: 13, color: colors.info },
   pickRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   pickBtn: {
     flex: 1,
     padding: 14,
     borderRadius: 10,
     borderWidth: 1.5,
-    borderColor: PRIMARY,
+    borderColor: colors.info,
     alignItems: 'center',
   },
-  pickBtnText: { color: PRIMARY, fontWeight: '600', fontSize: 15 },
+  pickBtnText: { color: colors.info, fontWeight: '600', fontSize: 15 },
   tipsBox: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: colors.infoBg,
     borderRadius: 10,
     padding: 16,
     borderLeftWidth: 4,
-    borderLeftColor: PRIMARY,
+    borderLeftColor: colors.info,
   },
-  tipsTitle: { fontSize: 13, fontWeight: '700', color: '#1E40AF', marginBottom: 8 },
+  tipsTitle: { fontSize: 13, fontWeight: '700', color: colors.infoDark, marginBottom: 8 },
   tipItem: { fontSize: 13, color: '#374151', marginBottom: 4, lineHeight: 18 },
   footer: { padding: 24, paddingTop: 0, gap: 10 },
-  continueBtn: { backgroundColor: PRIMARY, padding: 16, borderRadius: 12, alignItems: 'center' },
-  continueBtnDisabled: { backgroundColor: '#93C5FD' },
-  continueBtnText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
+  continueBtn: { backgroundColor: colors.info, padding: 16, borderRadius: 12, alignItems: 'center' },
+  continueBtnDisabled: { backgroundColor: colors.infoBg },
+  continueBtnText: { color: colors.card, fontWeight: '700', fontSize: 16 },
   skipBtn: {
     padding: 14,
     borderRadius: 12,
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: '#D1D5DB',
+    borderColor: colors.textHint,
   },
-  skipBtnText: { color: '#6B7280', fontWeight: '600', fontSize: 15 },
+  skipBtnText: { color: colors.textMuted, fontWeight: '600', fontSize: 15 },
 });

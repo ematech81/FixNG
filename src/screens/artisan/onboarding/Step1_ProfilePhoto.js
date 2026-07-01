@@ -15,16 +15,19 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { saveProfilePhotoUrl } from '../../../api/artisanApi';
 import { uploadImageToCloudinary } from '../../../utils/cloudinaryUpload';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
+import { useTheme } from '../../../context/ThemeContext';
 
-const PRIMARY = '#2563EB';
 const TOTAL_STEPS = 5;
 const CURRENT_STEP = 1;
 
 export default function Step1_ProfilePhoto({ navigation }) {
+  const { colors } = useTheme();
   const { onCancelRegistration } = useOnboarding();
   const [imageUri, setImageUri] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+
+  const styles = makeStyles(colors);
 
   const requestPermission = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -123,7 +126,7 @@ export default function Step1_ProfilePhoto({ navigation }) {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scroll}>
-        <ProgressBar current={CURRENT_STEP} total={TOTAL_STEPS} onCancel={onCancelRegistration ? handleCancel : null} />
+        <ProgressBar current={CURRENT_STEP} total={TOTAL_STEPS} onCancel={onCancelRegistration ? handleCancel : null} colors={colors} styles={styles} />
 
         <Text style={styles.title}>Profile Photo</Text>
         <Text style={styles.subtitle}>
@@ -176,7 +179,7 @@ export default function Step1_ProfilePhoto({ navigation }) {
           disabled={!imageUri || uploading}
         >
           {uploading ? (
-            <ActivityIndicator color="#FFF" />
+            <ActivityIndicator color={colors.card} />
           ) : (
             <Text style={styles.continueBtnText}>Continue</Text>
           )}
@@ -186,7 +189,7 @@ export default function Step1_ProfilePhoto({ navigation }) {
   );
 }
 
-function ProgressBar({ current, total, onCancel }) {
+function ProgressBar({ current, total, onCancel, colors, styles }) {
   return (
     <View style={styles.progressContainer}>
       <View style={styles.progressTopRow}>
@@ -206,46 +209,46 @@ function ProgressBar({ current, total, onCancel }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF' },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.card },
   scroll: { padding: 24, paddingBottom: 40 },
   progressContainer: { marginBottom: 24 },
   progressTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  progressText: { fontSize: 13, color: '#999' },
-  cancelLink: { fontSize: 13, color: '#EF4444', fontWeight: '600' },
+  progressText: { fontSize: 13, color: colors.textMuted },
+  cancelLink: { fontSize: 13, color: colors.error, fontWeight: '600' },
   progressTrack: { flexDirection: 'row', gap: 6 },
-  progressSegment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#E5E5E5' },
-  progressSegmentActive: { backgroundColor: PRIMARY },
-  title: { fontSize: 24, fontWeight: '700', color: '#1A1A1A', marginBottom: 8 },
-  subtitle: { fontSize: 15, color: '#666', marginBottom: 32, lineHeight: 22 },
+  progressSegment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.border },
+  progressSegmentActive: { backgroundColor: colors.info },
+  title: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  subtitle: { fontSize: 15, color: colors.textSub, marginBottom: 32, lineHeight: 22 },
   photoContainer: { alignSelf: 'center', marginBottom: 20 },
-  photo: { width: 160, height: 160, borderRadius: 80, borderWidth: 3, borderColor: PRIMARY },
+  photo: { width: 160, height: 160, borderRadius: 80, borderWidth: 3, borderColor: colors.info },
   photoPlaceholder: {
     width: 160, height: 160, borderRadius: 80,
-    backgroundColor: '#EFF6FF',
-    borderWidth: 2, borderColor: PRIMARY, borderStyle: 'dashed',
+    backgroundColor: colors.infoBg,
+    borderWidth: 2, borderColor: colors.info, borderStyle: 'dashed',
     justifyContent: 'center', alignItems: 'center',
   },
   photoIcon: { fontSize: 36, marginBottom: 8 },
-  photoPlaceholderText: { fontSize: 13, color: PRIMARY },
+  photoPlaceholderText: { fontSize: 13, color: colors.info },
   pickRow: { flexDirection: 'row', gap: 12, marginBottom: 20 },
   pickBtn: {
     flex: 1, padding: 14, borderRadius: 10,
-    borderWidth: 1.5, borderColor: PRIMARY, alignItems: 'center',
+    borderWidth: 1.5, borderColor: colors.info, alignItems: 'center',
   },
-  pickBtnText: { color: PRIMARY, fontWeight: '600', fontSize: 15 },
+  pickBtnText: { color: colors.info, fontWeight: '600', fontSize: 15 },
 
   // Upload progress
   progressWrap: { marginBottom: 20 },
   progressTrackFull: {
-    height: 8, borderRadius: 4, backgroundColor: '#E5E7EB', overflow: 'hidden', marginBottom: 6,
+    height: 8, borderRadius: 4, backgroundColor: colors.borderLight, overflow: 'hidden', marginBottom: 6,
   },
-  progressFill: { height: '100%', backgroundColor: PRIMARY, borderRadius: 4 },
-  progressLabel: { fontSize: 13, color: PRIMARY, fontWeight: '600', textAlign: 'center' },
+  progressFill: { height: '100%', backgroundColor: colors.info, borderRadius: 4 },
+  progressLabel: { fontSize: 13, color: colors.info, fontWeight: '600', textAlign: 'center' },
 
-  hint: { fontSize: 13, color: '#999', lineHeight: 18 },
+  hint: { fontSize: 13, color: colors.textMuted, lineHeight: 18 },
   footer: { padding: 24, paddingTop: 0 },
-  continueBtn: { backgroundColor: PRIMARY, padding: 16, borderRadius: 12, alignItems: 'center' },
-  continueBtnDisabled: { backgroundColor: '#93C5FD' },
-  continueBtnText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
+  continueBtn: { backgroundColor: colors.info, padding: 16, borderRadius: 12, alignItems: 'center' },
+  continueBtnDisabled: { backgroundColor: colors.infoBg },
+  continueBtnText: { color: colors.card, fontWeight: '700', fontSize: 16 },
 });

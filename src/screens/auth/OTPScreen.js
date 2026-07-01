@@ -7,12 +7,13 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { verifyRegister, verifyLoginOTP, sendOTP } from '../../api/authApi';
 import { saveToken, saveUser } from '../../utils/storage';
 import BackButton from '../../components/BackButton';
+import { useTheme } from '../../context/ThemeContext';
 
 const OTP_LENGTH = 6;
-const RESEND_COUNTDOWN = 60; // seconds
+const RESEND_COUNTDOWN = 60;
 
 export default function OTPScreen({ route, navigation }) {
-  // mode: 'register' | 'login'
+  const { colors } = useTheme();
   const {
     mode, phone, name, role, deviceId, onAuthSuccess,
     email,
@@ -29,7 +30,6 @@ export default function OTPScreen({ route, navigation }) {
   const [maskedEmail, setMaskedEmail] = useState(maskedEmailParam || null);
   const inputRefs = useRef([]);
 
-  // Start the resend countdown on mount
   useEffect(() => {
     const timer = setInterval(() => {
       setResendCountdown((prev) => {
@@ -40,17 +40,13 @@ export default function OTPScreen({ route, navigation }) {
     return () => clearInterval(timer);
   }, []);
 
-  // Focus first box on mount
   useEffect(() => {
     setTimeout(() => inputRefs.current[0]?.focus(), 300);
   }, []);
 
   const handleDigitChange = (text, index) => {
-    // OTPs are alphanumeric — allow letters AND digits, strip everything else
     const cleaned = text.replace(/[^A-Za-z0-9]/g, '').toUpperCase();
 
-    // ── Autofill / paste — received the full code at once ──────────────────
-    // iOS textContentType="oneTimeCode" fires onChangeText with all chars.
     if (cleaned.length >= OTP_LENGTH) {
       const newDigits = cleaned.slice(0, OTP_LENGTH).split('');
       setDigits(newDigits);
@@ -59,7 +55,6 @@ export default function OTPScreen({ route, navigation }) {
       return;
     }
 
-    // ── Normal single-digit typing ──────────────────────────────────────────
     const digit = cleaned.slice(-1);
     const updated = [...digits];
     updated[index] = digit;
@@ -92,7 +87,6 @@ export default function OTPScreen({ route, navigation }) {
       if (mode === 'register') {
         res = await verifyRegister({ name, phone, role, otp, deviceId, email });
       } else {
-        // Pass deviceId so backend can register this device as trusted
         res = await verifyLoginOTP({ phone, otp, deviceId });
       }
 
@@ -172,10 +166,11 @@ export default function OTPScreen({ route, navigation }) {
     }
   };
 
-  // Mask the phone number for display: +234 *** *** 4567
   const maskedPhone = phone
     ? phone.replace(/(\+234)(\d{3})(\d{3})(\d{4})/, '$1 *** *** $4')
     : phone;
+
+  const styles = makeStyles(colors);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -183,7 +178,6 @@ export default function OTPScreen({ route, navigation }) {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         style={{ flex: 1 }}
       >
-        {/* Header */}
         <View style={styles.backRow}>
           <BackButton onPress={() => navigation.goBack()} />
           <Text style={styles.appName}>FixNG</Text>
@@ -220,13 +214,11 @@ export default function OTPScreen({ route, navigation }) {
                 textAlign="center"
                 selectTextOnFocus
                 caretHidden
-                // iOS: system reads the SMS and shows a one-tap "Code from Messages" banner
                 textContentType="oneTimeCode"
               />
             ))}
           </View>
 
-          {/* Verify button */}
           <TouchableOpacity
             style={[styles.verifyBtn, loading && styles.verifyBtnDisabled]}
             onPress={() => handleVerify()}
@@ -240,7 +232,6 @@ export default function OTPScreen({ route, navigation }) {
             )}
           </TouchableOpacity>
 
-          {/* Send to email fallback — visible when SMS was used and email is available */}
           {(email || hasEmail) && !sentToEmail && (
             <TouchableOpacity
               style={styles.emailFallbackBtn}
@@ -254,7 +245,6 @@ export default function OTPScreen({ route, navigation }) {
             </TouchableOpacity>
           )}
 
-          {/* Resend */}
           <View style={styles.resendRow}>
             <Text style={styles.resendLabel}>Didn't receive the code? </Text>
             {resendCountdown > 0 ? (
@@ -262,7 +252,7 @@ export default function OTPScreen({ route, navigation }) {
             ) : (
               <TouchableOpacity onPress={handleResend} disabled={resending}>
                 {resending ? (
-                  <ActivityIndicator size="small" color={PRIMARY} />
+                  <ActivityIndicator size="small" color={colors.info} />
                 ) : (
                   <Text style={styles.resendLink}>Resend OTP</Text>
                 )}
@@ -277,27 +267,25 @@ export default function OTPScreen({ route, navigation }) {
   );
 }
 
-const PRIMARY = '#2563EB';
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FE' },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.inputBg },
   backRow: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 24, paddingVertical: 16,
   },
-  appName: { fontSize: 20, fontWeight: '900', color: '#1A1A1A', letterSpacing: -0.5 },
+  appName: { fontSize: 20, fontWeight: '900', color: colors.text, letterSpacing: -0.5 },
 
   body: { flex: 1, paddingHorizontal: 24, paddingTop: 20 },
 
   title: {
-    fontSize: 30, fontWeight: '800', color: '#1E232C',
+    fontSize: 30, fontWeight: '800', color: colors.text,
     textAlign: 'center', marginBottom: 12,
   },
   subtitle: {
-    fontSize: 15, color: '#8391A1', textAlign: 'center',
+    fontSize: 15, color: colors.textMuted, textAlign: 'center',
     lineHeight: 23, marginBottom: 40,
   },
-  phoneHighlight: { color: '#1E232C', fontWeight: '700' },
+  phoneHighlight: { color: colors.text, fontWeight: '700' },
 
   otpRow: {
     flexDirection: 'row', justifyContent: 'space-between',
@@ -305,37 +293,32 @@ const styles = StyleSheet.create({
   },
   otpBox: {
     flex: 1, height: 60, borderRadius: 12,
-    borderWidth: 1.5, borderColor: '#E8ECF4',
-    backgroundColor: '#FFF', fontSize: 24, fontWeight: '700', color: '#1E232C',
+    borderWidth: 1.5, borderColor: colors.borderInput,
+    backgroundColor: colors.card, fontSize: 24, fontWeight: '700', color: colors.text,
   },
-  otpBoxFilled: { borderColor: PRIMARY, backgroundColor: '#FFF3EC' },
+  otpBoxFilled: { borderColor: colors.info, backgroundColor: colors.primaryLight },
 
   verifyBtn: {
-    backgroundColor: PRIMARY, paddingVertical: 18,
+    backgroundColor: colors.info, paddingVertical: 18,
     borderRadius: 14, alignItems: 'center', marginBottom: 28,
   },
-  verifyBtnDisabled: { backgroundColor: '#FFCBA4' },
+  verifyBtnDisabled: { backgroundColor: colors.primaryDisabled },
   verifyBtnText: { color: '#FFF', fontWeight: '800', fontSize: 16, letterSpacing: 0.3 },
 
   resendRow: {
     flexDirection: 'row', justifyContent: 'center', alignItems: 'center',
     marginBottom: 12,
   },
-  resendLabel: { fontSize: 14, color: '#6B7280' },
-  resendCountdown: { fontSize: 14, color: '#8391A1', fontWeight: '600' },
-  resendLink: { fontSize: 14, color: PRIMARY, fontWeight: '700' },
+  resendLabel: { fontSize: 14, color: colors.textMuted },
+  resendCountdown: { fontSize: 14, color: colors.textMuted, fontWeight: '600' },
+  resendLink: { fontSize: 14, color: colors.info, fontWeight: '700' },
 
-  expiryNote: { textAlign: 'center', fontSize: 12, color: '#B0B7C3' },
+  expiryNote: { textAlign: 'center', fontSize: 12, color: colors.textHint },
 
   emailFallbackBtn: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    marginBottom: 16,
+    alignItems: 'center', paddingVertical: 12, marginBottom: 16,
   },
   emailFallbackText: {
-    fontSize: 13,
-    color: PRIMARY,
-    fontWeight: '600',
-    textDecorationLine: 'underline',
+    fontSize: 13, color: colors.info, fontWeight: '600', textDecorationLine: 'underline',
   },
 });

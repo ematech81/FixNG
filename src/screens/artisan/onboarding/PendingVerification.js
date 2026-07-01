@@ -12,8 +12,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getOnboardingStatus } from '../../../api/artisanApi';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
-
-const PRIMARY = '#2563EB';
+import { useTheme } from '../../../context/ThemeContext';
 
 const STATUS_CONFIG = {
   pending: {
@@ -48,6 +47,7 @@ const STATUS_CONFIG = {
 };
 
 export default function PendingVerification({ navigation }) {
+  const { colors } = useTheme();
   const { onGoToDashboard } = useOnboarding();
 
   const [status, setStatus] = useState('pending');
@@ -56,6 +56,8 @@ export default function PendingVerification({ navigation }) {
   const [skippedSteps, setSkippedSteps] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+
+  const styles = makeStyles(colors);
 
   useFocusEffect(
     useCallback(() => {
@@ -102,7 +104,7 @@ export default function PendingVerification({ navigation }) {
   if (loading) {
     return (
       <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color={PRIMARY} />
+        <ActivityIndicator size="large" color={colors.info} />
         <Text style={styles.loadingText}>Checking verification status...</Text>
       </SafeAreaView>
     );
@@ -168,7 +170,7 @@ export default function PendingVerification({ navigation }) {
             <Text style={styles.infoText}>2. You will receive a notification once reviewed.</Text>
             <Text style={styles.infoText}>3. If rejected, you can correct the issue and re-submit.</Text>
             <Text style={styles.infoText}>4. Once verified, you can start receiving job requests.</Text>
-            <Text style={[styles.infoText, { marginTop: 8, color: '#999' }]}>
+            <Text style={[styles.infoText, { marginTop: 8, color: colors.textMuted }]}>
               ⚠ Do not share personal contact details before your account is verified.
             </Text>
           </View>
@@ -183,7 +185,7 @@ export default function PendingVerification({ navigation }) {
           disabled={refreshing}
         >
           {refreshing ? (
-            <ActivityIndicator color={PRIMARY} size="small" />
+            <ActivityIndicator color={colors.info} size="small" />
           ) : (
             <Text style={styles.refreshBtnText}>↻ Refresh Status</Text>
           )}
@@ -209,51 +211,51 @@ export default function PendingVerification({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' },
-  loadingText: { marginTop: 12, color: '#999', fontSize: 14 },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.card },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.card },
+  loadingText: { marginTop: 12, color: colors.textMuted, fontSize: 14 },
   scroll: { padding: 24, paddingBottom: 20 },
 
   statusCard: { borderRadius: 16, padding: 24, alignItems: 'center', marginBottom: 20 },
   statusIcon: { fontSize: 48, marginBottom: 12 },
   statusTitle: { fontSize: 22, fontWeight: '700', marginBottom: 10 },
-  statusMessage: { fontSize: 15, color: '#555', textAlign: 'center', lineHeight: 22 },
+  statusMessage: { fontSize: 15, color: colors.textSub, textAlign: 'center', lineHeight: 22 },
   redirectNote: { marginTop: 12, fontSize: 13, color: '#22C55E', fontWeight: '600' },
 
   rejectionBox: {
-    backgroundColor: '#FEF2F2', borderRadius: 12, padding: 16, marginBottom: 20,
-    borderLeftWidth: 4, borderLeftColor: '#EF4444',
+    backgroundColor: colors.errorBg, borderRadius: 12, padding: 16, marginBottom: 20,
+    borderLeftWidth: 4, borderLeftColor: colors.error,
   },
-  rejectionTitle: { fontSize: 13, fontWeight: '700', color: '#DC2626', marginBottom: 6 },
+  rejectionTitle: { fontSize: 13, fontWeight: '700', color: colors.error, marginBottom: 6 },
   rejectionText: { fontSize: 14, color: '#7F1D1D', lineHeight: 20 },
 
-  stepsCard: { backgroundColor: '#F9FAFB', borderRadius: 12, padding: 16, marginBottom: 20 },
-  stepsTitle: { fontSize: 14, fontWeight: '700', color: '#333', marginBottom: 12 },
+  stepsCard: { backgroundColor: colors.surface, borderRadius: 12, padding: 16, marginBottom: 20 },
+  stepsTitle: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 12 },
   stepRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
   stepCheck: { fontSize: 16, marginRight: 10 },
-  stepLabel: { fontSize: 15, color: '#333' },
-  stepLabelIncomplete: { color: '#BBB' },
-  skippedTag: { fontSize: 12, color: '#9CA3AF', fontStyle: 'italic' },
+  stepLabel: { fontSize: 15, color: colors.text },
+  stepLabelIncomplete: { color: colors.textHint },
+  skippedTag: { fontSize: 12, color: colors.textMuted, fontStyle: 'italic' },
 
   infoBox: {
-    backgroundColor: '#EFF6FF', borderRadius: 12, padding: 16,
-    borderLeftWidth: 4, borderLeftColor: PRIMARY,
+    backgroundColor: colors.infoBg, borderRadius: 12, padding: 16,
+    borderLeftWidth: 4, borderLeftColor: colors.info,
   },
-  infoTitle: { fontSize: 13, fontWeight: '700', color: '#1E40AF', marginBottom: 10 },
+  infoTitle: { fontSize: 13, fontWeight: '700', color: colors.infoDark, marginBottom: 10 },
   infoText: { fontSize: 13, color: '#374151', marginBottom: 6, lineHeight: 20 },
 
   footer: { padding: 24, paddingTop: 0, gap: 10 },
   refreshBtn: {
-    padding: 14, borderRadius: 12, borderWidth: 1.5, borderColor: PRIMARY,
+    padding: 14, borderRadius: 12, borderWidth: 1.5, borderColor: colors.info,
     alignItems: 'center', minHeight: 50, justifyContent: 'center',
   },
-  refreshBtnText: { color: PRIMARY, fontWeight: '600', fontSize: 15 },
-  resubmitBtn: { backgroundColor: PRIMARY, padding: 16, borderRadius: 12, alignItems: 'center' },
-  resubmitBtnText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
+  refreshBtnText: { color: colors.info, fontWeight: '600', fontSize: 15 },
+  resubmitBtn: { backgroundColor: colors.info, padding: 16, borderRadius: 12, alignItems: 'center' },
+  resubmitBtnText: { color: colors.card, fontWeight: '700', fontSize: 16 },
   dashboardBtn: {
     padding: 14, borderRadius: 12, alignItems: 'center',
-    backgroundColor: '#F3F4F6',
+    backgroundColor: colors.borderLight,
   },
   dashboardBtnText: { color: '#374151', fontWeight: '700', fontSize: 14 },
 });

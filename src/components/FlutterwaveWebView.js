@@ -5,16 +5,11 @@ import {
 } from 'react-native';
 import { WebView } from 'react-native-webview';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useTheme } from '../context/ThemeContext';
 
-const PRIMARY = '#2563EB';
-
-// Must match the redirect_url set in the backend initializePayment call
 const REDIRECT_HOST = 'fixng.app';
 const REDIRECT_PATH = '/payment/callback';
 
-// Only match URLs where OUR domain is the actual host, not embedded as a query param.
-// Using url.includes() was too broad — Flutterwave embeds our redirect_url inside
-// its own checkout URL as a parameter, which was blocking the initial page load.
 const isCallbackUrl = (url) => {
   if (!url) return false;
   try {
@@ -25,23 +20,8 @@ const isCallbackUrl = (url) => {
   }
 };
 
-// Milliseconds before giving up and showing an error if the page never loads
 const LOAD_TIMEOUT_MS = 30000;
 
-/**
- * FlutterwaveWebView
- *
- * Opens the Flutterwave hosted checkout in a modal WebView.
- * Intercepts the redirect URL to detect payment completion automatically.
- * Falls back to a manual "I've Completed Payment" button for edge cases.
- *
- * Props:
- *   visible      — boolean controls modal visibility
- *   paymentLink  — the link returned by /subscriptions/initiate
- *   txRef        — the tx_ref returned by /subscriptions/initiate
- *   onSuccess(txRef) — called when payment is confirmed (auto or manual)
- *   onCancel()       — called when the user closes without paying
- */
 export default function FlutterwaveWebView({
   visible,
   paymentLink,
@@ -49,13 +29,14 @@ export default function FlutterwaveWebView({
   onSuccess,
   onCancel,
 }) {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
   const insets              = useSafeAreaInsets();
   const webRef              = useRef(null);
   const timeoutRef          = useRef(null);
   const [pageLoading, setPageLoading] = useState(true);
   const [loadError,   setLoadError]   = useState(false);
 
-  // Clear timeout on unmount
   useEffect(() => () => clearTimeout(timeoutRef.current), []);
 
   const startLoadTimeout = () => {
@@ -83,15 +64,11 @@ export default function FlutterwaveWebView({
     }
   };
 
-  // Fires after navigation completes — catches soft redirects
   const handleNavChange = (state) => {
     const url = state.url || '';
     if (isCallbackUrl(url)) parseRedirect(url);
   };
 
-  // Fires before loading starts — intercepts the redirect page before it renders.
-  // IMPORTANT: use isCallbackUrl (hostname check) not url.includes(), because
-  // Flutterwave embeds our redirect_url inside the checkout URL as a query param.
   const handleShouldStartLoad = (request) => {
     const url = request.url || '';
     if (isCallbackUrl(url)) {
@@ -110,9 +87,8 @@ export default function FlutterwaveWebView({
       onRequestClose={onCancel}
     >
       <View style={[styles.container, { paddingTop: insets.top }]}>
-        <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+        <StatusBar barStyle="dark-content" backgroundColor={colors.card} />
 
-        {/* Top bar */}
         <View style={styles.topBar}>
           <TouchableOpacity onPress={onCancel} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
             <Text style={styles.backText}>← Back</Text>
@@ -121,7 +97,6 @@ export default function FlutterwaveWebView({
           <Text style={styles.lockIcon}>🔒</Text>
         </View>
 
-        {/* Content */}
         {loadError ? (
           <View style={styles.centred}>
             <Text style={styles.errorTitle}>Could not load payment page</Text>
@@ -137,7 +112,7 @@ export default function FlutterwaveWebView({
           <View style={{ flex: 1 }}>
             {pageLoading && (
               <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="large" color={PRIMARY} />
+                <ActivityIndicator size="large" color={colors.info} />
                 <Text style={styles.loadingText}>Loading payment page…</Text>
               </View>
             )}
@@ -158,7 +133,6 @@ export default function FlutterwaveWebView({
           </View>
         )}
 
-        {/* Manual fallback — shown in case the redirect isn't auto-detected */}
         <View style={[styles.footer, { paddingBottom: insets.bottom + 8 }]}>
           <TouchableOpacity
             style={styles.paidBtn}
@@ -173,41 +147,41 @@ export default function FlutterwaveWebView({
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.card },
 
   topBar: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
-    borderBottomWidth: 1, borderBottomColor: '#F3F4F6',
-    backgroundColor: '#fff',
+    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
+    backgroundColor: colors.card,
   },
-  backText:  { fontSize: 15, color: PRIMARY, fontWeight: '600' },
-  topTitle:  { fontSize: 15, fontWeight: '700', color: '#0F172A' },
+  backText:  { fontSize: 15, color: colors.info, fontWeight: '600' },
+  topTitle:  { fontSize: 15, fontWeight: '700', color: colors.text },
   lockIcon:  { fontSize: 16 },
 
   loadingOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     alignItems: 'center', justifyContent: 'center',
     zIndex: 10,
   },
-  loadingText: { marginTop: 12, fontSize: 14, color: '#64748B' },
+  loadingText: { marginTop: 12, fontSize: 14, color: colors.textSub },
 
   centred: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32 },
-  errorTitle: { fontSize: 18, fontWeight: '700', color: '#0F172A', marginBottom: 8, textAlign: 'center' },
-  errorSub:   { fontSize: 14, color: '#64748B', marginBottom: 24, textAlign: 'center' },
+  errorTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 8, textAlign: 'center' },
+  errorSub:   { fontSize: 14, color: colors.textSub, marginBottom: 24, textAlign: 'center' },
   retryBtn:   {
-    backgroundColor: PRIMARY, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 24,
+    backgroundColor: colors.info, paddingHorizontal: 32, paddingVertical: 12, borderRadius: 24,
   },
   retryText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 
   footer: {
-    backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#F3F4F6',
+    backgroundColor: colors.card, borderTopWidth: 1, borderTopColor: colors.borderLight,
     paddingHorizontal: 16, paddingTop: 12,
   },
   paidBtn: {
-    height: 52, borderRadius: 12, backgroundColor: '#16A34A',
+    height: 52, borderRadius: 12, backgroundColor: colors.success,
     alignItems: 'center', justifyContent: 'center',
   },
   paidBtnText: { fontSize: 15, fontWeight: '700', color: '#fff' },

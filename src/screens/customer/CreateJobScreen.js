@@ -12,6 +12,7 @@ import { getUser } from '../../utils/storage';
 import BackButton from '../../components/BackButton';
 import VoiceNoteRecorder from '../../components/VoiceNoteRecorder';
 import VoiceNotePlayer from '../../components/VoiceNotePlayer';
+import { useTheme } from '../../context/ThemeContext';
 
 const URGENCY_OPTIONS = [
   {
@@ -41,6 +42,7 @@ const URGENCY_OPTIONS = [
 const LAGOS_DEFAULT = { latitude: 6.5244, longitude: 3.3792 };
 
 export default function CreateJobScreen({ route, navigation }) {
+  const { colors } = useTheme();
   const { artisanId, artisanName, artisanSkill } = route?.params || {};
 
   const [category, setCategory] = useState(artisanSkill || '');
@@ -272,6 +274,8 @@ export default function CreateJobScreen({ route, navigation }) {
     }
   };
 
+  const styles = makeStyles(colors);
+
   return (
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView
@@ -463,7 +467,7 @@ export default function CreateJobScreen({ route, navigation }) {
                   disabled={locating}
                 >
                   {locating ? (
-                    <ActivityIndicator color="#FF6B00" />
+                    <ActivityIndicator color={colors.primary} />
                   ) : (
                     <>
                       <Text style={styles.locationIcon}>📍</Text>
@@ -493,7 +497,7 @@ export default function CreateJobScreen({ route, navigation }) {
                   <TextInput
                     style={styles.manualInput}
                     placeholder="e.g. 12 Adeola Street, Ikeja, Lagos"
-                    placeholderTextColor="#AAA"
+                    placeholderTextColor={colors.textHint}
                     value={manualAddress}
                     onChangeText={setManualAddress}
                   />
@@ -510,7 +514,7 @@ export default function CreateJobScreen({ route, navigation }) {
                       disabled={locating}
                     >
                       {locating
-                        ? <ActivityIndicator color="#FFF" size="small" />
+                        ? <ActivityIndicator color={colors.card} size="small" />
                         : <Text style={styles.manualConfirmText}>Confirm</Text>}
                     </TouchableOpacity>
                   </View>
@@ -539,7 +543,7 @@ export default function CreateJobScreen({ route, navigation }) {
             disabled={submitting}
           >
             {submitting ? (
-              <ActivityIndicator color="#FFF" />
+              <ActivityIndicator color={colors.card} />
             ) : (
               <Text style={styles.submitBtnText}>
                 {urgency === 'emergency' ? '🚨 Post Emergency Job'
@@ -554,83 +558,83 @@ export default function CreateJobScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF' },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.card },
   scroll: { padding: 20, paddingBottom: 20 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 24,
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A1A' },
-  label: { fontSize: 14, fontWeight: '700', color: '#333', marginBottom: 8, marginTop: 16, paddingLeft: 4 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
+  label: { fontSize: 14, fontWeight: '700', color: colors.textSub, marginBottom: 8, marginTop: 16, paddingLeft: 4 },
   categoryLocked: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     borderWidth: 1.5, borderColor: '#BFDBFE', borderRadius: 10,
-    padding: 13, backgroundColor: '#EFF6FF',
+    padding: 13, backgroundColor: colors.infoBg,
   },
-  categoryLockedText: { fontSize: 15, fontWeight: '600', color: '#1D4ED8' },
+  categoryLockedText: { fontSize: 15, fontWeight: '600', color: colors.infoDark },
   categoryLockedBadge: {
-    fontSize: 11, fontWeight: '700', color: '#2563EB',
+    fontSize: 11, fontWeight: '700', color: colors.info,
     backgroundColor: '#DBEAFE', paddingHorizontal: 8, paddingVertical: 3,
     borderRadius: 20,
   },
   dropdownTrigger: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    borderWidth: 1.5, borderColor: '#E5E5E5', borderRadius: 10,
-    padding: 13, backgroundColor: '#FAFAFA',
+    borderWidth: 1.5, borderColor: colors.border, borderRadius: 10,
+    padding: 13, backgroundColor: colors.inputBg,
   },
-  dropdownValue: { fontSize: 15, color: '#1A1A1A' },
-  dropdownPlaceholder: { fontSize: 15, color: '#AAA' },
-  dropdownArrow: { color: '#999', fontSize: 12 },
+  dropdownValue: { fontSize: 15, color: colors.text },
+  dropdownPlaceholder: { fontSize: 15, color: colors.textHint },
+  dropdownArrow: { color: colors.textMuted, fontSize: 12 },
   dropdown: {
-    borderWidth: 1, borderColor: '#E5E5E5', borderRadius: 10,
-    backgroundColor: '#FFF', marginTop: 4, overflow: 'hidden', elevation: 4,
+    borderWidth: 1, borderColor: colors.border, borderRadius: 10,
+    backgroundColor: colors.card, marginTop: 4, overflow: 'hidden', elevation: 4,
   },
   searchInput: {
-    padding: 10, borderBottomWidth: 1, borderBottomColor: '#F0F0F0', fontSize: 14,
+    padding: 10, borderBottomWidth: 1, borderBottomColor: colors.borderLight, fontSize: 14, color: colors.text,
   },
-  dropdownItem: { padding: 13, borderBottomWidth: 1, borderBottomColor: '#F9F9F9' },
-  dropdownItemText: { fontSize: 15, color: '#444' },
-  dropdownItemActive: { color: '#FF6B00', fontWeight: '700' },
+  dropdownItem: { padding: 13, borderBottomWidth: 1, borderBottomColor: colors.bgAlt },
+  dropdownItemText: { fontSize: 15, color: colors.textSub },
+  dropdownItemActive: { color: colors.primary, fontWeight: '700' },
   textArea: {
-    borderWidth: 1.5, borderColor: '#E5E5E5', borderRadius: 10,
-    padding: 13, fontSize: 15, color: '#1A1A1A',
-    textAlignVertical: 'top', minHeight: 110, backgroundColor: '#FAFAFA',
+    borderWidth: 1.5, borderColor: colors.border, borderRadius: 10,
+    padding: 13, fontSize: 15, color: colors.text,
+    textAlignVertical: 'top', minHeight: 110, backgroundColor: colors.inputBg,
   },
-  charCount: { fontSize: 12, color: '#BBB', textAlign: 'right', marginTop: 4 },
+  charCount: { fontSize: 12, color: colors.textHint, textAlign: 'right', marginTop: 4 },
 
   // Voice description toggle
   descHeaderRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, },
-  descToggle: { flexDirection: 'row', borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: '#E5E7EB', marginRight: 5 },
-  descToggleBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: '#F3F4F6' },
-  descToggleBtnActive: { backgroundColor: '#FF6B00' },
-  descToggleTxt: { fontSize: 14, fontWeight: '600', color: '#666' },
-  descToggleTxtActive: { color: '#FFF' },
+  descToggle: { flexDirection: 'row', borderRadius: 8, overflow: 'hidden', borderWidth: 1, borderColor: colors.borderLight, marginRight: 5 },
+  descToggleBtn: { paddingHorizontal: 12, paddingVertical: 6, backgroundColor: colors.borderLight },
+  descToggleBtnActive: { backgroundColor: colors.primary },
+  descToggleTxt: { fontSize: 14, fontWeight: '600', color: colors.textSub },
+  descToggleTxtActive: { color: colors.card },
   voiceDescBox: {
-    borderRadius: 12, borderWidth: 1, borderColor: '#E5E7EB',
-    padding: 16, backgroundColor: '#FAFAFA', marginBottom: 4, alignItems: 'center',
+    borderRadius: 12, borderWidth: 1, borderColor: colors.borderLight,
+    padding: 16, backgroundColor: colors.inputBg, marginBottom: 4, alignItems: 'center',
   },
-  voiceDescHint: { fontSize: 13, color: '#888', textAlign: 'center', marginBottom: 14 },
+  voiceDescHint: { fontSize: 13, color: colors.textMuted, textAlign: 'center', marginBottom: 14 },
   voiceRecordBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
-    paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, backgroundColor: '#FF6B00',
+    paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24, backgroundColor: colors.primary,
   },
   voiceRecordIcon: { fontSize: 18 },
-  voiceRecordTxt: { fontSize: 14, fontWeight: '700', color: '#FFF' },
-  voiceDescLabel: { fontSize: 12, color: '#888', marginBottom: 8 },
+  voiceRecordTxt: { fontSize: 14, fontWeight: '700', color: colors.card },
+  voiceDescLabel: { fontSize: 12, color: colors.textMuted, marginBottom: 8 },
   voiceReRecordBtn: { marginTop: 10 },
-  voiceReRecordTxt: { fontSize: 13, color: '#FF6B00', fontWeight: '600' },
+  voiceReRecordTxt: { fontSize: 13, color: colors.primary, fontWeight: '600' },
   urgencyStack: { gap: 10 },
   urgencyRow: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    borderWidth: 1.5, borderColor: '#E5E5E5',
+    borderWidth: 1.5, borderColor: colors.border,
     borderRadius: 12, padding: 14,
   },
   urgencyIcon: { fontSize: 24 },
-  urgencyLabel: { fontSize: 14, fontWeight: '700', color: '#333', marginBottom: 2 },
-  urgencyDesc: { fontSize: 11, color: '#999' },
+  urgencyLabel: { fontSize: 14, fontWeight: '700', color: colors.textSub, marginBottom: 2 },
+  urgencyDesc: { fontSize: 11, color: colors.textMuted },
   urgencyRadio: {
     width: 20, height: 20, borderRadius: 10,
-    borderWidth: 2, borderColor: '#D1D5DB',
+    borderWidth: 2, borderColor: colors.textHint,
     justifyContent: 'center', alignItems: 'center',
   },
   urgencyRadioDot: { width: 10, height: 10, borderRadius: 5 },
@@ -639,47 +643,47 @@ const styles = StyleSheet.create({
   thumbImg: { width: 80, height: 80, borderRadius: 8 },
   removeThumb: {
     position: 'absolute', top: -6, right: -6,
-    backgroundColor: '#EF4444', borderRadius: 10,
+    backgroundColor: colors.error, borderRadius: 10,
     width: 20, height: 20, alignItems: 'center', justifyContent: 'center',
   },
-  removeThumbText: { color: '#FFF', fontSize: 10, fontWeight: '700' },
+  removeThumbText: { color: colors.card, fontSize: 10, fontWeight: '700' },
   addImageBtn: {
     width: 80, height: 80, borderRadius: 8,
-    borderWidth: 1.5, borderStyle: 'dashed', borderColor: '#FF6B00',
-    justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF3EC',
+    borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.primary,
+    justifyContent: 'center', alignItems: 'center', backgroundColor: colors.primaryLight,
   },
-  addImageIcon: { fontSize: 22, color: '#FF6B00' },
-  addImageText: { fontSize: 10, color: '#FF6B00', marginTop: 2 },
+  addImageIcon: { fontSize: 22, color: colors.primary },
+  addImageText: { fontSize: 10, color: colors.primary, marginTop: 2 },
   locationBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     padding: 14, borderRadius: 10, borderWidth: 1.5,
-    borderColor: '#E5E5E5', backgroundColor: '#FAFAFA', minHeight: 54,
+    borderColor: colors.border, backgroundColor: colors.inputBg, minHeight: 54,
   },
-  locationBtnActive: { borderColor: '#22C55E', backgroundColor: '#F0FDF4' },
+  locationBtnActive: { borderColor: colors.success, backgroundColor: colors.successBg },
   locationIcon: { fontSize: 20 },
-  locationBtnText: { fontSize: 14, color: '#555', fontWeight: '600' },
-  locationAddress: { fontSize: 12, color: '#888', marginTop: 2 },
+  locationBtnText: { fontSize: 14, color: colors.textSub, fontWeight: '600' },
+  locationAddress: { fontSize: 12, color: colors.textMuted, marginTop: 2 },
   manualToggle: { marginTop: 8, alignSelf: 'flex-start' },
-  manualToggleText: { fontSize: 13, color: '#3B82F6', fontWeight: '600' },
+  manualToggleText: { fontSize: 13, color: colors.info, fontWeight: '600' },
   manualBox: {
-    borderWidth: 1.5, borderColor: '#E5E5E5', borderRadius: 12,
-    padding: 14, backgroundColor: '#FAFAFA', gap: 10,
+    borderWidth: 1.5, borderColor: colors.border, borderRadius: 12,
+    padding: 14, backgroundColor: colors.inputBg, gap: 10,
   },
   manualInput: {
-    borderWidth: 1, borderColor: '#E5E5E5', borderRadius: 8,
-    padding: 11, fontSize: 14, color: '#1A1A1A', backgroundColor: '#FFF',
+    borderWidth: 1, borderColor: colors.border, borderRadius: 8,
+    padding: 11, fontSize: 14, color: colors.text, backgroundColor: colors.card,
   },
   manualActions: { flexDirection: 'row', gap: 10 },
   manualCancelBtn: {
     flex: 1, paddingVertical: 10, borderRadius: 8,
-    borderWidth: 1.5, borderColor: '#D1D5DB', alignItems: 'center',
+    borderWidth: 1.5, borderColor: colors.textHint, alignItems: 'center',
   },
-  manualCancelText: { fontSize: 13, fontWeight: '600', color: '#555' },
+  manualCancelText: { fontSize: 13, fontWeight: '600', color: colors.textSub },
   manualConfirmBtn: {
     flex: 2, paddingVertical: 10, borderRadius: 8,
-    backgroundColor: '#3B82F6', alignItems: 'center',
+    backgroundColor: colors.info, alignItems: 'center',
   },
-  manualConfirmText: { fontSize: 13, fontWeight: '700', color: '#FFF' },
+  manualConfirmText: { fontSize: 13, fontWeight: '700', color: colors.card },
   remoteNote: {
     backgroundColor: '#F5F3FF', borderRadius: 12, padding: 14,
     borderWidth: 1, borderColor: '#DDD6FE',
@@ -687,9 +691,9 @@ const styles = StyleSheet.create({
   remoteNoteText: { fontSize: 13, color: '#6D28D9', fontWeight: '500', lineHeight: 20 },
   footer: { padding: 20, paddingTop: 8 },
   submitBtn: {
-    backgroundColor: '#FF6B00', padding: 16, borderRadius: 12,
+    backgroundColor: colors.primary, padding: 16, borderRadius: 12,
     alignItems: 'center', minHeight: 54, justifyContent: 'center',
   },
-  submitBtnDisabled: { backgroundColor: '#FFCBA4' },
-  submitBtnText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
+  submitBtnDisabled: { backgroundColor: colors.primaryDark },
+  submitBtnText: { color: colors.card, fontWeight: '700', fontSize: 16 },
 });

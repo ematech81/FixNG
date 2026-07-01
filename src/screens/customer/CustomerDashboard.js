@@ -7,8 +7,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { getMyJobs } from '../../api/jobApi';
 import { getUser, clearSession } from '../../utils/storage';
 import useSocket from '../../hooks/useSocket';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function CustomerDashboard({ navigation, onLogout }) {
+  const { colors } = useTheme();
   const [user, setUser] = useState(null);
   const [recentJobs, setRecentJobs] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -66,12 +68,14 @@ export default function CustomerDashboard({ navigation, onLogout }) {
     disputed: '#EF4444', cancelled: '#9CA3AF',
   };
 
+  const styles = makeStyles(colors);
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => fetchJobs(true)} tintColor="#FF6B00" />
+          <RefreshControl refreshing={refreshing} onRefresh={() => fetchJobs(true)} tintColor={colors.primary} />
         }
       >
         {/* Header */}
@@ -168,7 +172,7 @@ export default function CustomerDashboard({ navigation, onLogout }) {
         {recentJobs.length > 0 && (
           <TouchableOpacity
             style={styles.viewAllBtn}
-            onPress={() => navigation.navigate('MyJobs')} 
+            onPress={() => navigation.navigate('MyJobs')}
           >
             <Text style={styles.viewAllBtnText}>View All Jobs →</Text>
           </TouchableOpacity>
@@ -178,51 +182,51 @@ export default function CustomerDashboard({ navigation, onLogout }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.surface },
   scroll: { padding: 20, paddingBottom: 30 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start',
     marginBottom: 20,
   },
-  greeting: { fontSize: 22, fontWeight: '800', color: '#1A1A1A' },
-  subGreeting: { fontSize: 14, color: '#888', marginTop: 2 },
-  logoutBtn: { color: '#999', fontSize: 13, fontWeight: '600', marginTop: 4 },
+  greeting: { fontSize: 22, fontWeight: '800', color: colors.text },
+  subGreeting: { fontSize: 14, color: colors.textMuted, marginTop: 2 },
+  logoutBtn: { color: colors.textMuted, fontSize: 13, fontWeight: '600', marginTop: 4 },
   activeBanner: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: '#FFF3EC', borderRadius: 12, padding: 14,
-    borderWidth: 1, borderColor: '#FF6B00', marginBottom: 20,
+    backgroundColor: colors.primaryLight, borderRadius: 12, padding: 14,
+    borderWidth: 1, borderColor: colors.primary, marginBottom: 20,
   },
-  activeBannerText: { fontSize: 14, color: '#FF6B00', fontWeight: '600' },
-  activeBannerLink: { color: '#FF6B00', fontWeight: '700', fontSize: 14 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginBottom: 12, marginTop: 4 },
+  activeBannerText: { fontSize: 14, color: colors.primary, fontWeight: '600' },
+  activeBannerLink: { color: colors.primary, fontWeight: '700', fontSize: 14 },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 12, marginTop: 4 },
   actionsGrid: { flexDirection: 'row', gap: 10, marginBottom: 24 },
   actionCard: {
-    flex: 1, backgroundColor: '#FFF', borderRadius: 14, padding: 16,
-    alignItems: 'center', borderWidth: 1, borderColor: '#F0F0F0', elevation: 1,
+    flex: 1, backgroundColor: colors.card, borderRadius: 14, padding: 16,
+    alignItems: 'center', borderWidth: 1, borderColor: colors.borderLight, elevation: 1,
   },
   actionIcon: { fontSize: 28, marginBottom: 8 },
-  actionLabel: { fontSize: 13, fontWeight: '700', color: '#1A1A1A', marginBottom: 3 },
-  actionDesc: { fontSize: 10, color: '#AAA', textAlign: 'center' },
-  loadingText: { color: '#AAA', fontSize: 14, textAlign: 'center', paddingVertical: 20 },
+  actionLabel: { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 3 },
+  actionDesc: { fontSize: 10, color: colors.textHint, textAlign: 'center' },
+  loadingText: { color: colors.textHint, fontSize: 14, textAlign: 'center', paddingVertical: 20 },
   emptyState: { alignItems: 'center', paddingVertical: 30 },
   emptyIcon: { fontSize: 40, marginBottom: 10 },
-  emptyText: { color: '#999', fontSize: 14, marginBottom: 16 },
+  emptyText: { color: colors.textMuted, fontSize: 14, marginBottom: 16 },
   postFirstBtn: {
-    backgroundColor: '#FF6B00', paddingHorizontal: 24, paddingVertical: 12,
+    backgroundColor: colors.primary, paddingHorizontal: 24, paddingVertical: 12,
     borderRadius: 10,
   },
-  postFirstBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
+  postFirstBtnText: { color: colors.card, fontWeight: '700', fontSize: 14 },
   jobCard: {
-    backgroundColor: '#FFF', borderRadius: 12, padding: 14,
-    marginBottom: 10, borderWidth: 1, borderColor: '#F0F0F0',
+    backgroundColor: colors.card, borderRadius: 12, padding: 14,
+    marginBottom: 10, borderWidth: 1, borderColor: colors.borderLight,
   },
   jobCardTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  jobCategory: { flex: 1, fontSize: 15, fontWeight: '700', color: '#1A1A1A' },
+  jobCategory: { flex: 1, fontSize: 15, fontWeight: '700', color: colors.text },
   statusDot: { width: 7, height: 7, borderRadius: 3.5, marginRight: 4 },
   jobStatus: { fontSize: 12, fontWeight: '700', textTransform: 'capitalize' },
-  jobDesc: { fontSize: 13, color: '#666', marginBottom: 4 },
-  jobDate: { fontSize: 11, color: '#BBB' },
+  jobDesc: { fontSize: 13, color: colors.textSub, marginBottom: 4 },
+  jobDate: { fontSize: 11, color: colors.textHint },
   viewAllBtn: { alignItems: 'center', marginTop: 8, paddingVertical: 12 },
-  viewAllBtnText: { color: '#FF6B00', fontWeight: '700', fontSize: 14 },
+  viewAllBtnText: { color: colors.primary, fontWeight: '700', fontSize: 14 },
 });

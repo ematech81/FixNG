@@ -8,8 +8,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getConversations } from '../../api/chatApi';
 import { getUser } from '../../utils/storage';
 import { connectSocket } from '../../hooks/useSocket';
-
-const PRIMARY = '#2563EB';
+import { useTheme } from '../../context/ThemeContext';
 
 const STATUS_META = {
   pending:       { label: 'Pending',     color: '#D97706', bg: '#FFFBEB' },
@@ -23,6 +22,7 @@ const STATUS_META = {
 const CHAT_STATUSES = ['accepted', 'in-progress', 'completed', 'disputed'];
 
 export default function MessagesScreen({ navigation }) {
+  const { colors } = useTheme();
   const [conversations, setConversations] = useState([]);
   const [loading, setLoading]             = useState(true);
   const [userRole, setUserRole]           = useState('customer');
@@ -118,6 +118,7 @@ export default function MessagesScreen({ navigation }) {
     const canChat    = CHAT_STATUSES.includes(item.status);
     const lastMsg    = item.lastMessage;
     const timeStr    = lastMsg?.at ? getTimeAgo(lastMsg.at) : '';
+    const styles     = makeStyles(colors);
 
     return (
       <TouchableOpacity
@@ -164,6 +165,8 @@ export default function MessagesScreen({ navigation }) {
     );
   };
 
+  const styles = makeStyles(colors);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       <View style={styles.header}>
@@ -172,7 +175,7 @@ export default function MessagesScreen({ navigation }) {
 
       {loading ? (
         <View style={styles.centerBox}>
-          <ActivityIndicator color={PRIMARY} />
+          <ActivityIndicator color={colors.info} />
         </View>
       ) : conversations.length === 0 ? (
         <View style={styles.centerBox}>
@@ -211,45 +214,45 @@ function getTimeAgo(dateStr) {
   return `${days}d ago`;
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FB' },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.surface },
 
   header: {
     paddingHorizontal: 20, paddingVertical: 16,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1, borderBottomColor: '#EEF0F5',
+    backgroundColor: colors.card,
+    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
   },
-  headerTitle: { fontSize: 22, fontWeight: '800', color: '#1E232C' },
+  headerTitle: { fontSize: 22, fontWeight: '800', color: colors.text },
 
   list: { paddingTop: 12, paddingBottom: 20, paddingHorizontal: 16 },
 
   card: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: '#FFF', borderRadius: 16, padding: 14,
+    backgroundColor: colors.card, borderRadius: 16, padding: 14,
     marginBottom: 10,
-    borderWidth: 1, borderColor: '#EEF0F5',
+    borderWidth: 1, borderColor: colors.borderLight,
     elevation: 1,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04, shadowRadius: 4,
   },
 
   avatarCircle: {
     width: 52, height: 52, borderRadius: 26,
-    backgroundColor: '#E0E7FF',
+    backgroundColor: colors.infoBg,
     justifyContent: 'center', alignItems: 'center',
     flexShrink: 0,
   },
-  avatarInitial: { fontSize: 22, fontWeight: '800', color: PRIMARY },
+  avatarInitial: { fontSize: 22, fontWeight: '800', color: colors.info },
 
   cardBody: { flex: 1 },
   cardTop: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'center', marginBottom: 2,
   },
-  otherPartyName: { fontSize: 15, fontWeight: '700', color: '#1E232C', flex: 1, marginRight: 6 },
-  timeAgo:        { fontSize: 11, color: '#9CA3AF' },
-  lastMsg:        { fontSize: 13, color: '#374151', marginBottom: 8 },
-  jobCategory:    { fontSize: 13, color: '#6B7280', marginBottom: 8 },
+  otherPartyName: { fontSize: 15, fontWeight: '700', color: colors.text, flex: 1, marginRight: 6 },
+  timeAgo:        { fontSize: 11, color: colors.textMuted },
+  lastMsg:        { fontSize: 13, color: colors.textSub, marginBottom: 8 },
+  jobCategory:    { fontSize: 13, color: colors.textMuted, marginBottom: 8 },
 
   cardBottom: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
@@ -257,15 +260,15 @@ const styles = StyleSheet.create({
 
   chatBtn: {
     paddingHorizontal: 14, paddingVertical: 6,
-    borderRadius: 20, backgroundColor: '#EFF6FF',
+    borderRadius: 20, backgroundColor: colors.infoBg,
     borderWidth: 1, borderColor: '#BFDBFE',
   },
-  chatBtnText: { fontSize: 12, fontWeight: '700', color: PRIMARY },
+  chatBtnText: { fontSize: 12, fontWeight: '700', color: colors.info },
 
   centerBox: {
     flex: 1, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 40,
   },
   emptyIcon:     { fontSize: 52, marginBottom: 16 },
-  emptyTitle:    { fontSize: 18, fontWeight: '800', color: '#1E232C', marginBottom: 8 },
-  emptySubtitle: { fontSize: 14, color: '#6B7280', textAlign: 'center', lineHeight: 22 },
+  emptyTitle:    { fontSize: 18, fontWeight: '800', color: colors.text, marginBottom: 8 },
+  emptySubtitle: { fontSize: 14, color: colors.textMuted, textAlign: 'center', lineHeight: 22 },
 });

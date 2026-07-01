@@ -12,6 +12,7 @@ import { getUnreadCount } from '../../api/notificationApi';
 import { getUser } from '../../utils/storage';
 import { DUMMY_NEARBY_ARTISANS } from '../../constants/dummyProfiles';
 import DispatchSafetyModal from '../../components/DispatchSafetyModal';
+import { useTheme } from '../../context/ThemeContext';
 
 // ── Design Tokens ──────────────────────────────────────────────────────────────
 const COLORS = {
@@ -81,6 +82,7 @@ const CATEGORIES = [
 ];
 
 export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
+  const { colors } = useTheme();
   const [user, setUser] = useState(null);
 
   // Trusted Professionals (isPro only) — horizontal scroll
@@ -249,6 +251,8 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
   const firstName = (user?.name || '').split(' ')[0] || 'there';
   const initials  = (user?.name || 'U')[0].toUpperCase();
 
+  const styles = makeStyles(colors);
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
 
@@ -303,8 +307,8 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => loadAll(true)}
-            tintColor={COLORS.primary}
-            colors={[COLORS.primary]}
+            tintColor={colors.info}
+            colors={[colors.info]}
           />
         }
       >
@@ -438,7 +442,7 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
 
         {loading || filterLoading ? (
           <View style={styles.loadingBox}>
-            <ActivityIndicator color={COLORS.primary} size="large" />
+            <ActivityIndicator color={colors.info} size="large" />
             <Text style={styles.loadingText}>
               {filterLoading ? `Filtering by ${activeCategory}…` : 'Finding professionals...'}
             </Text>
@@ -463,13 +467,14 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
             onEndReachedThreshold={0.4}
             ListFooterComponent={
               loadingMoreTrusted
-                ? <ActivityIndicator color={COLORS.primary} style={{ marginHorizontal: 16, alignSelf: 'center' }} />
+                ? <ActivityIndicator color={colors.info} style={{ marginHorizontal: 16, alignSelf: 'center' }} />
                 : null
             }
             renderItem={({ item }) => (
               <TrustedProfessionalsCard
                 artisan={item}
                 onPress={() => goToProfile(item)}
+                colors={colors}
               />
             )}
           />
@@ -480,7 +485,7 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
         ════════════════════════════════════════ */}
         <View style={[styles.sectionHeader, styles.nearbySectionHeader]}>
           <View style={styles.sectionTitleGroup}>
-            <View style={[styles.sectionAccentBar, { backgroundColor: COLORS.accent }]} />
+            <View style={[styles.sectionAccentBar, { backgroundColor: '#0EA5E9' }]} />
             <Text style={styles.sectionTitle}>Nearby Artisans</Text>
           </View>
           <TouchableOpacity style={styles.filterBtn} onPress={goToSearch}>
@@ -511,6 +516,7 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
                 key={artisan.id}
                 artisan={artisan}
                 onPress={() => goToProfile(artisan)}
+                colors={colors}
               />
             ))}
           </View>
@@ -525,7 +531,7 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
             activeOpacity={0.8}
           >
             {loadingMore ? (
-              <ActivityIndicator color={COLORS.primary} size="small" />
+              <ActivityIndicator color={colors.info} size="small" />
             ) : (
               <View style={styles.loadMoreInner}>
                 <Text style={styles.loadMoreText}>Load More Artisans</Text>
@@ -558,10 +564,11 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // TRUSTED PROFESSIONALS CARD  (horizontal scroll)
 // ══════════════════════════════════════════════════════════════════════════════
-function TrustedProfessionalsCard({ artisan, onPress }) {
+function TrustedProfessionalsCard({ artisan, onPress, colors }) {
   const badge  = BADGE_CONFIG[artisan.badgeLevel] || BADGE_CONFIG.new;
   const rating = artisan.stats?.averageRating;
   const jobs   = artisan.stats?.completedJobs || 0;
+  const proCard = makeProCard(colors);
 
   return (
     <TouchableOpacity
@@ -631,14 +638,14 @@ function TrustedProfessionalsCard({ artisan, onPress }) {
         </View>
         {artisan.distanceKm != null && (
           <View style={proCard.statChip}>
-            <Text style={[proCard.statChipText, { color: COLORS.primary }]}>
+            <Text style={[proCard.statChipText, { color: colors.info }]}>
               {artisan.distanceKm}km away
             </Text>
           </View>
         )}
         {(artisan.address || artisan.state) && (
           <View style={proCard.statChip}>
-            <Text style={[proCard.statChipText, { color: COLORS.primary }]} numberOfLines={1}>
+            <Text style={[proCard.statChipText, { color: colors.info }]} numberOfLines={1}>
               📍 {artisan.address || artisan.state}
             </Text>
           </View>
@@ -656,12 +663,13 @@ function TrustedProfessionalsCard({ artisan, onPress }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // NEARBY ARTISAN CARD  (vertical list)
 // ══════════════════════════════════════════════════════════════════════════════
-function ArtisanCard({ artisan, onPress }) {
+function ArtisanCard({ artisan, onPress, colors }) {
   const badge       = BADGE_CONFIG[artisan.badgeLevel] || BADGE_CONFIG.new;
   const rating      = artisan.stats?.averageRating;
   const jobs        = artisan.stats?.completedJobs || 0;
   const placeName   = artisan.address || artisan.state || null;
   const distText    = artisan.distanceKm != null ? `${artisan.distanceKm}km from here` : null;
+  const nearbyCard  = makeNearbyCard(colors);
 
   return (
     <TouchableOpacity
@@ -751,12 +759,12 @@ function ArtisanCard({ artisan, onPress }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // STYLES
 // ══════════════════════════════════════════════════════════════════════════════
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
 
   // ── Screen ──────────────────────────────────────────────────────────────────
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.bgAlt,
   },
   scroll: {
     paddingBottom: 16,
@@ -769,12 +777,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 10,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    borderBottomColor: colors.borderLight,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.06,
         shadowRadius: 8,
@@ -796,23 +804,23 @@ const styles = StyleSheet.create({
   bellIcon: { fontSize: 22 },
   bellBadge: {
     position: 'absolute', top: 0, right: 0,
-    backgroundColor: '#EF4444', borderRadius: 8,
+    backgroundColor: colors.error, borderRadius: 8,
     minWidth: 16, height: 16,
     alignItems: 'center', justifyContent: 'center',
     paddingHorizontal: 3,
-    borderWidth: 1.5, borderColor: COLORS.surface,
+    borderWidth: 1.5, borderColor: colors.card,
   },
-  bellBadgeText: { color: '#FFF', fontSize: 8, fontWeight: '800' },
+  bellBadgeText: { color: colors.card, fontSize: 8, fontWeight: '800' },
   brandDot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.info,
   },
   appName: {
     fontSize: 22,
     fontWeight: '900',
-    color: COLORS.primary,
+    color: colors.info,
     letterSpacing: -0.8,
   },
   avatarBtn: {
@@ -823,7 +831,7 @@ const styles = StyleSheet.create({
     height: 42,
     borderRadius: 21,
     borderWidth: 2,
-    borderColor: COLORS.primaryMid,
+    borderColor: '#BFDBFE',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -831,14 +839,14 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 17,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.infoBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarInitial: {
     fontSize: 15,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: colors.info,
   },
   onlineDot: {
     position: 'absolute',
@@ -847,14 +855,14 @@ const styles = StyleSheet.create({
     width: 10,
     height: 10,
     borderRadius: 5,
-    backgroundColor: COLORS.green,
+    backgroundColor: colors.success,
     borderWidth: 2,
-    borderColor: COLORS.surface,
+    borderColor: colors.card,
   },
 
   // ── Hero Section ─────────────────────────────────────────────────────────────
   heroSection: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.card,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 24,
@@ -863,7 +871,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.07,
         shadowRadius: 12,
@@ -877,26 +885,26 @@ const styles = StyleSheet.create({
   greetingSub: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     marginBottom: 2,
     letterSpacing: 0.2,
   },
   greetingName: {
     fontSize: 26,
     fontWeight: '900',
-    color: COLORS.textPrimary,
+    color: colors.text,
     letterSpacing: -0.5,
     marginBottom: 4,
   },
   greetingTagline: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: colors.textSub,
     fontWeight: '400',
   },
   locationPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.infoBg,
     borderRadius: 14,
     paddingVertical: 10,
     paddingHorizontal: 14,
@@ -908,7 +916,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 8,
-    backgroundColor: COLORS.primaryMid,
+    backgroundColor: '#BFDBFE',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -918,18 +926,18 @@ const styles = StyleSheet.create({
   locationMeta: {
     fontSize: 9,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: colors.info,
     letterSpacing: 1,
     marginBottom: 1,
   },
   locationName: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.textPrimary,
+    color: colors.text,
   },
   locationChevron: {
     fontSize: 20,
-    color: COLORS.primary,
+    color: colors.info,
     fontWeight: '600',
     marginTop: -2,
   },
@@ -942,16 +950,16 @@ const styles = StyleSheet.create({
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.card,
     borderRadius: 18,
     paddingHorizontal: 6,
     paddingVertical: 6,
     gap: 12,
     borderWidth: 1.5,
-    borderColor: COLORS.divider,
+    borderColor: colors.borderLight,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
         shadowRadius: 8,
@@ -963,28 +971,28 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 14,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.infoBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   searchPlaceholder: {
     flex: 1,
     fontSize: 14,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     fontWeight: '500',
   },
   searchArrow: {
     width: 36,
     height: 36,
     borderRadius: 12,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.info,
     justifyContent: 'center',
     alignItems: 'center',
     marginRight: 2,
   },
   searchArrowText: {
     fontSize: 20,
-    color: COLORS.surface,
+    color: colors.card,
     fontWeight: '700',
     marginTop: -2,
   },
@@ -993,7 +1001,7 @@ const styles = StyleSheet.create({
   pendingBanner: {
     marginHorizontal: 20,
     marginBottom: 16,
-    backgroundColor: COLORS.greenLight,
+    backgroundColor: colors.successBg,
     borderRadius: 16,
     padding: 14,
     borderWidth: 1.5,
@@ -1004,7 +1012,7 @@ const styles = StyleSheet.create({
     gap: 10,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.green,
+        shadowColor: colors.success,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 6,
@@ -1015,26 +1023,26 @@ const styles = StyleSheet.create({
   pendingBannerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 },
   pendingBannerDot: {
     width: 10, height: 10, borderRadius: 5,
-    backgroundColor: COLORS.green, flexShrink: 0,
+    backgroundColor: colors.success, flexShrink: 0,
   },
   pendingBannerBody: { flex: 1 },
   pendingBannerTitle: { fontSize: 14, fontWeight: '800', color: '#14532D', marginBottom: 2 },
   pendingBannerSub: { fontSize: 12, color: '#166534', lineHeight: 17 },
   pendingBannerActions: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
   pendingViewBtn: {
-    backgroundColor: COLORS.green,
+    backgroundColor: colors.success,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
-  pendingViewBtnText: { fontSize: 13, fontWeight: '800', color: COLORS.surface },
+  pendingViewBtnText: { fontSize: 13, fontWeight: '800', color: colors.card },
   pendingCloseBtn: {
     width: 28, height: 28, borderRadius: 14,
-    backgroundColor: '#DCFCE7',
+    backgroundColor: colors.successBg,
     justifyContent: 'center', alignItems: 'center',
     borderWidth: 1, borderColor: '#86EFAC',
   },
-  pendingCloseBtnText: { fontSize: 12, fontWeight: '800', color: '#15803D' },
+  pendingCloseBtnText: { fontSize: 12, fontWeight: '800', color: colors.success },
 
   // ── Category Chips ───────────────────────────────────────────────────────────
   categoryScroll: {
@@ -1049,14 +1057,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 50,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.card,
     borderWidth: 1.5,
-    borderColor: COLORS.divider,
+    borderColor: colors.borderLight,
     marginRight: 8,
   },
   categoryChipActive: {
-    backgroundColor: COLORS.primary,
-    borderColor: COLORS.primary,
+    backgroundColor: colors.info,
+    borderColor: colors.info,
   },
   categoryIcon: {
     fontSize: 14,
@@ -1064,10 +1072,10 @@ const styles = StyleSheet.create({
   categoryLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: colors.textSub,
   },
   categoryLabelActive: {
-    color: COLORS.surface,
+    color: colors.card,
   },
 
   // ── Section Headers ──────────────────────────────────────────────────────────
@@ -1090,12 +1098,12 @@ const styles = StyleSheet.create({
     width: 4,
     height: 20,
     borderRadius: 2,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.info,
   },
   sectionTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: colors.text,
     letterSpacing: -0.3,
   },
   viewMoreBtn: {
@@ -1105,12 +1113,12 @@ const styles = StyleSheet.create({
   viewMoreText: {
     fontSize: 13,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.info,
   },
   viewMoreArrow: {
     fontSize: 13,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.info,
   },
   filterBtn: {
     flexDirection: 'row',
@@ -1119,18 +1127,18 @@ const styles = StyleSheet.create({
     paddingHorizontal: 14,
     paddingVertical: 7,
     borderRadius: 10,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.infoBg,
     borderWidth: 1,
-    borderColor: COLORS.primaryMid,
+    borderColor: '#BFDBFE',
   },
   filterIcon: {
     fontSize: 12,
-    color: COLORS.primary,
+    color: colors.info,
   },
   filterBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.info,
   },
 
   // ── Loading State ────────────────────────────────────────────────────────────
@@ -1141,7 +1149,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: 13,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     fontWeight: '500',
   },
 
@@ -1159,17 +1167,17 @@ const styles = StyleSheet.create({
   },
   emptyHScroll: {
     marginHorizontal: 20,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.infoBg,
     borderRadius: 18,
     padding: 24,
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.primaryMid,
+    borderColor: '#BFDBFE',
     borderStyle: 'dashed',
   },
   emptyHScrollText: {
     fontSize: 14,
-    color: COLORS.primary,
+    color: colors.info,
     fontWeight: '600',
     textAlign: 'center',
     lineHeight: 20,
@@ -1179,16 +1187,16 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     alignItems: 'center',
     paddingVertical: 40,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.card,
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor: colors.borderLight,
   },
   emptyNearbyIconWrap: {
     width: 70,
     height: 70,
     borderRadius: 35,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.infoBg,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 14,
@@ -1199,25 +1207,25 @@ const styles = StyleSheet.create({
   emptyNearbyTitle: {
     fontSize: 17,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: colors.text,
     marginBottom: 6,
   },
   emptyNearbyText: {
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: colors.textSub,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: 20,
     paddingHorizontal: 24,
   },
   emptyNearbyBtn: {
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.info,
     paddingHorizontal: 28,
     paddingVertical: 13,
     borderRadius: 14,
   },
   emptyNearbyBtnText: {
-    color: COLORS.surface,
+    color: colors.card,
     fontWeight: '700',
     fontSize: 14,
   },
@@ -1234,11 +1242,11 @@ const styles = StyleSheet.create({
     marginTop: 16,
     paddingVertical: 15,
     borderRadius: 16,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.card,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1.5,
-    borderColor: COLORS.primaryMid,
+    borderColor: '#BFDBFE',
     minHeight: 52,
   },
   loadMoreInner: {
@@ -1248,27 +1256,27 @@ const styles = StyleSheet.create({
   loadMoreText: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.info,
   },
   loadMoreArrow: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.info,
   },
 });
 
 // ── Trusted Professionals Card Styles ─────────────────────────────────────────
-const proCard = StyleSheet.create({
+const makeProCard = (colors) => StyleSheet.create({
   container: {
     width: 220,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.card,
     borderRadius: 24,
     overflow: 'hidden',
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor: colors.borderLight,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.10,
         shadowRadius: 16,
@@ -1278,7 +1286,7 @@ const proCard = StyleSheet.create({
   },
   headerStrip: {
     height: 72,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.info,
     flexDirection: 'row',
     alignItems: 'flex-start',
     justifyContent: 'space-between',
@@ -1292,7 +1300,7 @@ const proCard = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 3,
     borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.25)',
   },
-  proLabelText: { fontSize: 10, fontWeight: '800', color: '#FFF', letterSpacing: 0.4 },
+  proLabelText: { fontSize: 10, fontWeight: '800', color: colors.card, letterSpacing: 0.4 },
   badgePill: {
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -1314,13 +1322,13 @@ const proCard = StyleSheet.create({
     height: 68,
     borderRadius: 34,
     borderWidth: 3,
-    borderColor: COLORS.surface,
+    borderColor: colors.card,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.card,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.12,
         shadowRadius: 6,
@@ -1337,14 +1345,14 @@ const proCard = StyleSheet.create({
     width: 62,
     height: 62,
     borderRadius: 31,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.infoBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarInitial: {
     fontSize: 26,
     fontWeight: '900',
-    color: COLORS.primary,
+    color: colors.info,
   },
   verifiedDot: {
     position: 'absolute',
@@ -1357,17 +1365,17 @@ const proCard = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: COLORS.surface,
+    borderColor: colors.card,
   },
   verifiedDotText: {
     fontSize: 9,
-    color: COLORS.surface,
+    color: colors.card,
     fontWeight: '900',
   },
   skills: {
     fontSize: 14,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: colors.info,
     textAlign: 'center',
     paddingHorizontal: 12,
     marginBottom: 2,
@@ -1376,7 +1384,7 @@ const proCard = StyleSheet.create({
   name: {
     fontSize: 12,
     fontWeight: '500',
-    color: COLORS.textSecondary,
+    color: colors.textSub,
     textAlign: 'center',
     paddingHorizontal: 12,
     marginBottom: 12,
@@ -1390,22 +1398,22 @@ const proCard = StyleSheet.create({
     marginBottom: 14,
   },
   statChip: {
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.bgAlt,
     borderRadius: 8,
     paddingHorizontal: 8,
     paddingVertical: 4,
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor: colors.borderLight,
   },
   statChipText: {
     fontSize: 11,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: colors.textSub,
   },
   bookBtn: {
     marginHorizontal: 14,
     marginBottom: 14,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.info,
     borderRadius: 14,
     paddingVertical: 11,
     alignItems: 'center',
@@ -1413,25 +1421,25 @@ const proCard = StyleSheet.create({
   bookBtnText: {
     fontSize: 14,
     fontWeight: '800',
-    color: COLORS.surface,
+    color: colors.card,
     letterSpacing: 0.2,
   },
 });
 
 // ── Nearby Artisan Card Styles ─────────────────────────────────────────────────
-const nearbyCard = StyleSheet.create({
+const makeNearbyCard = (colors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.card,
     borderRadius: 20,
     padding: 14,
     gap: 12,
     borderWidth: 2,
-    borderColor: COLORS.divider,
+    borderColor: colors.borderLight,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
         shadowRadius: 10,
@@ -1454,14 +1462,14 @@ const nearbyCard = StyleSheet.create({
     width: 58,
     height: 58,
     borderRadius: 16,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.infoBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarInitial: {
     fontSize: 22,
     fontWeight: '900',
-    color: COLORS.primary,
+    color: colors.info,
   },
   verifiedDot: {
     position: 'absolute',
@@ -1473,11 +1481,11 @@ const nearbyCard = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: COLORS.surface,
+    borderColor: colors.card,
   },
   verifiedDotText: {
     fontSize: 9,
-    color: COLORS.surface,
+    color: colors.card,
     fontWeight: '900',
   },
 
@@ -1494,15 +1502,14 @@ const nearbyCard = StyleSheet.create({
   skills: {
     fontSize: 15,
     fontWeight: '800',
-    color: COLORS.primary,
-    // color: COLORS.textPrimary,
+    color: colors.info,
     letterSpacing: -0.3,
     lineHeight: 20,
   },
   name: {
     fontSize: 12,
     fontWeight: '500',
-    color: COLORS.textSecondary,
+    color: colors.textSub,
     flex: 1,
   },
   badgePill: {
@@ -1518,7 +1525,7 @@ const nearbyCard = StyleSheet.create({
   },
   proBadge: {
     paddingHorizontal: 7, paddingVertical: 3, borderRadius: 12,
-    backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#F59E0B', flexShrink: 0,
+    backgroundColor: colors.warningBg, borderWidth: 1, borderColor: colors.star, flexShrink: 0,
   },
   proBadgeText: { fontSize: 10, fontWeight: '800', color: '#B45309' },
   statsRow: {
@@ -1530,44 +1537,44 @@ const nearbyCard = StyleSheet.create({
   },
   rating: {
     fontSize: 12,
-    color: COLORS.gold,
+    color: colors.star,
     fontWeight: '700',
   },
   dividerDot: {
     fontSize: 12,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     fontWeight: '700',
   },
   jobs: {
     fontSize: 12,
-    color: COLORS.textSecondary,
+    color: colors.textSub,
     fontWeight: '500',
   },
   dist: {
     fontSize: 12,
-    color: COLORS.primary,
+    color: colors.info,
     fontWeight: '600',
   },
   locationLine: {
     fontSize: 11,
-    color: COLORS.primary,
+    color: colors.info,
     fontWeight: '600',
     marginTop: 3,
   },
 
   // Book button
   bookBtn: {
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.infoBg,
     borderRadius: 12,
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderWidth: 1.5,
-    borderColor: COLORS.primaryMid,
+    borderColor: '#BFDBFE',
     flexShrink: 0,
   },
   bookBtnText: {
     fontSize: 13,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: colors.info,
   },
 });

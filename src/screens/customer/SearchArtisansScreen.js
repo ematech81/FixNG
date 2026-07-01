@@ -9,6 +9,7 @@ import { searchArtisans } from '../../api/discoveryApi';
 import { ARTISAN_SKILLS } from '../../constants/skills';
 import BackButton from '../../components/BackButton';
 import DispatchSafetyModal from '../../components/DispatchSafetyModal';
+import { useTheme } from '../../context/ThemeContext';
 
 const PAGE_LIMIT = 20;
 
@@ -22,6 +23,7 @@ const DISTANCE_OPTIONS = [5, 10, 20, 50];
 
 // ── Animated skeleton cards ────────────────────────────────────────────────────
 function SkeletonLoader() {
+  const { colors } = useTheme();
   const pulse = useRef(new Animated.Value(1)).current;
 
   useEffect(() => {
@@ -33,10 +35,12 @@ function SkeletonLoader() {
     ).start();
   }, [pulse]);
 
+  const styles = makeStyles(colors);
+
   return (
     <View style={styles.list}>
       <View style={styles.skeletonHeader}>
-        <ActivityIndicator color="#2563EB" size="small" />
+        <ActivityIndicator color={colors.info} size="small" />
         <Text style={styles.skeletonHeaderText}>Finding artisans near you…</Text>
       </View>
       {[1, 2, 3, 4].map((k) => (
@@ -54,6 +58,7 @@ function SkeletonLoader() {
 }
 
 export default function SearchArtisansScreen({ navigation, embedded = false }) {
+  const { colors } = useTheme();
   const [artisans, setArtisans]               = useState([]);
   const [skeletal, setSkeletal]               = useState(true);  // first-load skeleton
   const [refreshing, setRefreshing]           = useState(false);
@@ -208,6 +213,7 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
   const renderArtisan = ({ item }) => {
     const badge     = BADGE_CONFIG[item.badgeLevel] || BADGE_CONFIG.new;
     const avgRating = item.stats?.averageRating;
+    const styles = makeStyles(colors);
 
     return (
       <TouchableOpacity
@@ -277,9 +283,10 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
   };
 
   const renderFooter = () => {
+    const styles = makeStyles(colors);
     if (loadingMore) return (
       <View style={styles.footerLoader}>
-        <ActivityIndicator color="#2563EB" size="small" />
+        <ActivityIndicator color={colors.info} size="small" />
         <Text style={styles.footerText}>Loading more…</Text>
       </View>
     );
@@ -290,6 +297,8 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
     );
     return null;
   };
+
+  const styles = makeStyles(colors);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -399,7 +408,7 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
           renderItem={renderArtisan}
           contentContainerStyle={styles.list}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor="#2563EB" />
+            <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} tintColor={colors.info} />
           }
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.3}
@@ -429,85 +438,85 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container:   { flex: 1, backgroundColor: '#F5F5F5' },
+const makeStyles = (colors) => StyleSheet.create({
+  container:   { flex: 1, backgroundColor: colors.surface },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-    paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#FFF',
-    borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+    paddingHorizontal: 20, paddingVertical: 16, backgroundColor: colors.card,
+    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A1A' },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
   filters: {
     flexDirection: 'row', flexWrap: 'wrap', gap: 8,
-    padding: 12, backgroundColor: '#FFF',
-    borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+    padding: 12, backgroundColor: colors.card,
+    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
   },
-  filterChip:           { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5, borderColor: '#E5E5E5', backgroundColor: '#FFF' },
-  filterChipActive:     { borderColor: '#2563EB', backgroundColor: '#EFF6FF' },
-  filterChipTrusted:    { borderColor: '#B45309', backgroundColor: '#FFFBEB' },
-  filterChipText:       { fontSize: 13, color: '#555', fontWeight: '600' },
-  filterChipTextActive: { color: '#2563EB' },
+  filterChip:           { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 20, borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.card },
+  filterChipActive:     { borderColor: colors.info, backgroundColor: colors.infoBg },
+  filterChipTrusted:    { borderColor: '#B45309', backgroundColor: colors.warningBg },
+  filterChipText:       { fontSize: 13, color: colors.textSub, fontWeight: '600' },
+  filterChipTextActive: { color: colors.info },
   filterChipTextTrusted:{ color: '#B45309' },
   categoryDropdown: {
-    backgroundColor: '#FFF', borderWidth: 1, borderColor: '#E5E5E5',
+    backgroundColor: colors.card, borderWidth: 1, borderColor: colors.border,
     marginHorizontal: 16, borderRadius: 10, overflow: 'hidden',
     elevation: 6, zIndex: 20,
   },
-  categorySearch:     { padding: 10, borderBottomWidth: 1, borderBottomColor: '#F0F0F0', fontSize: 14 },
-  categoryItem:       { padding: 13, borderBottomWidth: 1, borderBottomColor: '#F9F9F9' },
-  categoryItemText:   { fontSize: 14, color: '#444' },
-  categoryItemActive: { color: '#2563EB', fontWeight: '700' },
+  categorySearch:     { padding: 10, borderBottomWidth: 1, borderBottomColor: colors.borderLight, fontSize: 14, color: colors.text },
+  categoryItem:       { padding: 13, borderBottomWidth: 1, borderBottomColor: colors.bgAlt },
+  categoryItemText:   { fontSize: 14, color: colors.textSub },
+  categoryItemActive: { color: colors.info, fontWeight: '700' },
   searchBtn: {
     marginHorizontal: 16, marginVertical: 10,
-    backgroundColor: '#2563EB', padding: 13,
+    backgroundColor: colors.info, padding: 13,
     borderRadius: 12, alignItems: 'center',
   },
-  searchBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
+  searchBtnText: { color: colors.card, fontWeight: '700', fontSize: 14 },
 
   // ── Skeleton ──
   skeletonHeader: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     marginBottom: 16,
   },
-  skeletonHeaderText: { fontSize: 13, color: '#6B7280', fontWeight: '600' },
+  skeletonHeaderText: { fontSize: 13, color: colors.textMuted, fontWeight: '600' },
   skeletonCard: {
     flexDirection: 'row', gap: 12,
-    backgroundColor: '#FFF', borderRadius: 14, padding: 14,
-    borderWidth: 1, borderColor: '#F0F0F0', marginBottom: 10,
+    backgroundColor: colors.card, borderRadius: 14, padding: 14,
+    borderWidth: 1, borderColor: colors.borderLight, marginBottom: 10,
   },
-  skeletonAvatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#E5E7EB' },
+  skeletonAvatar: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.borderLight },
   skeletonBody:   { flex: 1, justifyContent: 'center' },
-  skeletonLine:   { height: 12, borderRadius: 6, backgroundColor: '#E5E7EB' },
+  skeletonLine:   { height: 12, borderRadius: 6, backgroundColor: colors.borderLight },
 
   // ── List ──
   list: { padding: 16, gap: 10, paddingBottom: 30 },
-  artisanCard:    { backgroundColor: '#FFF', borderRadius: 14, padding: 14, borderWidth: 1, borderColor: '#F0F0F0', elevation: 1 },
-  artisanCardPro: { borderLeftWidth: 3, borderLeftColor: '#F59E0B' },
+  artisanCard:    { backgroundColor: colors.card, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.borderLight, elevation: 1 },
+  artisanCardPro: { borderLeftWidth: 3, borderLeftColor: colors.star },
   artisanRow:     { flexDirection: 'row', gap: 12 },
   avatarContainer:{ justifyContent: 'flex-start' },
   avatar:         { width: 56, height: 56, borderRadius: 28 },
-  avatarPlaceholder: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#2563EB', justifyContent: 'center', alignItems: 'center' },
-  avatarInitial:  { color: '#FFF', fontSize: 22, fontWeight: '700' },
+  avatarPlaceholder: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.info, justifyContent: 'center', alignItems: 'center' },
+  avatarInitial:  { color: colors.card, fontSize: 22, fontWeight: '700' },
   artisanInfo:    { flex: 1 },
   nameRow:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
-  artisanName:    { fontSize: 16, fontWeight: '700', color: '#1A1A1A', flex: 1 },
+  artisanName:    { fontSize: 16, fontWeight: '700', color: colors.text, flex: 1 },
   badgeRow:       { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  badgePill:      { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, backgroundColor: '#F3F4F6' },
+  badgePill:      { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 12, backgroundColor: colors.borderLight },
   badgeText:      { fontSize: 11, fontWeight: '700' },
-  proBadge:       { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 12, backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#F59E0B' },
+  proBadge:       { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 12, backgroundColor: colors.warningBg, borderWidth: 1, borderColor: colors.star },
   proBadgeText:   { fontSize: 11, fontWeight: '700', color: '#B45309' },
-  skills:         { fontSize: 15, fontWeight: '700', color: '#374151', marginBottom: 6 },
+  skills:         { fontSize: 15, fontWeight: '700', color: colors.textSub, marginBottom: 6 },
   statsRow:       { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 4 },
-  rating:         { fontSize: 13, color: '#F59E0B', fontWeight: '700' },
-  completedJobs:  { fontSize: 12, color: '#666' },
-  responseTime:   { fontSize: 12, color: '#3B82F6' },
-  address:        { fontSize: 11, color: '#BBB' },
+  rating:         { fontSize: 13, color: colors.star, fontWeight: '700' },
+  completedJobs:  { fontSize: 12, color: colors.textSub },
+  responseTime:   { fontSize: 12, color: colors.info },
+  address:        { fontSize: 11, color: colors.textHint },
   empty:          { alignItems: 'center', paddingTop: 60, paddingHorizontal: 30 },
   emptyIcon:      { fontSize: 48, marginBottom: 16 },
-  emptyTitle:     { fontSize: 17, fontWeight: '700', color: '#333', marginBottom: 8 },
-  emptyText:      { fontSize: 14, color: '#999', textAlign: 'center', lineHeight: 20 },
+  emptyTitle:     { fontSize: 17, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  emptyText:      { fontSize: 14, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
   footerLoader:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10, paddingVertical: 20 },
-  footerText:     { fontSize: 13, color: '#999' },
+  footerText:     { fontSize: 13, color: colors.textMuted },
   footerEnd:      { alignItems: 'center', paddingVertical: 20 },
-  footerEndText:  { fontSize: 12, color: '#CCC' },
+  footerEndText:  { fontSize: 12, color: colors.textHint },
 });

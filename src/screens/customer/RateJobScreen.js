@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { rateJob } from '../../api/reviewApi';
 import BackButton from '../../components/BackButton';
+import { useTheme } from '../../context/ThemeContext';
 
 const RATING_DIMENSIONS = [
   { key: 'quality', label: 'Quality of Work', icon: '🔨' },
@@ -13,12 +14,12 @@ const RATING_DIMENSIONS = [
   { key: 'communication', label: 'Communication', icon: '💬' },
 ];
 
-function StarPicker({ value, onChange }) {
+function StarPicker({ value, onChange, colors }) {
   return (
-    <View style={styles.starPicker}>
+    <View style={{ flexDirection: 'row', gap: 8 }}>
       {[1, 2, 3, 4, 5].map((s) => (
         <TouchableOpacity key={s} onPress={() => onChange(s)} activeOpacity={0.7}>
-          <Text style={[styles.star, value >= s && styles.starFilled]}>★</Text>
+          <Text style={{ fontSize: 36, color: value >= s ? colors.star : colors.starEmpty }}>★</Text>
         </TouchableOpacity>
       ))}
     </View>
@@ -26,9 +27,10 @@ function StarPicker({ value, onChange }) {
 }
 
 export default function RateJobScreen({ route, navigation }) {
+  const { colors } = useTheme();
   const { jobId, artisanCode: prefilledCode } = route.params;
-  const [ratings, setRatings] = useState({ quality: 0, timeliness: 0, communication: 0 });
-  const [comment, setComment] = useState('');
+  const [ratings, setRatings]     = useState({ quality: 0, timeliness: 0, communication: 0 });
+  const [comment, setComment]     = useState('');
   const [artisanCode, setArtisanCode] = useState(prefilledCode || '');
   const [submitting, setSubmitting] = useState(false);
 
@@ -68,12 +70,13 @@ export default function RateJobScreen({ route, navigation }) {
         [{ text: 'Done', onPress: () => navigation.goBack() }]
       );
     } catch (err) {
-      const msg = err?.message || 'Failed to submit review.';
-      Alert.alert('Error', msg);
+      Alert.alert('Error', err?.message || 'Failed to submit review.');
     } finally {
       setSubmitting(false);
     }
   };
+
+  const styles = makeStyles(colors);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -82,141 +85,135 @@ export default function RateJobScreen({ route, navigation }) {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}
       >
-      <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-        {/* Header */}
-        <View style={styles.header}>
-          <BackButton onPress={() => navigation.goBack()} />
-          <Text style={styles.headerTitle}>Rate Artisan</Text>
-          <View style={{ width: 28 }} />
-        </View>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+          <View style={styles.header}>
+            <BackButton onPress={() => navigation.goBack()} />
+            <Text style={styles.headerTitle}>Rate Artisan</Text>
+            <View style={{ width: 28 }} />
+          </View>
 
-        <Text style={styles.subtitle}>
-          Help future customers by sharing your experience.
-        </Text>
+          <Text style={styles.subtitle}>
+            Help future customers by sharing your experience.
+          </Text>
 
-        {/* Rating dimensions */}
-        {RATING_DIMENSIONS.map((dim) => (
-          <View key={dim.key} style={styles.dimensionCard}>
-            <View style={styles.dimensionHeader}>
-              <Text style={styles.dimensionIcon}>{dim.icon}</Text>
-              <Text style={styles.dimensionLabel}>{dim.label}</Text>
+          {RATING_DIMENSIONS.map((dim) => (
+            <View key={dim.key} style={styles.dimensionCard}>
+              <View style={styles.dimensionHeader}>
+                <Text style={styles.dimensionIcon}>{dim.icon}</Text>
+                <Text style={styles.dimensionLabel}>{dim.label}</Text>
+              </View>
+              <StarPicker
+                value={ratings[dim.key]}
+                onChange={(v) => setRating(dim.key, v)}
+                colors={colors}
+              />
+              {ratings[dim.key] > 0 && (
+                <Text style={styles.ratingHint}>
+                  {['', 'Very poor', 'Poor', 'Good', 'Very good', 'Excellent'][ratings[dim.key]]}
+                </Text>
+              )}
             </View>
-            <StarPicker
-              value={ratings[dim.key]}
-              onChange={(v) => setRating(dim.key, v)}
-            />
-            {ratings[dim.key] > 0 && (
-              <Text style={styles.ratingHint}>
-                {['', 'Very poor', 'Poor', 'Good', 'Very good', 'Excellent'][ratings[dim.key]]}
-              </Text>
-            )}
-          </View>
-        ))}
+          ))}
 
-        {/* Overall preview */}
-        {overallScore && (
-          <View style={styles.overallCard}>
-            <Text style={styles.overallLabel}>Overall Score</Text>
-            <Text style={styles.overallScore}>{overallScore} / 5 ⭐</Text>
-          </View>
-        )}
-
-        {/* Comment */}
-        <Text style={styles.label}>Comment (optional)</Text>
-        <TextInput
-          style={styles.commentInput}
-          placeholder="Share more about your experience..."
-          value={comment}
-          onChangeText={setComment}
-          multiline
-          numberOfLines={4}
-          maxLength={500}
-        />
-        <Text style={styles.charCount}>{comment.length}/500</Text>
-
-        {/* Artisan ID */}
-        <Text style={styles.label}>Artisan ID (optional)</Text>
-        <TextInput
-          style={styles.codeInput}
-          placeholder="FNG-XXXXX"
-          value={artisanCode}
-          onChangeText={(t) => setArtisanCode(t.toUpperCase())}
-          autoCapitalize="characters"
-          autoCorrect={false}
-          maxLength={9}
-        />
-        <Text style={styles.codeHint}>
-          Confirm the artisan who served you. Copy from the job detail screen.
-        </Text>
-
-        {/* Submit */}
-        <TouchableOpacity
-          style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
-          onPress={handleSubmit}
-          disabled={submitting}
-        >
-          {submitting ? (
-            <ActivityIndicator color="#FFF" />
-          ) : (
-            <Text style={styles.submitBtnText}>Submit Review</Text>
+          {overallScore && (
+            <View style={styles.overallCard}>
+              <Text style={styles.overallLabel}>Overall Score</Text>
+              <Text style={styles.overallScore}>{overallScore} / 5 ⭐</Text>
+            </View>
           )}
-        </TouchableOpacity>
 
-        <TouchableOpacity
-          style={styles.skipBtn}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={styles.skipBtnText}>Skip for now</Text>
-        </TouchableOpacity>
-      </ScrollView>
+          <Text style={styles.label}>Comment (optional)</Text>
+          <TextInput
+            style={styles.commentInput}
+            placeholder="Share more about your experience..."
+            placeholderTextColor={colors.textHint}
+            value={comment}
+            onChangeText={setComment}
+            multiline
+            numberOfLines={4}
+            maxLength={500}
+            color={colors.text}
+          />
+          <Text style={styles.charCount}>{comment.length}/500</Text>
+
+          <Text style={styles.label}>Artisan ID (optional)</Text>
+          <TextInput
+            style={styles.codeInput}
+            placeholder="FNG-XXXXX"
+            placeholderTextColor={colors.textHint}
+            value={artisanCode}
+            onChangeText={(t) => setArtisanCode(t.toUpperCase())}
+            autoCapitalize="characters"
+            autoCorrect={false}
+            maxLength={9}
+            color={colors.text}
+          />
+          <Text style={styles.codeHint}>
+            Confirm the artisan who served you. Copy from the job detail screen.
+          </Text>
+
+          <TouchableOpacity
+            style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
+            onPress={handleSubmit}
+            disabled={submitting}
+          >
+            {submitting ? (
+              <ActivityIndicator color="#FFF" />
+            ) : (
+              <Text style={styles.submitBtnText}>Submit Review</Text>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.skipBtn} onPress={() => navigation.goBack()}>
+            <Text style={styles.skipBtnText}>Skip for now</Text>
+          </TouchableOpacity>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF' },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
   scroll: { padding: 20, paddingBottom: 60 },
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8,
   },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#1A1A1A' },
-  subtitle: { fontSize: 14, color: '#888', lineHeight: 20, marginBottom: 24, textAlign: 'center' },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: colors.text },
+  subtitle: { fontSize: 14, color: colors.textMuted, lineHeight: 20, marginBottom: 24, textAlign: 'center' },
   dimensionCard: {
-    backgroundColor: '#FAFAFA', borderRadius: 12, padding: 16,
-    marginBottom: 12, borderWidth: 1, borderColor: '#F0F0F0',
+    backgroundColor: colors.surface, borderRadius: 12, padding: 16,
+    marginBottom: 12, borderWidth: 1, borderColor: colors.borderLight,
   },
   dimensionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 },
   dimensionIcon: { fontSize: 22 },
-  dimensionLabel: { fontSize: 15, fontWeight: '700', color: '#1A1A1A' },
-  starPicker: { flexDirection: 'row', gap: 8 },
-  star: { fontSize: 36, color: '#E5E5E5' },
-  starFilled: { color: '#F59E0B' },
-  ratingHint: { fontSize: 12, color: '#888', marginTop: 6, fontStyle: 'italic' },
+  dimensionLabel: { fontSize: 15, fontWeight: '700', color: colors.text },
+  ratingHint: { fontSize: 12, color: colors.textMuted, marginTop: 6, fontStyle: 'italic' },
   overallCard: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: '#FFF3EC', borderRadius: 12, padding: 16, marginBottom: 20,
+    backgroundColor: colors.primaryLight, borderRadius: 12, padding: 16, marginBottom: 20,
   },
-  overallLabel: { fontSize: 15, fontWeight: '700', color: '#FF6B00' },
-  overallScore: { fontSize: 20, fontWeight: '800', color: '#FF6B00' },
-  label: { fontSize: 13, fontWeight: '600', color: '#555', marginBottom: 8 },
+  overallLabel: { fontSize: 15, fontWeight: '700', color: colors.primary },
+  overallScore: { fontSize: 20, fontWeight: '800', color: colors.primary },
+  label: { fontSize: 13, fontWeight: '600', color: colors.textSub, marginBottom: 8 },
   commentInput: {
-    borderWidth: 1.5, borderColor: '#E5E5E5', borderRadius: 10,
+    borderWidth: 1.5, borderColor: colors.borderInput, borderRadius: 10,
     padding: 13, fontSize: 15, textAlignVertical: 'top', minHeight: 100,
-    backgroundColor: '#FAFAFA',
+    backgroundColor: colors.surface,
   },
-  charCount: { fontSize: 12, color: '#BBB', textAlign: 'right', marginTop: 4, marginBottom: 20 },
+  charCount: { fontSize: 12, color: colors.textHint, textAlign: 'right', marginTop: 4, marginBottom: 20 },
   codeInput: {
-    borderWidth: 1.5, borderColor: '#E5E5E5', borderRadius: 10,
+    borderWidth: 1.5, borderColor: colors.borderInput, borderRadius: 10,
     padding: 13, fontSize: 16, letterSpacing: 2,
-    backgroundColor: '#FAFAFA', fontFamily: 'monospace',
+    backgroundColor: colors.surface,
+    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
   },
-  codeHint: { fontSize: 11, color: '#BBB', marginTop: 4, marginBottom: 24 },
+  codeHint: { fontSize: 11, color: colors.textHint, marginTop: 4, marginBottom: 24 },
   submitBtn: {
-    backgroundColor: '#FF6B00', padding: 16, borderRadius: 12, alignItems: 'center',
+    backgroundColor: colors.primary, padding: 16, borderRadius: 12, alignItems: 'center',
   },
-  submitBtnDisabled: { backgroundColor: '#FFCBA4' },
+  submitBtnDisabled: { backgroundColor: colors.primaryDisabled },
   submitBtnText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
   skipBtn: { alignItems: 'center', marginTop: 16, paddingVertical: 10 },
-  skipBtnText: { color: '#BBB', fontSize: 14 },
+  skipBtnText: { color: colors.textHint, fontSize: 14 },
 });

@@ -2,17 +2,11 @@ import React from 'react';
 import {
   Modal, View, Text, TouchableOpacity, StyleSheet, ScrollView,
 } from 'react-native';
+import { useTheme } from '../context/ThemeContext';
 
-/**
- * Safety & pricing disclaimer modal shown to customers before viewing
- * a Dispatch Rider profile. Non-dismissible — only the two buttons close it.
- *
- * Props:
- *   visible    bool
- *   onConfirm  () => void  — "I Understand" — proceed to rider profile
- *   onGoBack   () => void  — "Go Back" — return to search results
- */
 export default function DispatchSafetyModal({ visible, onConfirm, onGoBack }) {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
   return (
     <Modal
       visible={visible}
@@ -20,7 +14,6 @@ export default function DispatchSafetyModal({ visible, onConfirm, onGoBack }) {
       animationType="fade"
       onRequestClose={onGoBack}
     >
-      {/* No onPress on the backdrop — intentionally non-dismissible */}
       <View style={styles.overlay}>
         <View style={styles.card}>
           <View style={styles.iconWrap}>
@@ -35,13 +28,11 @@ export default function DispatchSafetyModal({ visible, onConfirm, onGoBack }) {
             showsVerticalScrollIndicator={false}
             contentContainerStyle={styles.scrollContent}
           >
-            {/* Pricing disclaimer */}
             <SectionHeader icon="💰" label="Pricing Disclaimer" />
             <Bullet text="Delivery prices are negotiated directly between you and the rider — FixNG does not set or guarantee pricing." />
             <Bullet text="Always agree on a price BEFORE the rider picks up your item." />
             <Bullet text="FixNG is not responsible for pricing disputes between you and the rider." />
 
-            {/* Security tips */}
             <SectionHeader icon="🔒" label="Security Tips" />
             <Bullet text="Verify the rider's vehicle plate number on their profile before handing over any item." />
             <Bullet text="Only send items you are comfortable entrusting to a third party." />
@@ -49,7 +40,6 @@ export default function DispatchSafetyModal({ visible, onConfirm, onGoBack }) {
             <Bullet text="Take a photo of your item before handover as proof of condition." />
             <Bullet text="Share the rider's name and plate number with someone you trust." />
 
-            {/* Delivery tips */}
             <SectionHeader icon="📦" label="Delivery Tips" />
             <Bullet text="Provide a clear delivery address with a landmark to avoid confusion." />
             <Bullet text="Stay reachable on your phone throughout the delivery." />
@@ -72,6 +62,8 @@ export default function DispatchSafetyModal({ visible, onConfirm, onGoBack }) {
 }
 
 function SectionHeader({ icon, label }) {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
   return (
     <View style={styles.sectionHeader}>
       <Text style={styles.sectionIcon}>{icon}</Text>
@@ -81,6 +73,8 @@ function SectionHeader({ icon, label }) {
 }
 
 function Bullet({ text }) {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
   return (
     <View style={styles.bulletRow}>
       <Text style={styles.bulletDot}>•</Text>
@@ -89,16 +83,16 @@ function Bullet({ text }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.6)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   card: {
-    backgroundColor: '#FFF',
+    backgroundColor: colors.card,
     borderRadius: 20,
     width: '100%',
     maxHeight: '88%',
@@ -108,15 +102,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingTop: 24,
     paddingBottom: 8,
-    backgroundColor: '#FFF7ED',
+    backgroundColor: colors.primaryLight,
   },
   icon: { fontSize: 40 },
   title: {
-    fontSize: 18, fontWeight: '800', color: '#1A1A1A',
+    fontSize: 18, fontWeight: '800', color: colors.text,
     textAlign: 'center', marginTop: 16, paddingHorizontal: 20,
   },
   subtitle: {
-    fontSize: 13, color: '#6B7280',
+    fontSize: 13, color: colors.textSub,
     textAlign: 'center', marginTop: 4, marginBottom: 12, paddingHorizontal: 20,
   },
   scroll:        { maxHeight: 340 },
@@ -127,24 +121,24 @@ const styles = StyleSheet.create({
     marginTop: 16, marginBottom: 8,
   },
   sectionIcon:  { fontSize: 16 },
-  sectionLabel: { fontSize: 13, fontWeight: '800', color: '#374151', textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionLabel: { fontSize: 13, fontWeight: '800', color: colors.textSub, textTransform: 'uppercase', letterSpacing: 0.5 },
 
   bulletRow:  { flexDirection: 'row', gap: 8, marginBottom: 6 },
-  bulletDot:  { fontSize: 14, color: '#EA580C', marginTop: 1 },
-  bulletText: { flex: 1, fontSize: 13, color: '#4B5563', lineHeight: 19 },
+  bulletDot:  { fontSize: 14, color: colors.primaryDark, marginTop: 1 },
+  bulletText: { flex: 1, fontSize: 13, color: colors.textSub, lineHeight: 19 },
 
   actions: {
     flexDirection: 'row', gap: 12,
-    padding: 20, borderTopWidth: 1, borderTopColor: '#F3F4F6',
+    padding: 20, borderTopWidth: 1, borderTopColor: colors.borderLight,
   },
   backBtn: {
     flex: 1, paddingVertical: 14, borderRadius: 12,
-    borderWidth: 1.5, borderColor: '#E5E7EB', alignItems: 'center',
+    borderWidth: 1.5, borderColor: colors.border, alignItems: 'center',
   },
-  backBtnText:    { fontSize: 14, fontWeight: '700', color: '#374151' },
+  backBtnText:    { fontSize: 14, fontWeight: '700', color: colors.textSub },
   confirmBtn: {
     flex: 2, paddingVertical: 14, borderRadius: 12,
-    backgroundColor: '#EA580C', alignItems: 'center',
+    backgroundColor: colors.primaryDark, alignItems: 'center',
   },
   confirmBtnText: { fontSize: 14, fontWeight: '800', color: '#FFF' },
 });

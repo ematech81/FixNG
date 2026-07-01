@@ -13,21 +13,7 @@ import {
   verifySubscription,
   cancelSubscription,
 } from '../../api/subscriptionApi';
-
-// ── Constants ──────────────────────────────────────────────────────────────────
-const C = {
-  primary: '#2563EB',
-  gold:    '#F59E0B',
-  green:   '#16A34A',
-  red:     '#EF4444',
-  orange:  '#EA580C',
-  surface: '#FFFFFF',
-  bg:      '#F8FAFF',
-  border:  '#E2E8F0',
-  text:    '#0F172A',
-  sub:     '#64748B',
-  muted:   '#94A3B8',
-};
+import { useTheme } from '../../context/ThemeContext';
 
 const CYCLES = [
   {
@@ -36,7 +22,7 @@ const CYCLES = [
     price: 5000,
     billing: 'Billed monthly',
     savings: null,
-    accent: C.primary,
+    accentKey: 'info',
   },
   {
     id: 'quarterly',
@@ -44,7 +30,7 @@ const CYCLES = [
     price: 13500,
     billing: 'Billed every 3 months',
     savings: 'Save 10%',
-    accent: C.green,
+    accentKey: 'success',
   },
   {
     id: 'yearly',
@@ -52,45 +38,45 @@ const CYCLES = [
     price: 48000,
     billing: 'Billed annually',
     savings: 'Save 20%',
-    accent: C.gold,
+    accentKey: 'warning',
     badge: 'Best Value',
   },
 ];
 
-const STATUS_CONFIG = {
+const STATUS_CONFIG_KEYS = {
   trial: {
     label: 'FREE TRIAL',
-    color: C.primary,
-    bg:    '#EFF6FF',
-    border:'#BFDBFE',
+    colorKey:  'info',
+    bgKey:     'infoBg',
+    borderKey: 'info',
     icon:  '🎁',
   },
   active: {
     label: 'ACTIVE',
-    color: C.green,
-    bg:    '#DCFCE7',
-    border:'#BBF7D0',
+    colorKey:  'success',
+    bgKey:     'successBg',
+    borderKey: 'success',
     icon:  '✅',
   },
   grace: {
     label: 'GRACE PERIOD',
-    color: C.orange,
-    bg:    '#FFF7ED',
-    border:'#FED7AA',
+    colorKey:  'primaryDark',
+    bgKey:     'primaryLight',
+    borderKey: 'primaryDark',
     icon:  '⚠️',
   },
   expired: {
     label: 'EXPIRED',
-    color: C.red,
-    bg:    '#FEF2F2',
-    border:'#FECACA',
+    colorKey:  'error',
+    bgKey:     'errorBg',
+    borderKey: 'error',
     icon:  '❌',
   },
   cancelled: {
     label: 'CANCELLED',
-    color: C.muted,
-    bg:    '#F8FAFC',
-    border:'#E2E8F0',
+    colorKey:  'textMuted',
+    bgKey:     'surface',
+    borderKey: 'border',
     icon:  '⛔',
   },
 };
@@ -107,18 +93,18 @@ const PRO_FEATURES = [
 const fmtDate = (d) =>
   d ? new Date(d).toLocaleDateString('en-NG', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
 
-// ── Component ─────────────────────────────────────────────────────────────────
 export default function SubscriptionScreen({ navigation }) {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
   const [sub,         setSub]         = useState(null);
   const [loading,     setLoading]     = useState(true);
   const [subscribing, setSubscribing] = useState(false);
   const [verifying,   setVerifying]   = useState(false);
   const [selectedCycle, setSelectedCycle] = useState('monthly');
-  const pendingRef = useRef(null);  // reference waiting to be verified after deep link return
+  const pendingRef = useRef(null);
 
   useFocusEffect(useCallback(() => { load(); }, []));
 
-  // Listen for deep link return from Kora Pay hosted checkout
   useEffect(() => {
     const handler = ({ url }) => handleDeepLink(url);
     const sub = Linking.addEventListener('url', handler);
@@ -193,7 +179,6 @@ export default function SubscriptionScreen({ navigation }) {
         showInRecents:         false,
       });
 
-      // Browser closed — try to verify (user may have completed payment)
       if (pendingRef.current) {
         await runVerify(pendingRef.current);
       }
@@ -235,16 +220,21 @@ export default function SubscriptionScreen({ navigation }) {
     );
   };
 
-  // ── Render helpers ───────────────────────────────────────────────────────────
   const status  = sub?.status || 'expired';
-  const cfg     = STATUS_CONFIG[status] || STATUS_CONFIG.expired;
+  const cfgKeys = STATUS_CONFIG_KEYS[status] || STATUS_CONFIG_KEYS.expired;
+  const cfg = {
+    label:  cfgKeys.label,
+    icon:   cfgKeys.icon,
+    color:  colors[cfgKeys.colorKey],
+    bg:     colors[cfgKeys.bgKey],
+    border: colors[cfgKeys.borderKey],
+  };
   const isAllow = sub?.isAllowed;
   const showCTA = !isAllow || status === 'grace' || status === 'trial';
   const showRenew = status === 'grace' || status === 'expired' || status === 'cancelled';
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      {/* Header */}
       <View style={styles.header}>
         <BackButton onPress={() => navigation.goBack()} />
         <Text style={styles.headerTitle}>FixNG Pro</Text>
@@ -252,11 +242,10 @@ export default function SubscriptionScreen({ navigation }) {
       </View>
 
       {loading ? (
-        <View style={styles.centred}><ActivityIndicator size="large" color={C.primary} /></View>
+        <View style={styles.centred}><ActivityIndicator size="large" color={colors.info} /></View>
       ) : (
         <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
 
-          {/* ── Status card ───────────────────────────────────────────────── */}
           {sub && (
             <View style={[styles.statusCard, { backgroundColor: cfg.bg, borderColor: cfg.border }]}>
               <View style={styles.statusRow}>
@@ -274,7 +263,7 @@ export default function SubscriptionScreen({ navigation }) {
                     </Text>
                   )}
                   {status === 'active' && (
-                    <Text style={[styles.statusLine, { color: C.sub }]}>
+                    <Text style={[styles.statusLine, { color: colors.textSub }]}>
                       Active until {fmtDate(sub.endsAt)}
                       {sub.daysRemaining > 0 ? ` · ${sub.daysRemaining} day${sub.daysRemaining !== 1 ? 's' : ''} left` : ''}
                     </Text>
@@ -285,7 +274,7 @@ export default function SubscriptionScreen({ navigation }) {
                     </Text>
                   )}
                   {(status === 'expired' || status === 'cancelled') && (
-                    <Text style={[styles.statusLine, { color: C.sub }]}>
+                    <Text style={[styles.statusLine, { color: colors.textSub }]}>
                       Subscribe to appear in search and receive jobs
                     </Text>
                   )}
@@ -299,7 +288,6 @@ export default function SubscriptionScreen({ navigation }) {
             </View>
           )}
 
-          {/* ── Pending verification banner ───────────────────────────────── */}
           {pendingRef.current && !verifying && (
             <TouchableOpacity
               style={styles.pendingBanner}
@@ -315,52 +303,51 @@ export default function SubscriptionScreen({ navigation }) {
           )}
           {verifying && (
             <View style={styles.verifyingRow}>
-              <ActivityIndicator color={C.primary} size="small" />
+              <ActivityIndicator color={colors.info} size="small" />
               <Text style={styles.verifyingText}>Verifying payment…</Text>
             </View>
           )}
 
-          {/* ── Cycle selector ────────────────────────────────────────────── */}
           {(showCTA || showRenew) && (
             <>
               <Text style={styles.sectionLabel}>CHOOSE A PLAN</Text>
               <View style={styles.cycleWrap}>
                 {CYCLES.map((c) => {
                   const sel = selectedCycle === c.id;
+                  const accent = colors[c.accentKey];
                   return (
                     <TouchableOpacity
                       key={c.id}
-                      style={[styles.cycleCard, sel && { borderColor: c.accent, borderWidth: 2, backgroundColor: '#FAFEFF' }]}
+                      style={[styles.cycleCard, sel && { borderColor: accent, borderWidth: 2, backgroundColor: colors.surface }]}
                       onPress={() => setSelectedCycle(c.id)}
                       activeOpacity={0.8}
                     >
                       {c.badge && (
-                        <View style={[styles.cycleBadge, { backgroundColor: c.accent }]}>
+                        <View style={[styles.cycleBadge, { backgroundColor: accent }]}>
                           <Text style={styles.cycleBadgeText}>{c.badge}</Text>
                         </View>
                       )}
-                      <Text style={[styles.cycleLabel, sel && { color: c.accent }]}>{c.label}</Text>
+                      <Text style={[styles.cycleLabel, sel && { color: accent }]}>{c.label}</Text>
                       <View style={styles.cyclePriceRow}>
-                        <Text style={[styles.cycleCurrency, sel && { color: c.accent }]}>₦</Text>
-                        <Text style={[styles.cyclePrice, sel && { color: c.accent }]}>
+                        <Text style={[styles.cycleCurrency, sel && { color: accent }]}>₦</Text>
+                        <Text style={[styles.cyclePrice, sel && { color: accent }]}>
                           {c.price.toLocaleString('en-NG')}
                         </Text>
                       </View>
                       <Text style={styles.cycleBilling}>{c.billing}</Text>
                       {c.savings && (
-                        <View style={[styles.savingsPill, { backgroundColor: c.accent + '18' }]}>
-                          <Text style={[styles.savingsText, { color: c.accent }]}>{c.savings}</Text>
+                        <View style={[styles.savingsPill, { backgroundColor: accent + '18' }]}>
+                          <Text style={[styles.savingsText, { color: accent }]}>{c.savings}</Text>
                         </View>
                       )}
                       {sel && (
-                        <View style={[styles.selectedDot, { backgroundColor: c.accent }]} />
+                        <View style={[styles.selectedDot, { backgroundColor: accent }]} />
                       )}
                     </TouchableOpacity>
                   );
                 })}
               </View>
 
-              {/* Subscribe / Renew CTA */}
               <TouchableOpacity
                 style={[styles.subBtn, (subscribing || verifying) && { opacity: 0.6 }]}
                 onPress={handleSubscribe}
@@ -377,7 +364,6 @@ export default function SubscriptionScreen({ navigation }) {
             </>
           )}
 
-          {/* ── Pro features ──────────────────────────────────────────────── */}
           <Text style={styles.sectionLabel}>WHAT YOU GET</Text>
           <View style={styles.featuresCard}>
             {PRO_FEATURES.map((f, i) => (
@@ -388,7 +374,6 @@ export default function SubscriptionScreen({ navigation }) {
             ))}
           </View>
 
-          {/* ── Trial info ────────────────────────────────────────────────── */}
           {status === 'trial' && (
             <View style={styles.trialInfo}>
               <Text style={styles.trialInfoText}>
@@ -408,20 +393,18 @@ export default function SubscriptionScreen({ navigation }) {
   );
 }
 
-// ── Styles ────────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: C.bg },
+const makeStyles = (colors) => StyleSheet.create({
+  safe:   { flex: 1, backgroundColor: colors.surface },
   centred:{ flex: 1, justifyContent: 'center', alignItems: 'center' },
   scroll: { padding: 16, paddingBottom: 48 },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
-    backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border,
+    backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: C.text },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
 
-  /* Status card */
   statusCard: {
     borderRadius: 16, padding: 16, marginBottom: 16,
     borderWidth: 1.5,
@@ -435,39 +418,36 @@ const styles = StyleSheet.create({
   statusBadgeText: { color: '#fff', fontSize: 10, fontWeight: '800', letterSpacing: 0.6 },
   statusLine:      { fontSize: 13, lineHeight: 18 },
   cancelBtn: {
-    backgroundColor: '#FEE2E2', borderRadius: 20,
+    backgroundColor: colors.errorBg, borderRadius: 20,
     paddingHorizontal: 12, paddingVertical: 5, marginTop: 2,
   },
-  cancelBtnText: { color: C.red, fontSize: 12, fontWeight: '700' },
+  cancelBtnText: { color: colors.error, fontSize: 12, fontWeight: '700' },
 
-  /* Pending / verifying */
   pendingBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
-    backgroundColor: '#FFFBEB', borderRadius: 14, padding: 14,
-    marginBottom: 14, borderWidth: 1.5, borderColor: '#FCD34D',
+    backgroundColor: colors.warningBg, borderRadius: 14, padding: 14,
+    marginBottom: 14, borderWidth: 1.5, borderColor: colors.warning,
   },
   pendingIcon:  { fontSize: 24 },
-  pendingTitle: { fontSize: 14, fontWeight: '800', color: '#92400E', marginBottom: 3 },
-  pendingSub:   { fontSize: 12, color: '#78350F', lineHeight: 17 },
+  pendingTitle: { fontSize: 14, fontWeight: '800', color: colors.textSub, marginBottom: 3 },
+  pendingSub:   { fontSize: 12, color: colors.textSub, lineHeight: 17 },
   verifyingRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
-    backgroundColor: C.surface, borderRadius: 12, padding: 14, marginBottom: 14,
-    borderWidth: 1, borderColor: C.border,
+    backgroundColor: colors.card, borderRadius: 12, padding: 14, marginBottom: 14,
+    borderWidth: 1, borderColor: colors.border,
   },
-  verifyingText: { fontSize: 13, color: C.sub },
+  verifyingText: { fontSize: 13, color: colors.textSub },
 
-  /* Section label */
   sectionLabel: {
-    fontSize: 11, fontWeight: '800', color: C.muted,
+    fontSize: 11, fontWeight: '800', color: colors.textMuted,
     letterSpacing: 1.1, marginBottom: 10, marginTop: 4,
   },
 
-  /* Cycle selector */
   cycleWrap: { flexDirection: 'row', gap: 10, marginBottom: 16 },
   cycleCard: {
-    flex: 1, backgroundColor: C.surface, borderRadius: 14, padding: 12,
-    borderWidth: 1, borderColor: C.border, alignItems: 'center', position: 'relative',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    flex: 1, backgroundColor: colors.card, borderRadius: 14, padding: 12,
+    borderWidth: 1, borderColor: colors.border, alignItems: 'center', position: 'relative',
+    shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
   },
   cycleBadge: {
@@ -475,11 +455,11 @@ const styles = StyleSheet.create({
     borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2,
   },
   cycleBadgeText:  { color: '#fff', fontSize: 9, fontWeight: '800' },
-  cycleLabel:      { fontSize: 12, fontWeight: '700', color: C.sub, marginBottom: 6, marginTop: 6 },
+  cycleLabel:      { fontSize: 12, fontWeight: '700', color: colors.textSub, marginBottom: 6, marginTop: 6 },
   cyclePriceRow:   { flexDirection: 'row', alignItems: 'flex-end', gap: 1 },
-  cycleCurrency:   { fontSize: 13, fontWeight: '700', color: C.text, marginBottom: 2 },
-  cyclePrice:      { fontSize: 20, fontWeight: '900', color: C.text, lineHeight: 24 },
-  cycleBilling:    { fontSize: 10, color: C.muted, textAlign: 'center', marginTop: 4 },
+  cycleCurrency:   { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 2 },
+  cyclePrice:      { fontSize: 20, fontWeight: '900', color: colors.text, lineHeight: 24 },
+  cycleBilling:    { fontSize: 10, color: colors.textMuted, textAlign: 'center', marginTop: 4 },
   savingsPill: {
     borderRadius: 20, paddingHorizontal: 8, paddingVertical: 3, marginTop: 6,
   },
@@ -489,38 +469,34 @@ const styles = StyleSheet.create({
     width: 8, height: 8, borderRadius: 4,
   },
 
-  /* Subscribe button */
   subBtn: {
-    backgroundColor: C.primary, borderRadius: 14,
+    backgroundColor: colors.info, borderRadius: 14,
     paddingVertical: 16, alignItems: 'center', marginBottom: 24,
-    shadowColor: C.primary, shadowOffset: { width: 0, height: 4 },
+    shadowColor: colors.info, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3, shadowRadius: 8, elevation: 4,
   },
   subBtnText: { color: '#fff', fontSize: 16, fontWeight: '800' },
 
-  /* Features */
   featuresCard: {
-    backgroundColor: C.surface, borderRadius: 16, marginBottom: 16,
-    borderWidth: 1, borderColor: C.border, overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    backgroundColor: colors.card, borderRadius: 16, marginBottom: 16,
+    borderWidth: 1, borderColor: colors.border, overflow: 'hidden',
+    shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
   },
   featureRow:   { flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 16, paddingVertical: 13 },
-  featureBorder:{ borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
-  featureCheck: { fontSize: 14, fontWeight: '800', color: C.green },
-  featureText:  { flex: 1, fontSize: 14, color: C.sub, lineHeight: 19 },
+  featureBorder:{ borderBottomWidth: 1, borderBottomColor: colors.surface },
+  featureCheck: { fontSize: 14, fontWeight: '800', color: colors.success },
+  featureText:  { flex: 1, fontSize: 14, color: colors.textSub, lineHeight: 19 },
 
-  /* Trial info */
   trialInfo: {
-    backgroundColor: '#EFF6FF', borderRadius: 12, padding: 14,
-    marginBottom: 16, borderWidth: 1, borderColor: '#BFDBFE',
+    backgroundColor: colors.infoBg, borderRadius: 12, padding: 14,
+    marginBottom: 16, borderWidth: 1, borderColor: colors.info,
   },
-  trialInfoText: { fontSize: 13, color: '#1D4ED8', lineHeight: 19 },
+  trialInfoText: { fontSize: 13, color: colors.info, lineHeight: 19 },
 
-  /* Disclaimer */
   disclaimer: {
-    backgroundColor: C.surface, borderRadius: 10, padding: 14,
-    borderWidth: 1, borderColor: C.border,
+    backgroundColor: colors.card, borderRadius: 10, padding: 14,
+    borderWidth: 1, borderColor: colors.border,
   },
-  disclaimerText: { color: C.muted, fontSize: 12, lineHeight: 18, textAlign: 'center' },
+  disclaimerText: { color: colors.textMuted, fontSize: 12, lineHeight: 18, textAlign: 'center' },
 });

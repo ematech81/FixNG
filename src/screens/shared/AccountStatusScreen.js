@@ -6,6 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getOnboardingStatus } from '../../api/artisanApi';
 import { clearSession } from '../../utils/storage';
+import { useTheme } from '../../context/ThemeContext';
 
 const WHATSAPP_NUMBER = '2349011495230';
 const SUPPORT_EMAIL   = 'support@fixng.com';
@@ -15,6 +16,7 @@ const SUPPORT_EMAIL   = 'support@fixng.com';
 // Optional: route.params.reason (pre-supplied reason to skip fetch)
 
 export default function AccountStatusScreen({ route, navigation }) {
+  const { colors } = useTheme();
   const { type, reason: preReason } = route?.params || {};
   const [loading, setLoading]   = useState(!preReason);
   const [reason, setReason]     = useState(preReason || null);
@@ -52,15 +54,16 @@ export default function AccountStatusScreen({ route, navigation }) {
 
   const handleLogout = async () => {
     await clearSession();
-    // Navigate to root — AppNavigator will boot to Auth stack on next render
     navigation.reset({ index: 0, routes: [{ name: 'Auth' }] });
   };
+
+  const styles = makeStyles(colors);
 
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.center}>
-          <ActivityIndicator size="large" color="#DC2626" />
+          <ActivityIndicator size="large" color={colors.error} />
         </View>
       </SafeAreaView>
     );
@@ -205,67 +208,67 @@ export default function AccountStatusScreen({ route, navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container:     { flex: 1, backgroundColor: '#FFF9F9' },
-  containerGray: { backgroundColor: '#F9FAFB' },
+const makeStyles = (colors) => StyleSheet.create({
+  container:     { flex: 1, backgroundColor: colors.errorBg },
+  containerGray: { backgroundColor: colors.surface },
   center:        { flex: 1, justifyContent: 'center', alignItems: 'center' },
   scroll:        { padding: 24, paddingBottom: 48, alignItems: 'center' },
 
   iconBubble: {
     width: 96, height: 96, borderRadius: 48,
-    backgroundColor: '#FEE2E2', justifyContent: 'center', alignItems: 'center',
+    backgroundColor: colors.errorBg, justifyContent: 'center', alignItems: 'center',
     marginBottom: 24, marginTop: 16,
   },
-  iconBubbleAmber: { backgroundColor: '#FEF3C7' },
-  iconBubbleGray:  { backgroundColor: '#F3F4F6' },
+  iconBubbleAmber: { backgroundColor: colors.warningBg },
+  iconBubbleGray:  { backgroundColor: colors.borderLight },
   iconEmoji: { fontSize: 44 },
 
   title: {
-    fontSize: 24, fontWeight: '800', color: '#1E232C',
+    fontSize: 24, fontWeight: '800', color: colors.text,
     textAlign: 'center', marginBottom: 10,
   },
   subtitle: {
-    fontSize: 15, color: '#6B7280', textAlign: 'center',
+    fontSize: 15, color: colors.textSub, textAlign: 'center',
     lineHeight: 22, marginBottom: 24, paddingHorizontal: 8,
   },
 
   reasonCard: {
-    width: '100%', backgroundColor: '#FEF2F2', borderRadius: 14,
+    width: '100%', backgroundColor: colors.errorBg, borderRadius: 14,
     padding: 16, marginBottom: 20,
-    borderWidth: 1.5, borderColor: '#FECACA',
+    borderWidth: 1.5, borderColor: colors.error,
   },
-  reasonCardAmber: { backgroundColor: '#FFFBEB', borderColor: '#FDE68A' },
-  reasonCardGray:  { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' },
-  reasonLabel: { fontSize: 12, fontWeight: '800', color: '#DC2626', marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
-  reasonText:  { fontSize: 14, color: '#374151', lineHeight: 21 },
+  reasonCardAmber: { backgroundColor: colors.warningBg, borderColor: colors.warning },
+  reasonCardGray:  { backgroundColor: colors.borderLight, borderColor: colors.border },
+  reasonLabel: { fontSize: 12, fontWeight: '800', color: colors.error, marginBottom: 6, textTransform: 'uppercase', letterSpacing: 0.5 },
+  reasonText:  { fontSize: 14, color: colors.textSub, lineHeight: 21 },
 
   stepsCard: {
-    width: '100%', backgroundColor: '#FFF5F5', borderRadius: 14,
+    width: '100%', backgroundColor: colors.errorBg, borderRadius: 14,
     padding: 16, marginBottom: 28,
-    borderLeftWidth: 4, borderLeftColor: '#DC2626',
+    borderLeftWidth: 4, borderLeftColor: colors.error,
   },
-  stepsCardAmber: { backgroundColor: '#FFFBEB', borderLeftColor: '#D97706' },
-  stepsCardGray:  { backgroundColor: '#F9FAFB', borderLeftColor: '#6B7280' },
-  stepsTitle: { fontSize: 13, fontWeight: '800', color: '#DC2626', marginBottom: 10 },
-  stepItem:   { fontSize: 13, color: '#374151', lineHeight: 20, marginBottom: 5 },
+  stepsCardAmber: { backgroundColor: colors.warningBg, borderLeftColor: colors.warning },
+  stepsCardGray:  { backgroundColor: colors.surface, borderLeftColor: colors.textSub },
+  stepsTitle: { fontSize: 13, fontWeight: '800', color: colors.error, marginBottom: 10 },
+  stepItem:   { fontSize: 13, color: colors.textSub, lineHeight: 20, marginBottom: 5 },
 
   primaryBtn: {
-    width: '100%', backgroundColor: '#DC2626',
+    width: '100%', backgroundColor: colors.error,
     paddingVertical: 16, borderRadius: 14, alignItems: 'center', marginBottom: 12,
   },
-  primaryBtnAmber: { backgroundColor: '#D97706' },
-  primaryBtnGray:  { backgroundColor: '#374151' },
-  primaryBtnText: { color: '#FFF', fontWeight: '800', fontSize: 16 },
+  primaryBtnAmber: { backgroundColor: colors.warning },
+  primaryBtnGray:  { backgroundColor: colors.textSub },
+  primaryBtnText: { color: colors.card, fontWeight: '800', fontSize: 16 },
 
   secondaryBtn: {
-    width: '100%', borderWidth: 1.5, borderColor: '#E5E7EB',
+    width: '100%', borderWidth: 1.5, borderColor: colors.border,
     paddingVertical: 15, borderRadius: 14, alignItems: 'center', marginBottom: 12,
   },
-  secondaryBtnText: { fontSize: 15, fontWeight: '700', color: '#374151' },
+  secondaryBtnText: { fontSize: 15, fontWeight: '700', color: colors.textSub },
 
-  logoutBtn:     { borderColor: '#FECACA' },
-  logoutBtnText: { color: '#DC2626' },
+  logoutBtn:     { borderColor: colors.error },
+  logoutBtnText: { color: colors.error },
 
   backLink: { marginTop: 8, paddingVertical: 10 },
-  backLinkText: { fontSize: 14, color: '#9CA3AF', fontWeight: '600' },
+  backLinkText: { fontSize: 14, color: colors.textMuted, fontWeight: '600' },
 });

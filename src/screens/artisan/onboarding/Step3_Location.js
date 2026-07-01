@@ -15,8 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import * as Location from 'expo-location';
 import { updateLocation } from '../../../api/artisanApi';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
+import { useTheme } from '../../../context/ThemeContext';
 
-const PRIMARY = '#2563EB';
 const TOTAL_STEPS = 5;
 const CURRENT_STEP = 3;
 
@@ -29,6 +29,7 @@ const NIGERIAN_STATES = [
 ];
 
 export default function Step3_Location({ navigation }) {
+  const { colors } = useTheme();
   const { onCancelRegistration } = useOnboarding();
   const [coords, setCoords] = useState(null);
   const [address, setAddress] = useState('');
@@ -38,6 +39,8 @@ export default function Step3_Location({ navigation }) {
   const [saving, setSaving] = useState(false);
   const [gpsError, setGpsError] = useState(null);
   const [showStateDropdown, setShowStateDropdown] = useState(false);
+
+  const styles = makeStyles(colors);
 
   const detectLocation = async () => {
     setLocating(true);
@@ -143,7 +146,7 @@ export default function Step3_Location({ navigation }) {
     <SafeAreaView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
-          <ProgressBar current={CURRENT_STEP} total={TOTAL_STEPS} onCancel={onCancelRegistration ? handleCancel : null} />
+          <ProgressBar current={CURRENT_STEP} total={TOTAL_STEPS} onCancel={onCancelRegistration ? handleCancel : null} styles={styles} colors={colors} />
 
           <Text style={styles.title}>Your Location</Text>
           <Text style={styles.subtitle}>
@@ -154,7 +157,7 @@ export default function Step3_Location({ navigation }) {
           {/* GPS Detect Button */}
           <TouchableOpacity style={styles.gpsBtn} onPress={detectLocation} disabled={locating}>
             {locating ? (
-              <ActivityIndicator color={PRIMARY} />
+              <ActivityIndicator color={colors.info} />
             ) : (
               <>
                 <Text style={styles.gpsBtnIcon}>📍</Text>
@@ -223,7 +226,7 @@ export default function Step3_Location({ navigation }) {
             onPress={handleContinue}
             disabled={saving}
           >
-            {saving ? <ActivityIndicator color="#FFF" /> : <Text style={styles.continueBtnText}>Continue</Text>}
+            {saving ? <ActivityIndicator color={colors.card} /> : <Text style={styles.continueBtnText}>Continue</Text>}
           </TouchableOpacity>
         </View>
       </KeyboardAvoidingView>
@@ -231,7 +234,7 @@ export default function Step3_Location({ navigation }) {
   );
 }
 
-function ProgressBar({ current, total, onCancel }) {
+function ProgressBar({ current, total, onCancel, styles, colors }) {
   return (
     <View style={styles.progressContainer}>
       <View style={styles.progressTopRow}>
@@ -251,51 +254,51 @@ function ProgressBar({ current, total, onCancel }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF' },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.card },
   scroll: { padding: 24, paddingBottom: 40 },
   progressContainer: { marginBottom: 24 },
   progressTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  progressText: { fontSize: 13, color: '#999' },
-  cancelLink: { fontSize: 13, color: '#EF4444', fontWeight: '600' },
+  progressText: { fontSize: 13, color: colors.textMuted },
+  cancelLink: { fontSize: 13, color: colors.error, fontWeight: '600' },
   progressTrack: { flexDirection: 'row', gap: 6 },
-  progressSegment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#E5E5E5' },
-  progressSegmentActive: { backgroundColor: PRIMARY },
-  title: { fontSize: 24, fontWeight: '700', color: '#1A1A1A', marginBottom: 8 },
-  subtitle: { fontSize: 15, color: '#666', marginBottom: 24, lineHeight: 22 },
+  progressSegment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.border },
+  progressSegmentActive: { backgroundColor: colors.info },
+  title: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  subtitle: { fontSize: 15, color: colors.textSub, marginBottom: 24, lineHeight: 22 },
   gpsBtn: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-    padding: 14, borderRadius: 10, borderWidth: 1.5, borderColor: PRIMARY,
-    backgroundColor: '#EFF6FF', marginBottom: 10, minHeight: 50,
+    padding: 14, borderRadius: 10, borderWidth: 1.5, borderColor: colors.info,
+    backgroundColor: colors.infoBg, marginBottom: 10, minHeight: 50,
   },
   gpsBtnIcon: { fontSize: 18 },
-  gpsBtnText: { color: PRIMARY, fontWeight: '600', fontSize: 15 },
+  gpsBtnText: { color: colors.info, fontWeight: '600', fontSize: 15 },
   gpsSuccess: { color: '#22C55E', fontSize: 13, marginBottom: 6, fontWeight: '600' },
-  gpsError: { color: '#EF4444', fontSize: 13, marginBottom: 12, lineHeight: 18 },
-  orDivider: { textAlign: 'center', color: '#BBB', fontSize: 13, marginVertical: 16 },
-  label: { fontSize: 14, fontWeight: '600', color: '#333', marginBottom: 6 },
+  gpsError: { color: colors.error, fontSize: 13, marginBottom: 12, lineHeight: 18 },
+  orDivider: { textAlign: 'center', color: colors.textHint, fontSize: 13, marginVertical: 16 },
+  label: { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 6 },
   input: {
-    borderWidth: 1.5, borderColor: '#E5E5E5', borderRadius: 10,
-    padding: 13, fontSize: 15, color: '#1A1A1A',
-    marginBottom: 16, backgroundColor: '#FAFAFA',
+    borderWidth: 1.5, borderColor: colors.border, borderRadius: 10,
+    padding: 13, fontSize: 15, color: colors.text,
+    marginBottom: 16, backgroundColor: colors.surface,
   },
   dropdownTrigger: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    borderWidth: 1.5, borderColor: '#E5E5E5', borderRadius: 10,
-    padding: 13, marginBottom: 4, backgroundColor: '#FAFAFA',
+    borderWidth: 1.5, borderColor: colors.border, borderRadius: 10,
+    padding: 13, marginBottom: 4, backgroundColor: colors.surface,
   },
-  dropdownValue: { fontSize: 15, color: '#1A1A1A' },
+  dropdownValue: { fontSize: 15, color: colors.text },
   dropdownPlaceholder: { fontSize: 15, color: '#AAA' },
-  dropdownArrow: { color: '#999', fontSize: 12 },
+  dropdownArrow: { color: colors.textMuted, fontSize: 12 },
   dropdown: {
-    borderWidth: 1, borderColor: '#E5E5E5', borderRadius: 10,
-    backgroundColor: '#FFF', marginBottom: 16, overflow: 'hidden', elevation: 4,
+    borderWidth: 1, borderColor: colors.border, borderRadius: 10,
+    backgroundColor: colors.card, marginBottom: 16, overflow: 'hidden', elevation: 4,
   },
-  dropdownItem: { padding: 13, borderBottomWidth: 1, borderBottomColor: '#F0F0F0' },
+  dropdownItem: { padding: 13, borderBottomWidth: 1, borderBottomColor: colors.borderLight },
   dropdownItemText: { fontSize: 15, color: '#444' },
-  dropdownItemActive: { color: PRIMARY, fontWeight: '700' },
+  dropdownItemActive: { color: colors.info, fontWeight: '700' },
   footer: { padding: 24, paddingTop: 0 },
-  continueBtn: { backgroundColor: PRIMARY, padding: 16, borderRadius: 12, alignItems: 'center' },
-  continueBtnDisabled: { backgroundColor: '#93C5FD' },
-  continueBtnText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
+  continueBtn: { backgroundColor: colors.info, padding: 16, borderRadius: 12, alignItems: 'center' },
+  continueBtnDisabled: { backgroundColor: colors.infoBg },
+  continueBtnText: { color: colors.card, fontWeight: '700', fontSize: 16 },
 });

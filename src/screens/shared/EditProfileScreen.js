@@ -11,10 +11,10 @@ import { getUser, saveUser } from '../../utils/storage';
 import { getOnboardingStatus, getSkillsList } from '../../api/artisanApi';
 import { updateUserProfile, updateArtisanProfile } from '../../api/profileApi';
 import { uploadImageToCloudinary } from '../../utils/cloudinaryUpload';
-
-const PRIMARY = '#2563EB';
+import { useTheme } from '../../context/ThemeContext';
 
 export default function EditProfileScreen({ navigation }) {
+  const { colors } = useTheme();
   const insets = useSafeAreaInsets();
 
   // Shared state
@@ -33,7 +33,7 @@ export default function EditProfileScreen({ navigation }) {
   const [allSkills, setAllSkills]     = useState([]);
   const [showSkillPicker, setShowSkillPicker] = useState(false);
   const [locationFields, setLocationFields] = useState({ address: '', state: '', lga: '' });
-  const [locationCoords, setLocationCoords] = useState(null); // existing GPS [lng, lat]
+  const [locationCoords, setLocationCoords] = useState(null);
   const [existingPhotoUrl, setExistingPhotoUrl] = useState(null);
   const [newPhotoUri, setNewPhotoUri] = useState(null);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
@@ -118,7 +118,6 @@ export default function EditProfileScreen({ navigation }) {
 
     setSaving(true);
     try {
-      // 1. Upload new photo if selected
       let photoData = null;
       if (newPhotoUri) {
         setUploadingPhoto(true);
@@ -126,14 +125,12 @@ export default function EditProfileScreen({ navigation }) {
         setUploadingPhoto(false);
       }
 
-      // 2. Update user (name, email)
       const userRes = await updateUserProfile({
         name: name.trim(),
         email: email.trim() || undefined,
       });
       const updatedUser = userRes.data.data;
 
-      // 3. Update artisan profile
       if (isArtisan) {
         const artisanPayload = {
           bio: bio.trim(),
@@ -159,7 +156,6 @@ export default function EditProfileScreen({ navigation }) {
         await updateArtisanProfile(artisanPayload);
       }
 
-      // 4. Sync local storage so ProfileScreen reflects changes immediately
       await saveUser({ ...user, ...updatedUser });
 
       Alert.alert('Profile updated', 'Your changes have been saved.', [
@@ -174,15 +170,16 @@ export default function EditProfileScreen({ navigation }) {
     }
   };
 
-  /* ── Photo display: new pick > existing > initials ── */
   const displayPhotoUri = newPhotoUri || existingPhotoUrl;
   const initial = (name || 'U')[0].toUpperCase();
+
+  const styles = makeStyles(colors);
 
   if (loading) {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={PRIMARY} />
+          <ActivityIndicator size="large" color={colors.info} />
         </View>
       </SafeAreaView>
     );
@@ -190,7 +187,7 @@ export default function EditProfileScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
-      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+      <StatusBar barStyle="dark-content" backgroundColor={colors.card} />
 
       {/* ── Header ── */}
       <View style={styles.header}>
@@ -200,7 +197,7 @@ export default function EditProfileScreen({ navigation }) {
         <Text style={styles.headerTitle}>Edit Profile</Text>
         <TouchableOpacity onPress={handleSave} disabled={saving} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
           {saving
-            ? <ActivityIndicator size="small" color={PRIMARY} />
+            ? <ActivityIndicator size="small" color={colors.info} />
             : <Text style={styles.headerSave}>Save</Text>}
         </TouchableOpacity>
       </View>
@@ -223,7 +220,7 @@ export default function EditProfileScreen({ navigation }) {
                     : <Text style={styles.avatarInitial}>{initial}</Text>}
                   {uploadingPhoto && (
                     <View style={styles.photoOverlay}>
-                      <ActivityIndicator color="#fff" />
+                      <ActivityIndicator color={colors.card} />
                     </View>
                   )}
                 </View>
@@ -248,25 +245,25 @@ export default function EditProfileScreen({ navigation }) {
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>BASIC INFO</Text>
             <View style={styles.card}>
-              <FieldRow label="Full Name" required>
+              <FieldRow label="Full Name" required colors={colors} styles={styles}>
                 <TextInput
                   style={styles.input}
                   value={name}
                   onChangeText={setName}
                   placeholder="Your full name"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={colors.textMuted}
                   autoCapitalize="words"
                   returnKeyType="next"
                 />
               </FieldRow>
               <View style={styles.divider} />
-              <FieldRow label="Email" note="Optional">
+              <FieldRow label="Email" note="Optional" colors={colors} styles={styles}>
                 <TextInput
                   style={styles.input}
                   value={email}
                   onChangeText={setEmail}
                   placeholder="your@email.com"
-                  placeholderTextColor="#94A3B8"
+                  placeholderTextColor={colors.textMuted}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   returnKeyType="done"
@@ -286,7 +283,7 @@ export default function EditProfileScreen({ navigation }) {
                     value={bio}
                     onChangeText={t => setBio(t.slice(0, 300))}
                     placeholder="Tell customers a bit about yourself, your experience and what makes you great at your craft..."
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={colors.textMuted}
                     multiline
                     numberOfLines={4}
                     textAlignVertical="top"
@@ -334,36 +331,36 @@ export default function EditProfileScreen({ navigation }) {
             <View style={styles.section}>
               <Text style={styles.sectionLabel}>SERVICE LOCATION</Text>
               <View style={styles.card}>
-                <FieldRow label="Address">
+                <FieldRow label="Address" colors={colors} styles={styles}>
                   <TextInput
                     style={styles.input}
                     value={locationFields.address}
                     onChangeText={v => setLocationFields(p => ({ ...p, address: v }))}
                     placeholder="Street address or area"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={colors.textMuted}
                     returnKeyType="next"
                   />
                 </FieldRow>
                 <View style={styles.divider} />
-                <FieldRow label="State" required>
+                <FieldRow label="State" required colors={colors} styles={styles}>
                   <TextInput
                     style={styles.input}
                     value={locationFields.state}
                     onChangeText={v => setLocationFields(p => ({ ...p, state: v }))}
                     placeholder="e.g. Lagos"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={colors.textMuted}
                     autoCapitalize="words"
                     returnKeyType="next"
                   />
                 </FieldRow>
                 <View style={styles.divider} />
-                <FieldRow label="LGA">
+                <FieldRow label="LGA" colors={colors} styles={styles}>
                   <TextInput
                     style={styles.input}
                     value={locationFields.lga}
                     onChangeText={v => setLocationFields(p => ({ ...p, lga: v }))}
                     placeholder="Local Government Area"
-                    placeholderTextColor="#94A3B8"
+                    placeholderTextColor={colors.textMuted}
                     autoCapitalize="words"
                     returnKeyType="done"
                   />
@@ -423,7 +420,7 @@ export default function EditProfileScreen({ navigation }) {
   );
 }
 
-function FieldRow({ label, required, note, children }) {
+function FieldRow({ label, required, note, children, colors, styles }) {
   return (
     <View style={styles.fieldRow}>
       <View style={styles.fieldLabelWrap}>
@@ -436,113 +433,113 @@ function FieldRow({ label, required, note, children }) {
   );
 }
 
-const styles = StyleSheet.create({
-  safe:             { flex: 1, backgroundColor: '#F1F5F9' },
+const makeStyles = (colors) => StyleSheet.create({
+  safe:             { flex: 1, backgroundColor: colors.surface },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
   /* Header */
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 14,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1, borderBottomColor: '#E2E8F0',
+    backgroundColor: colors.card,
+    borderBottomWidth: 1, borderBottomColor: colors.borderInput,
   },
-  headerBack:  { fontSize: 15, color: PRIMARY, fontWeight: '600' },
-  headerTitle: { fontSize: 16, fontWeight: '800', color: '#0F172A' },
-  headerSave:  { fontSize: 15, color: PRIMARY, fontWeight: '800' },
+  headerBack:  { fontSize: 15, color: colors.info, fontWeight: '600' },
+  headerTitle: { fontSize: 16, fontWeight: '800', color: colors.text },
+  headerSave:  { fontSize: 15, color: colors.info, fontWeight: '800' },
 
   scroll: { paddingTop: 20 },
 
   /* Section */
   section:       { marginHorizontal: 16, marginBottom: 20 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8 },
-  sectionLabel:  { fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1.1, marginBottom: 8 },
-  sectionMeta:   { fontSize: 12, color: '#94A3B8', fontWeight: '600' },
+  sectionLabel:  { fontSize: 11, fontWeight: '800', color: colors.textMuted, letterSpacing: 1.1, marginBottom: 8 },
+  sectionMeta:   { fontSize: 12, color: colors.textMuted, fontWeight: '600' },
 
   /* Card */
   card: {
-    backgroundColor: '#fff', borderRadius: 16,
-    shadowColor: '#64748B', shadowOffset: { width: 0, height: 2 },
+    backgroundColor: colors.card, borderRadius: 16,
+    shadowColor: colors.textSub, shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
     overflow: 'hidden',
   },
 
   /* Photo */
-  photoRow:    { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', borderRadius: 16, padding: 16,
-    shadowColor: '#64748B', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
-  avatarWrap:  { width: 80, height: 80, borderRadius: 40, backgroundColor: '#C7D2FE', justifyContent: 'center', alignItems: 'center', overflow: 'hidden', borderWidth: 2, borderColor: '#BFDBFE' },
+  photoRow:    { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, borderRadius: 16, padding: 16,
+    shadowColor: colors.textSub, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 8, elevation: 2 },
+  avatarWrap:  { width: 80, height: 80, borderRadius: 40, backgroundColor: colors.infoBg, justifyContent: 'center', alignItems: 'center', overflow: 'hidden', borderWidth: 2, borderColor: colors.info },
   avatarImg:   { width: 80, height: 80, borderRadius: 40 },
-  avatarInitial: { fontSize: 32, fontWeight: '900', color: PRIMARY },
-  photoOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center' },
+  avatarInitial: { fontSize: 32, fontWeight: '900', color: colors.info },
+  photoOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: colors.overlay, justifyContent: 'center', alignItems: 'center' },
   photoActions:  { flex: 1, marginLeft: 16, gap: 8 },
-  photoHint:     { fontSize: 12, color: '#94A3B8' },
-  changePhotoBtn:{ backgroundColor: PRIMARY, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, alignSelf: 'flex-start' },
-  changePhotoBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  removePhotoText: { fontSize: 12, color: '#EF4444', fontWeight: '600' },
+  photoHint:     { fontSize: 12, color: colors.textMuted },
+  changePhotoBtn:{ backgroundColor: colors.info, borderRadius: 10, paddingHorizontal: 14, paddingVertical: 9, alignSelf: 'flex-start' },
+  changePhotoBtnText: { color: colors.card, fontSize: 13, fontWeight: '700' },
+  removePhotoText: { fontSize: 12, color: colors.error, fontWeight: '600' },
 
   /* Field rows */
   fieldRow:      { paddingHorizontal: 16, paddingVertical: 14 },
   fieldLabelWrap:{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  fieldLabel:    { fontSize: 12, fontWeight: '700', color: '#64748B', textTransform: 'uppercase', letterSpacing: 0.5 },
-  fieldRequired: { fontSize: 12, color: '#EF4444', fontWeight: '700' },
-  fieldNote:     { fontSize: 12, color: '#94A3B8' },
+  fieldLabel:    { fontSize: 12, fontWeight: '700', color: colors.textSub, textTransform: 'uppercase', letterSpacing: 0.5 },
+  fieldRequired: { fontSize: 12, color: colors.error, fontWeight: '700' },
+  fieldNote:     { fontSize: 12, color: colors.textMuted },
   input: {
-    fontSize: 15, color: '#0F172A', fontWeight: '500',
-    borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10,
+    fontSize: 15, color: colors.text, fontWeight: '500',
+    borderWidth: 1, borderColor: colors.borderInput, borderRadius: 10,
     paddingHorizontal: 12, paddingVertical: 10,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.inputBg,
   },
-  divider: { height: 1, backgroundColor: '#F1F5F9', marginHorizontal: 16 },
+  divider: { height: 1, backgroundColor: colors.surface, marginHorizontal: 16 },
 
   /* Bio */
   bioRow:   { padding: 16 },
   bioInput: {
-    fontSize: 14, color: '#0F172A', lineHeight: 20,
-    borderWidth: 1, borderColor: '#E2E8F0', borderRadius: 10,
-    padding: 12, backgroundColor: '#F8FAFC',
+    fontSize: 14, color: colors.text, lineHeight: 20,
+    borderWidth: 1, borderColor: colors.borderInput, borderRadius: 10,
+    padding: 12, backgroundColor: colors.inputBg,
     minHeight: 100,
   },
-  bioCount: { fontSize: 11, color: '#94A3B8', textAlign: 'right', marginTop: 6 },
+  bioCount: { fontSize: 11, color: colors.textMuted, textAlign: 'right', marginTop: 6 },
 
   /* Skills */
   chipRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, paddingHorizontal: 16, paddingTop: 16, paddingBottom: 8 },
   skillChip: {
-    backgroundColor: '#EFF6FF', borderRadius: 20,
+    backgroundColor: colors.infoBg, borderRadius: 20,
     paddingHorizontal: 12, paddingVertical: 6,
-    borderWidth: 1, borderColor: '#BFDBFE',
+    borderWidth: 1, borderColor: colors.info,
   },
-  skillChipText: { fontSize: 13, fontWeight: '700', color: PRIMARY },
-  emptySkills: { fontSize: 14, color: '#94A3B8', padding: 16 },
+  skillChipText: { fontSize: 13, fontWeight: '700', color: colors.info },
+  emptySkills: { fontSize: 14, color: colors.textMuted, padding: 16 },
   editSkillsBtn: {
     marginHorizontal: 16, marginBottom: 14, marginTop: 8,
-    borderWidth: 1.5, borderColor: PRIMARY, borderRadius: 10,
+    borderWidth: 1.5, borderColor: colors.info, borderRadius: 10,
     paddingVertical: 10, alignItems: 'center',
   },
-  editSkillsBtnText: { fontSize: 14, fontWeight: '700', color: PRIMARY },
+  editSkillsBtnText: { fontSize: 14, fontWeight: '700', color: colors.info },
 
   /* Location note */
-  locationNote: { fontSize: 12, color: '#94A3B8', marginTop: 8, lineHeight: 17 },
+  locationNote: { fontSize: 12, color: colors.textMuted, marginTop: 8, lineHeight: 17 },
 
   /* Skills Modal */
-  modalSafe:   { flex: 1, backgroundColor: '#fff' },
+  modalSafe:   { flex: 1, backgroundColor: colors.card },
   modalHeader: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 20, paddingVertical: 16,
-    borderBottomWidth: 1, borderBottomColor: '#F1F5F9',
+    borderBottomWidth: 1, borderBottomColor: colors.surface,
   },
-  modalTitle:  { fontSize: 17, fontWeight: '800', color: '#0F172A' },
-  modalDone:   { fontSize: 15, fontWeight: '800', color: PRIMARY },
-  modalSub:    { fontSize: 13, color: '#64748B', paddingHorizontal: 20, paddingTop: 10 },
+  modalTitle:  { fontSize: 17, fontWeight: '800', color: colors.text },
+  modalDone:   { fontSize: 15, fontWeight: '800', color: colors.info },
+  modalSub:    { fontSize: 13, color: colors.textSub, paddingHorizontal: 20, paddingTop: 10 },
   modalScroll: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 40 },
   skillGrid:   { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   skillOption: {
     flexDirection: 'row', alignItems: 'center',
-    borderWidth: 1.5, borderColor: '#E2E8F0', borderRadius: 24,
+    borderWidth: 1.5, borderColor: colors.borderInput, borderRadius: 24,
     paddingHorizontal: 14, paddingVertical: 8,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: colors.inputBg,
   },
-  skillOptionSelected: { borderColor: PRIMARY, backgroundColor: '#EFF6FF' },
-  skillOptionText:     { fontSize: 14, fontWeight: '600', color: '#475569' },
-  skillOptionTextSelected: { color: PRIMARY, fontWeight: '700' },
-  skillCheck:  { fontSize: 12, color: PRIMARY, fontWeight: '900' },
+  skillOptionSelected: { borderColor: colors.info, backgroundColor: colors.infoBg },
+  skillOptionText:     { fontSize: 14, fontWeight: '600', color: colors.textSub },
+  skillOptionTextSelected: { color: colors.info, fontWeight: '700' },
+  skillCheck:  { fontSize: 12, color: colors.info, fontWeight: '900' },
 });

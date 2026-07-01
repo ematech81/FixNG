@@ -15,8 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { ARTISAN_SKILLS } from '../../../constants/skills';
 import { updateSkills, updateBio, saveDispatchInfo } from '../../../api/artisanApi';
 import { useOnboarding } from '../../../contexts/OnboardingContext';
+import { useTheme } from '../../../context/ThemeContext';
 
-const PRIMARY = '#2563EB';
 const MAX_SKILLS = 5;
 const TOTAL_STEPS = 5;
 const CURRENT_STEP = 2;
@@ -30,6 +30,7 @@ const validatePlate = (plate) => {
 };
 
 export default function Step2_Skills({ navigation }) {
+  const { colors } = useTheme();
   const { onCancelRegistration } = useOnboarding();
   const [selectedSkills, setSelectedSkills] = useState([]);
   const [othersText, setOthersText] = useState('');
@@ -45,6 +46,8 @@ export default function Step2_Skills({ navigation }) {
   const [plateError, setPlateError]               = useState('');
   const [hasHelmet, setHasHelmet]                 = useState(false);
   const [providesPackaging, setProvidesPackaging] = useState(false);
+
+  const styles = makeStyles(colors);
 
   const isDispatchRider = selectedSkills.includes('Dispatch Rider');
 
@@ -152,6 +155,8 @@ export default function Step2_Skills({ navigation }) {
             current={CURRENT_STEP}
             total={TOTAL_STEPS}
             onCancel={onCancelRegistration ? handleCancel : null}
+            styles={styles}
+            colors={colors}
           />
 
           <Text style={styles.title}>Your Skills</Text>
@@ -309,7 +314,7 @@ export default function Step2_Skills({ navigation }) {
             disabled={selectedSkills.length === 0 || saving}
           >
             {saving ? (
-              <ActivityIndicator color="#FFF" />
+              <ActivityIndicator color={colors.card} />
             ) : (
               <Text style={styles.continueBtnText}>Continue</Text>
             )}
@@ -320,7 +325,7 @@ export default function Step2_Skills({ navigation }) {
   );
 }
 
-function ProgressBar({ current, total, onCancel }) {
+function ProgressBar({ current, total, onCancel, styles, colors }) {
   return (
     <View style={styles.progressContainer}>
       <View style={styles.progressTopRow}>
@@ -343,55 +348,55 @@ function ProgressBar({ current, total, onCancel }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#FFF' },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.card },
   scroll: { padding: 24, paddingBottom: 20 },
 
   progressContainer: { marginBottom: 24 },
   progressTopRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  progressText: { fontSize: 13, color: '#999' },
-  cancelLink: { fontSize: 13, color: '#EF4444', fontWeight: '600' },
+  progressText: { fontSize: 13, color: colors.textMuted },
+  cancelLink: { fontSize: 13, color: colors.error, fontWeight: '600' },
   progressTrack: { flexDirection: 'row', gap: 6 },
-  progressSegment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: '#E5E5E5' },
-  progressSegmentActive: { backgroundColor: PRIMARY },
+  progressSegment: { flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.border },
+  progressSegmentActive: { backgroundColor: colors.info },
 
-  title: { fontSize: 24, fontWeight: '700', color: '#1A1A1A', marginBottom: 8 },
-  subtitle: { fontSize: 15, color: '#666', marginBottom: 8, lineHeight: 22 },
-  selected: { fontSize: 13, color: PRIMARY, fontWeight: '600', marginBottom: 20 },
+  title: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  subtitle: { fontSize: 15, color: colors.textSub, marginBottom: 8, lineHeight: 22 },
+  selected: { fontSize: 13, color: colors.info, fontWeight: '600', marginBottom: 20 },
 
   skillsGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 },
   skillChip: {
     paddingHorizontal: 14, paddingVertical: 10, borderRadius: 20,
-    borderWidth: 1.5, borderColor: '#E5E5E5', backgroundColor: '#FAFAFA',
+    borderWidth: 1.5, borderColor: colors.border, backgroundColor: colors.surface,
   },
-  skillChipSelected: { borderColor: PRIMARY, backgroundColor: '#EFF6FF' },
+  skillChipSelected: { borderColor: colors.info, backgroundColor: colors.infoBg },
   skillChipText: { fontSize: 14, color: '#444' },
-  skillChipTextSelected: { color: PRIMARY, fontWeight: '600' },
+  skillChipTextSelected: { color: colors.info, fontWeight: '600' },
 
   othersBox: {
-    backgroundColor: '#EFF6FF',
+    backgroundColor: colors.infoBg,
     borderRadius: 12,
     padding: 14,
     marginBottom: 16,
     borderWidth: 1.5,
-    borderColor: PRIMARY,
+    borderColor: colors.info,
   },
-  othersLabel: { fontSize: 13, fontWeight: '700', color: PRIMARY, marginBottom: 8 },
+  othersLabel: { fontSize: 13, fontWeight: '700', color: colors.info, marginBottom: 8 },
   othersInput: {
-    backgroundColor: '#FFF',
-    borderWidth: 1, borderColor: '#BFDBFE',
+    backgroundColor: colors.card,
+    borderWidth: 1, borderColor: colors.infoBg,
     borderRadius: 8,
     paddingHorizontal: 12, paddingVertical: 10,
-    fontSize: 15, color: '#1A1A1A',
+    fontSize: 15, color: colors.text,
   },
 
-  previewBox: { backgroundColor: '#F9F9F9', borderRadius: 10, padding: 16, marginBottom: 24 },
-  previewTitle: { fontSize: 13, fontWeight: '700', color: '#333', marginBottom: 8 },
-  previewItem: { fontSize: 14, color: '#555', marginBottom: 4 },
+  previewBox: { backgroundColor: colors.surface, borderRadius: 10, padding: 16, marginBottom: 24 },
+  previewTitle: { fontSize: 13, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  previewItem: { fontSize: 14, color: colors.textSub, marginBottom: 4 },
 
   // Dispatch rider
   dispatchBox: {
-    backgroundColor: '#FFF7ED', borderRadius: 14, padding: 16,
+    backgroundColor: colors.primaryLight, borderRadius: 14, padding: 16,
     marginBottom: 20, borderWidth: 1.5, borderColor: '#FED7AA',
   },
   dispatchHeader:   { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12 },
@@ -399,49 +404,49 @@ const styles = StyleSheet.create({
   dispatchTitle:    { fontSize: 15, fontWeight: '800', color: '#92400E', marginBottom: 2 },
   dispatchSubtitle: { fontSize: 13, color: '#B45309', lineHeight: 18 },
   dispatchTip: {
-    backgroundColor: '#FFFBEB', borderRadius: 8, padding: 12,
+    backgroundColor: colors.warningBg, borderRadius: 8, padding: 12,
     marginBottom: 16, borderWidth: 1, borderColor: '#FDE68A',
   },
   dispatchTipText: { fontSize: 13, color: '#92400E', lineHeight: 18 },
-  dispatchLabel:   { fontSize: 14, fontWeight: '700', color: '#1A1A1A', marginBottom: 8 },
-  required:        { color: '#EF4444' },
+  dispatchLabel:   { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  required:        { color: colors.error },
   vehicleRow:      { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
   vehicleChip: {
     paddingHorizontal: 14, paddingVertical: 9, borderRadius: 20,
-    borderWidth: 1.5, borderColor: '#D1D5DB', backgroundColor: '#FFF',
+    borderWidth: 1.5, borderColor: colors.textHint, backgroundColor: colors.card,
   },
-  vehicleChipSelected: { borderColor: '#EA580C', backgroundColor: '#FFF7ED' },
+  vehicleChipSelected: { borderColor: colors.primaryDark, backgroundColor: colors.primaryLight },
   vehicleChipText:     { fontSize: 14, color: '#374151' },
-  vehicleChipTextSelected: { color: '#EA580C', fontWeight: '700' },
+  vehicleChipTextSelected: { color: colors.primaryDark, fontWeight: '700' },
   plateInput: {
-    backgroundColor: '#FFF', borderWidth: 1.5, borderColor: '#D1D5DB',
+    backgroundColor: colors.card, borderWidth: 1.5, borderColor: colors.textHint,
     borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
-    fontSize: 15, color: '#1A1A1A', marginBottom: 6,
+    fontSize: 15, color: colors.text, marginBottom: 6,
     letterSpacing: 1,
   },
-  plateInputError:  { borderColor: '#EF4444' },
-  plateErrorText:   { fontSize: 12, color: '#EF4444', marginBottom: 12 },
+  plateInputError:  { borderColor: colors.error },
+  plateErrorText:   { fontSize: 12, color: colors.error, marginBottom: 12 },
   toggleRow:        { flexDirection: 'row', gap: 10, marginTop: 8 },
   toggleChip: {
     flex: 1, paddingVertical: 10, borderRadius: 10,
-    borderWidth: 1.5, borderColor: '#D1D5DB', backgroundColor: '#FFF',
+    borderWidth: 1.5, borderColor: colors.textHint, backgroundColor: colors.card,
     alignItems: 'center',
   },
-  toggleChipOn:     { borderColor: '#16A34A', backgroundColor: '#F0FDF4' },
+  toggleChipOn:     { borderColor: colors.success, backgroundColor: colors.successBg },
   toggleChipText:   { fontSize: 13, fontWeight: '600', color: '#374151' },
 
-  bioLabel: { fontSize: 15, fontWeight: '700', color: '#1A1A1A', marginTop: 4, marginBottom: 6 },
-  bioOptional: { fontSize: 13, fontWeight: '400', color: '#9CA3AF' },
-  bioHint: { fontSize: 13, color: '#666', marginBottom: 10, lineHeight: 18 },
+  bioLabel: { fontSize: 15, fontWeight: '700', color: colors.text, marginTop: 4, marginBottom: 6 },
+  bioOptional: { fontSize: 13, fontWeight: '400', color: colors.textMuted },
+  bioHint: { fontSize: 13, color: colors.textSub, marginBottom: 10, lineHeight: 18 },
   bioInput: {
-    borderWidth: 1.5, borderColor: '#E5E5E5', borderRadius: 10,
-    padding: 13, fontSize: 15, color: '#1A1A1A',
-    backgroundColor: '#FAFAFA', minHeight: 100,
+    borderWidth: 1.5, borderColor: colors.border, borderRadius: 10,
+    padding: 13, fontSize: 15, color: colors.text,
+    backgroundColor: colors.surface, minHeight: 100,
   },
-  bioCount: { fontSize: 12, color: '#9CA3AF', textAlign: 'right', marginTop: 4, marginBottom: 8 },
+  bioCount: { fontSize: 12, color: colors.textMuted, textAlign: 'right', marginTop: 4, marginBottom: 8 },
 
   footer: { paddingHorizontal: 24, paddingVertical: 16 },
-  continueBtn: { backgroundColor: PRIMARY, padding: 16, borderRadius: 12, alignItems: 'center' },
-  continueBtnDisabled: { backgroundColor: '#93C5FD' },
-  continueBtnText: { color: '#FFF', fontWeight: '700', fontSize: 16 },
+  continueBtn: { backgroundColor: colors.info, padding: 16, borderRadius: 12, alignItems: 'center' },
+  continueBtnDisabled: { backgroundColor: colors.infoBg },
+  continueBtnText: { color: colors.card, fontWeight: '700', fontSize: 16 },
 });

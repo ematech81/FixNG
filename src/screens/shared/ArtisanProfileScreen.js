@@ -8,31 +8,7 @@ import * as Clipboard from 'expo-clipboard';
 import { getArtisanProfile, getArtisanReviews } from '../../api/discoveryApi';
 import { getUser } from '../../utils/storage';
 import BackButton from '../../components/BackButton';
-
-// ── Design Tokens ──────────────────────────────────────────────────────────────
-const COLORS = {
-  primary:        '#2563EB',
-  primaryLight:   '#EFF6FF',
-  primaryMid:     '#BFDBFE',
-  primaryDark:    '#1D4ED8',
-  accent:         '#0EA5E9',
-  surface:        '#FFFFFF',
-  background:     '#F8FAFF',
-  textPrimary:    '#0F172A',
-  textSecondary:  '#64748B',
-  textMuted:      '#94A3B8',
-  divider:        '#F1F5F9',
-  shadow:         '#1E40AF',
-  green:          '#16A34A',
-  greenLight:     '#F0FDF4',
-  greenMid:       '#BBF7D0',
-  amber:          '#D97706',
-  amberLight:     '#FFFBEB',
-  amberMid:       '#FDE68A',
-  gold:           '#F59E0B',
-  grey:           '#6B7280',
-  greyLight:      '#F3F4F6',
-};
+import { useTheme } from '../../context/ThemeContext';
 
 const { width: SCREEN_W } = Dimensions.get('window');
 
@@ -73,6 +49,7 @@ function normaliseDummyProfile(d) {
 // MAIN SCREEN
 // ══════════════════════════════════════════════════════════════════════════════
 export default function ArtisanProfileScreen({ route, navigation }) {
+  const { colors } = useTheme();
   const { artisanId, _dummyProfile } = route.params;
 
   const [profile, setProfile] = useState(
@@ -120,6 +97,7 @@ export default function ArtisanProfileScreen({ route, navigation }) {
       setLoadingReviews(false);
     }
   };
+
   const handleCopyCode = async (code) => {
     await Clipboard.setStringAsync(code);
     setCodeCopied(true);
@@ -127,12 +105,14 @@ export default function ArtisanProfileScreen({ route, navigation }) {
   };
   // ── End of original logic ───────────────────────────────────────────────────
 
+  const styles = makeStyles(colors);
+
   // ── Loading screen ──────────────────────────────────────────────────────────
   if (loading) {
     return (
       <SafeAreaView style={styles.loaderScreen}>
         <View style={styles.loaderCard}>
-          <ActivityIndicator size="large" color={COLORS.primary} />
+          <ActivityIndicator size="large" color={colors.info} />
           <Text style={styles.loaderText}>Loading profile...</Text>
         </View>
       </SafeAreaView>
@@ -151,8 +131,8 @@ export default function ArtisanProfileScreen({ route, navigation }) {
   const isSelf       = !isDummy && !!currentUserId && currentUserId === artisanId;
 
   // ── Badge config ────────────────────────────────────────────────────────────
-  const badgeColor = isTrusted ? COLORS.amber : COLORS.green;
-  const badgeBg    = isTrusted ? COLORS.amberLight : COLORS.greenLight;
+  const badgeColor = isTrusted ? colors.warning : colors.success;
+  const badgeBg    = isTrusted ? colors.warningBg : colors.successBg;
   const badgeLabel = isTrusted ? '⭐  Trusted' : '✓  Verified';
 
   return (
@@ -175,7 +155,6 @@ export default function ArtisanProfileScreen({ route, navigation }) {
           <Text style={styles.topBarTitle}>FixNG</Text>
         </View>
 
-        {/* Spacer to balance layout */}
         <View style={styles.backBtn} />
       </View>
 
@@ -189,7 +168,6 @@ export default function ArtisanProfileScreen({ route, navigation }) {
         ════════════════════════════════════════ */}
         <View style={styles.heroCard}>
 
-          {/* Coloured header strip — gold for Trusted artisans */}
           <View style={[styles.heroStrip, profile.isPro && styles.heroStripTrusted]} />
 
           {/* Avatar */}
@@ -209,7 +187,6 @@ export default function ArtisanProfileScreen({ route, navigation }) {
               )}
             </View>
 
-            {/* Badge overlapping bottom of avatar */}
             {isVerified && (
               <View style={[styles.verifiedBadge, { backgroundColor: badgeColor }]}>
                 <Text style={styles.verifiedBadgeText}>{badgeLabel}</Text>
@@ -220,26 +197,29 @@ export default function ArtisanProfileScreen({ route, navigation }) {
           {/* Name */}
           <Text style={styles.heroName}>{profile.name}</Text>
 
-          {/* Artisan ID badge */}
+          {/* Artisan ID — styled copy button */}
           {profile.artisanCode && !isDummy && (
-            <TouchableOpacity
-              style={styles.artisanIdRow}
-              onPress={() => handleCopyCode(profile.artisanCode)}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.artisanIdLabel}>ID: </Text>
-              <Text style={styles.artisanIdCode}>{profile.artisanCode}</Text>
-              <Text style={styles.artisanIdCopy}>{codeCopied ? ' ✓ Copied' : ' 📋'}</Text>
-            </TouchableOpacity>
+            <View style={styles.codeRow}>
+              <Text style={styles.codeLabel}>Artisan Code: </Text>
+              <Text style={styles.codeValue}>{profile.artisanCode}</Text>
+              <TouchableOpacity
+                style={[styles.copyBtn, codeCopied && styles.copyBtnDone]}
+                onPress={() => handleCopyCode(profile.artisanCode)}
+                activeOpacity={0.7}
+              >
+                <Text style={[styles.copyBtnText, codeCopied && styles.copyBtnDoneText]}>
+                  {codeCopied ? 'Copied ✓' : 'Copy'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           )}
 
-          {/* Trusted Artisan banner — only for subscribed artisans */}
+          {/* Trusted Artisan banner */}
           {profile.isPro && (
             <View style={styles.trustedBanner}>
               <Text style={styles.trustedBannerIcon}>✓</Text>
               <View>
                 <Text style={styles.trustedBannerTitle}>Trusted</Text>
-                
               </View>
             </View>
           )}
@@ -273,10 +253,9 @@ export default function ArtisanProfileScreen({ route, navigation }) {
             </View>
           )}
 
-          {/* Divider */}
           <View style={styles.heroDivider} />
 
-          {/* Request / Book CTA — hidden on own profile */}
+          {/* Request / Book CTA */}
           {!isSelf && (
             <TouchableOpacity
               style={[styles.requestBtn, isDummy && styles.requestBtnDummy]}
@@ -316,7 +295,7 @@ export default function ArtisanProfileScreen({ route, navigation }) {
           <View style={styles.statsRow}>
             {/* Response Time */}
             <View style={styles.statItem}>
-              <View style={[styles.statIconWrap, { backgroundColor: COLORS.primaryLight }]}>
+              <View style={[styles.statIconWrap, { backgroundColor: colors.infoBg }]}>
                 <Text style={styles.statIcon}>⏱</Text>
               </View>
               <Text style={styles.statMain}>
@@ -331,10 +310,10 @@ export default function ArtisanProfileScreen({ route, navigation }) {
 
             {/* Completion Rate */}
             <View style={styles.statItem}>
-              <View style={[styles.statIconWrap, { backgroundColor: COLORS.greenLight }]}>
+              <View style={[styles.statIconWrap, { backgroundColor: colors.successBg }]}>
                 <Text style={styles.statIcon}>✅</Text>
               </View>
-              <Text style={[styles.statMain, { color: COLORS.green }]}>
+              <Text style={[styles.statMain, { color: colors.success }]}>
                 {stats.acceptanceRate != null
                   ? `${Math.round(stats.acceptanceRate)}%`
                   : stats.completedJobs > 0 ? '100%' : '—'}
@@ -346,10 +325,10 @@ export default function ArtisanProfileScreen({ route, navigation }) {
 
             {/* Jobs Done */}
             <View style={styles.statItem}>
-              <View style={[styles.statIconWrap, { backgroundColor: COLORS.amberLight }]}>
+              <View style={[styles.statIconWrap, { backgroundColor: colors.warningBg }]}>
                 <Text style={styles.statIcon}>🏆</Text>
               </View>
-              <Text style={[styles.statMain, { color: COLORS.amber }]}>
+              <Text style={[styles.statMain, { color: colors.warning }]}>
                 {stats.completedJobs ?? 0}
               </Text>
               <Text style={styles.statSub}>Jobs Done</Text>
@@ -376,7 +355,7 @@ export default function ArtisanProfileScreen({ route, navigation }) {
         {profile.skills?.length > 0 && (
           <View style={styles.sectionCard}>
             <View style={styles.sectionCardHeader}>
-              <View style={[styles.sectionAccentBar, { backgroundColor: COLORS.accent }]} />
+              <View style={[styles.sectionAccentBar, { backgroundColor: colors.info }]} />
               <Text style={styles.sectionCardTitle}>Expertise & Skills</Text>
             </View>
             <View style={styles.skillsWrap}>
@@ -394,7 +373,7 @@ export default function ArtisanProfileScreen({ route, navigation }) {
             DISPATCH RIDER VEHICLE INFO
         ════════════════════════════════════════ */}
         {profile.skills?.includes('Dispatch Rider') && profile.dispatchInfo?.plateNumber ? (
-          <View style={[styles.sectionCard, { borderLeftWidth: 3, borderLeftColor: '#EA580C' }]}>
+          <View style={[styles.sectionCard, { borderLeftWidth: 3, borderLeftColor: colors.primary }]}>
             <View style={styles.sectionCardHeader}>
               <Text style={{ fontSize: 18, marginRight: 8 }}>🏍️</Text>
               <Text style={styles.sectionCardTitle}>Vehicle Info</Text>
@@ -432,7 +411,7 @@ export default function ArtisanProfileScreen({ route, navigation }) {
         {reviews.length > 0 && (
           <View style={styles.sectionCard}>
             <View style={styles.sectionCardHeader}>
-              <View style={[styles.sectionAccentBar, { backgroundColor: COLORS.amber }]} />
+              <View style={[styles.sectionAccentBar, { backgroundColor: colors.warning }]} />
               <Text style={styles.sectionCardTitle}>Completed Work</Text>
             </View>
 
@@ -462,7 +441,7 @@ export default function ArtisanProfileScreen({ route, navigation }) {
         ════════════════════════════════════════ */}
         <View style={styles.sectionCard}>
           <View style={styles.sectionCardHeader}>
-            <View style={[styles.sectionAccentBar, { backgroundColor: COLORS.gold }]} />
+            <View style={[styles.sectionAccentBar, { backgroundColor: colors.star }]} />
             <Text style={styles.sectionCardTitle}>
               Reviews
               {stats.totalRatings > 0 && (
@@ -489,6 +468,7 @@ export default function ArtisanProfileScreen({ route, navigation }) {
                   key={r.id || idx}
                   review={r}
                   isLast={idx === reviews.length - 1}
+                  colors={colors}
                 />
               ))}
 
@@ -500,7 +480,7 @@ export default function ArtisanProfileScreen({ route, navigation }) {
                   activeOpacity={0.8}
                 >
                   {loadingReviews ? (
-                    <ActivityIndicator color={COLORS.primary} size="small" />
+                    <ActivityIndicator color={colors.info} size="small" />
                   ) : (
                     <View style={styles.loadMoreInner}>
                       <Text style={styles.loadMoreText}>Load More Reviews</Text>
@@ -517,7 +497,7 @@ export default function ArtisanProfileScreen({ route, navigation }) {
       </ScrollView>
 
       {/* ════════════════════════════════════════
-          STICKY BOTTOM CTA  (mirrors the card button)
+          STICKY BOTTOM CTA
       ════════════════════════════════════════ */}
       <View style={styles.stickyBar}>
         <View style={styles.stickyLeft}>
@@ -565,8 +545,9 @@ export default function ArtisanProfileScreen({ route, navigation }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // REVIEW CARD
 // ══════════════════════════════════════════════════════════════════════════════
-function ReviewCard({ review, isLast }) {
+function ReviewCard({ review, isLast, colors }) {
   const overall = review.overallScore ?? 0;
+  const styles = makeStyles(colors);
 
   const renderStars = (score) => {
     const full  = Math.floor(score);
@@ -577,7 +558,7 @@ function ReviewCard({ review, isLast }) {
           key={i}
           style={[
             styles.starChar,
-            { color: i <= full ? COLORS.gold : COLORS.divider },
+            { color: i <= full ? colors.star : colors.border },
           ]}
         >
           ★
@@ -633,11 +614,11 @@ function ReviewCard({ review, isLast }) {
 // ══════════════════════════════════════════════════════════════════════════════
 // STYLES
 // ══════════════════════════════════════════════════════════════════════════════
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
 
   container: {
     flex: 1,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.surface,
   },
 
   // ── Loader ───────────────────────────────────────────────────────────────────
@@ -645,20 +626,20 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.surface,
   },
   loaderCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.card,
     borderRadius: 24,
     paddingVertical: 40,
     paddingHorizontal: 56,
     alignItems: 'center',
     gap: 16,
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor: colors.border,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.08,
         shadowRadius: 16,
@@ -668,7 +649,7 @@ const styles = StyleSheet.create({
   },
   loaderText: {
     fontSize: 14,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     fontWeight: '500',
   },
 
@@ -679,12 +660,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     paddingVertical: 12,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.card,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    borderBottomColor: colors.border,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.05,
         shadowRadius: 6,
@@ -696,15 +677,15 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 12,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.surface,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor: colors.border,
   },
   backArrow: {
     fontSize: 20,
-    color: COLORS.textPrimary,
+    color: colors.text,
     fontWeight: '600',
     marginTop: -1,
   },
@@ -717,23 +698,23 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.info,
   },
   topBarTitle: {
     fontSize: 20,
     fontWeight: '900',
-    color: COLORS.primary,
+    color: colors.info,
     letterSpacing: -0.6,
   },
 
   // ── Scroll ───────────────────────────────────────────────────────────────────
   scroll: {
-    paddingBottom: 100,           // space for sticky bar
+    paddingBottom: 100,
   },
 
   // ── Hero Card ────────────────────────────────────────────────────────────────
   heroCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.card,
     marginHorizontal: 16,
     marginTop: 16,
     borderRadius: 28,
@@ -741,10 +722,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingBottom: 24,
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor: colors.border,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.10,
         shadowRadius: 20,
@@ -755,19 +736,19 @@ const styles = StyleSheet.create({
   heroStrip: {
     width: '100%',
     height: 80,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.info,
     marginBottom: 0,
   },
   heroStripTrusted: {
-    backgroundColor: '#B45309', // warm gold for Trusted artisans
+    backgroundColor: '#B45309',
   },
   trustedBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    backgroundColor: COLORS.amberLight,
+    backgroundColor: colors.warningBg,
     borderWidth: 1.5,
-    borderColor: COLORS.amberMid,
+    borderColor: colors.warning,
     borderRadius: 14,
     paddingHorizontal: 14,
     paddingVertical: 10,
@@ -776,7 +757,7 @@ const styles = StyleSheet.create({
   },
   trustedBannerIcon: {
     fontSize: 20,
-    color: COLORS.amber,
+    color: colors.warning,
     fontWeight: '900',
   },
   trustedBannerTitle: {
@@ -787,7 +768,7 @@ const styles = StyleSheet.create({
   },
   trustedBannerSub: {
     fontSize: 11,
-    color: COLORS.amber,
+    color: colors.warning,
     fontWeight: '500',
   },
   avatarBlock: {
@@ -800,13 +781,13 @@ const styles = StyleSheet.create({
     height: 96,
     borderRadius: 48,
     borderWidth: 4,
-    borderColor: COLORS.surface,
-    backgroundColor: COLORS.surface,
+    borderColor: colors.card,
+    backgroundColor: colors.card,
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.15,
         shadowRadius: 10,
@@ -823,14 +804,14 @@ const styles = StyleSheet.create({
     width: 88,
     height: 88,
     borderRadius: 44,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.infoBg,
     justifyContent: 'center',
     alignItems: 'center',
   },
   avatarInitial: {
     fontSize: 36,
     fontWeight: '900',
-    color: COLORS.primary,
+    color: colors.info,
   },
   verifiedBadge: {
     marginTop: 8,
@@ -841,41 +822,28 @@ const styles = StyleSheet.create({
   verifiedBadgeText: {
     fontSize: 11,
     fontWeight: '800',
-    color: COLORS.surface,
+    color: colors.card,
     letterSpacing: 0.4,
   },
   heroName: {
     fontSize: 24,
     fontWeight: '900',
-    color: COLORS.textPrimary,
+    color: colors.text,
     letterSpacing: -0.5,
     marginBottom: 6,
     textAlign: 'center',
     paddingHorizontal: 20,
   },
-  artisanIdRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  artisanIdLabel: {
-    fontSize: 12,
-    color: COLORS.textMuted,
-    fontWeight: '500',
-  },
-  artisanIdCode: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: COLORS.primary,
-    letterSpacing: 1,
-    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-  },
-  artisanIdCopy: {
-    fontSize: 12,
-    color: COLORS.primary,
-    marginLeft: 2,
-  },
+
+  // ── Artisan Code row ──────────────────────────────────────────────────────────
+  codeRow: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 6, marginBottom: 10, justifyContent: 'center', paddingHorizontal: 16 },
+  codeLabel: { fontSize: 13, color: colors.textSub },
+  codeValue: { fontSize: 13, fontWeight: '700', color: colors.info, fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace' },
+  copyBtn: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1.5, borderColor: colors.info },
+  copyBtnDone: { borderColor: colors.success },
+  copyBtnText: { fontSize: 12, fontWeight: '700', color: colors.info },
+  copyBtnDoneText: { color: colors.success },
+
   heroMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -889,12 +857,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.surface,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor: colors.border,
   },
   heroMetaIcon: {
     fontSize: 13,
@@ -902,13 +870,13 @@ const styles = StyleSheet.create({
   heroMetaText: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.textSecondary,
+    color: colors.textSub,
   },
   heroMetaDot: {
     width: 4,
     height: 4,
     borderRadius: 2,
-    backgroundColor: COLORS.textMuted,
+    backgroundColor: colors.textMuted,
   },
   ratingRow: {
     flexDirection: 'row',
@@ -920,16 +888,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 5,
-    backgroundColor: COLORS.amberLight,
+    backgroundColor: colors.warningBg,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 20,
     borderWidth: 1,
-    borderColor: COLORS.amberMid,
+    borderColor: colors.warning,
   },
   ratingStar: {
     fontSize: 13,
-    color: COLORS.gold,
+    color: colors.star,
   },
   ratingValue: {
     fontSize: 14,
@@ -938,32 +906,32 @@ const styles = StyleSheet.create({
   },
   ratingDivider: {
     fontSize: 16,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     fontWeight: '700',
   },
   jobsText: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: colors.textSub,
     fontWeight: '500',
   },
   heroDivider: {
     width: SCREEN_W - 80,
     height: 1,
-    backgroundColor: COLORS.divider,
+    backgroundColor: colors.border,
     marginBottom: 20,
   },
   requestBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.info,
     width: SCREEN_W - 80,
     paddingVertical: 16,
     borderRadius: 16,
     justifyContent: 'center',
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.primary,
+        shadowColor: colors.info,
         shadowOffset: { width: 0, height: 6 },
         shadowOpacity: 0.35,
         shadowRadius: 12,
@@ -972,35 +940,35 @@ const styles = StyleSheet.create({
     }),
   },
   requestBtnDummy: {
-    backgroundColor: COLORS.grey,
+    backgroundColor: colors.textSub,
     ...Platform.select({
-      ios: { shadowColor: COLORS.grey },
+      ios: { shadowColor: colors.textSub },
       android: {},
     }),
   },
   requestBtnIcon: {
     fontSize: 17,
-    color: COLORS.surface,
+    color: colors.card,
   },
   requestBtnText: {
     fontSize: 16,
     fontWeight: '800',
-    color: COLORS.surface,
+    color: colors.card,
     letterSpacing: 0.2,
   },
 
   // ── Stats Card ────────────────────────────────────────────────────────────────
   statsCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.card,
     marginHorizontal: 16,
     marginTop: 14,
     borderRadius: 24,
     padding: 20,
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor: colors.border,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
         shadowRadius: 10,
@@ -1018,12 +986,12 @@ const styles = StyleSheet.create({
     width: 4,
     height: 18,
     borderRadius: 2,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.info,
   },
   statsCardTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: colors.text,
     letterSpacing: -0.2,
   },
   statsRow: {
@@ -1049,34 +1017,34 @@ const styles = StyleSheet.create({
   statMain: {
     fontSize: 22,
     fontWeight: '900',
-    color: COLORS.primary,
+    color: colors.info,
     letterSpacing: -0.5,
   },
   statSub: {
     fontSize: 10,
     fontWeight: '700',
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     letterSpacing: 0.4,
     textTransform: 'uppercase',
   },
   statDivider: {
     width: 1,
     height: 60,
-    backgroundColor: COLORS.divider,
+    backgroundColor: colors.border,
   },
 
   // ── Generic Section Card ──────────────────────────────────────────────────────
   sectionCard: {
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.card,
     marginHorizontal: 16,
     marginTop: 14,
     borderRadius: 24,
     padding: 20,
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor: colors.border,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.06,
         shadowRadius: 10,
@@ -1094,39 +1062,39 @@ const styles = StyleSheet.create({
     width: 4,
     height: 18,
     borderRadius: 2,
-    backgroundColor: COLORS.green,
+    backgroundColor: colors.success,
   },
   sectionCardTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: colors.text,
     letterSpacing: -0.2,
   },
   reviewCount: {
     fontSize: 14,
     fontWeight: '600',
-    color: COLORS.textMuted,
+    color: colors.textMuted,
   },
 
   // ── Bio ───────────────────────────────────────────────────────────────────────
   bioText: {
     fontSize: 15,
-    color: COLORS.textSecondary,
+    color: colors.textSub,
     lineHeight: 26,
     fontWeight: '400',
   },
 
-  // ── Skills ───────────────────────────────────────────────────────────────────
-  // Dispatch vehicle info
+  // ── Dispatch vehicle info ─────────────────────────────────────────────────────
   dispatchRow:       { flexDirection: 'row', gap: 16, marginBottom: 12 },
   dispatchItem:      { flex: 1 },
-  dispatchItemLabel: { fontSize: 11, color: '#9CA3AF', fontWeight: '700', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 0.5 },
-  dispatchItemValue: { fontSize: 15, fontWeight: '700', color: '#1A1A1A' },
-  plateValue:        { letterSpacing: 1.5, color: '#EA580C' },
+  dispatchItemLabel: { fontSize: 11, color: colors.textMuted, fontWeight: '700', marginBottom: 3, textTransform: 'uppercase', letterSpacing: 0.5 },
+  dispatchItemValue: { fontSize: 15, fontWeight: '700', color: colors.text },
+  plateValue:        { letterSpacing: 1.5, color: colors.primary },
   dispatchBadgeRow:  { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  dispatchBadge:     { backgroundColor: '#FFF7ED', borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: '#FED7AA' },
+  dispatchBadge:     { backgroundColor: colors.primaryLight, borderRadius: 20, paddingHorizontal: 12, paddingVertical: 5, borderWidth: 1, borderColor: colors.primary },
   dispatchBadgeText: { fontSize: 12, fontWeight: '700', color: '#92400E' },
 
+  // ── Skills ───────────────────────────────────────────────────────────────────
   skillsWrap: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1136,12 +1104,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.infoBg,
     paddingHorizontal: 14,
     paddingVertical: 9,
     borderRadius: 50,
     borderWidth: 1.5,
-    borderColor: COLORS.primaryMid,
+    borderColor: colors.info,
   },
   skillTagIcon: {
     fontSize: 14,
@@ -1149,7 +1117,7 @@ const styles = StyleSheet.create({
   skillTagText: {
     fontSize: 13,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.info,
   },
 
   // ── Portfolio ─────────────────────────────────────────────────────────────────
@@ -1162,12 +1130,12 @@ const styles = StyleSheet.create({
     height: 180,
     position: 'relative',
     borderWidth: 1,
-    borderColor: COLORS.divider,
+    borderColor: colors.border,
   },
   portfolioImage: {
     width: '100%',
     height: '100%',
-    backgroundColor: COLORS.textPrimary,
+    backgroundColor: colors.text,
   },
   portfolioOverlay: {
     position: 'absolute',
@@ -1181,14 +1149,14 @@ const styles = StyleSheet.create({
   portfolioCaption: {
     fontSize: 13,
     fontWeight: '600',
-    color: COLORS.surface,
+    color: colors.card,
   },
 
   // ── Reviews ──────────────────────────────────────────────────────────────────
   reviewCard: {
     paddingVertical: 16,
     borderBottomWidth: 1,
-    borderBottomColor: COLORS.divider,
+    borderBottomColor: colors.border,
     gap: 8,
   },
   reviewCardLast: {
@@ -1204,16 +1172,16 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 12,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.infoBg,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.primaryMid,
+    borderColor: colors.info,
   },
   reviewerAvatarText: {
     fontSize: 16,
     fontWeight: '800',
-    color: COLORS.primary,
+    color: colors.info,
   },
   reviewerInfo: {
     flex: 1,
@@ -1222,21 +1190,21 @@ const styles = StyleSheet.create({
   reviewerName: {
     fontSize: 14,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: colors.text,
     letterSpacing: -0.2,
   },
   reviewDate: {
     fontSize: 11,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     fontWeight: '500',
   },
   reviewScoreBadge: {
-    backgroundColor: COLORS.amberLight,
+    backgroundColor: colors.warningBg,
     paddingHorizontal: 10,
     paddingVertical: 4,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: COLORS.amberMid,
+    borderColor: colors.warning,
   },
   reviewScoreText: {
     fontSize: 12,
@@ -1258,7 +1226,7 @@ const styles = StyleSheet.create({
   },
   reviewQuote: {
     fontSize: 22,
-    color: COLORS.primaryMid,
+    color: colors.info,
     fontWeight: '900',
     lineHeight: 22,
     marginTop: -2,
@@ -1266,7 +1234,7 @@ const styles = StyleSheet.create({
   reviewComment: {
     flex: 1,
     fontSize: 14,
-    color: COLORS.textSecondary,
+    color: colors.textSub,
     lineHeight: 22,
     fontStyle: 'italic',
     fontWeight: '400',
@@ -1282,11 +1250,11 @@ const styles = StyleSheet.create({
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: COLORS.primaryLight,
+    backgroundColor: colors.infoBg,
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: COLORS.primaryMid,
+    borderColor: colors.info,
     marginBottom: 4,
   },
   noReviewsIcon: {
@@ -1295,12 +1263,12 @@ const styles = StyleSheet.create({
   noReviewsTitle: {
     fontSize: 16,
     fontWeight: '800',
-    color: COLORS.textPrimary,
+    color: colors.text,
     letterSpacing: -0.2,
   },
   noReviewsSub: {
     fontSize: 13,
-    color: COLORS.textSecondary,
+    color: colors.textSub,
     textAlign: 'center',
     lineHeight: 20,
     paddingHorizontal: 16,
@@ -1311,10 +1279,10 @@ const styles = StyleSheet.create({
     marginTop: 14,
     paddingVertical: 14,
     borderRadius: 14,
-    backgroundColor: COLORS.background,
+    backgroundColor: colors.surface,
     alignItems: 'center',
     borderWidth: 1.5,
-    borderColor: COLORS.primaryMid,
+    borderColor: colors.info,
     minHeight: 50,
     justifyContent: 'center',
   },
@@ -1325,12 +1293,12 @@ const styles = StyleSheet.create({
   loadMoreText: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.info,
   },
   loadMoreArrow: {
     fontSize: 14,
     fontWeight: '700',
-    color: COLORS.primary,
+    color: colors.info,
   },
 
   // ── Sticky Bottom Bar ─────────────────────────────────────────────────────────
@@ -1344,13 +1312,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingVertical: 14,
     paddingBottom: Platform.OS === 'ios' ? 28 : 14,
-    backgroundColor: COLORS.surface,
+    backgroundColor: colors.card,
     borderTopWidth: 1,
-    borderTopColor: COLORS.divider,
+    borderTopColor: colors.border,
     gap: 16,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.shadow,
+        shadowColor: colors.shadow,
         shadowOffset: { width: 0, height: -4 },
         shadowOpacity: 0.08,
         shadowRadius: 12,
@@ -1365,25 +1333,25 @@ const styles = StyleSheet.create({
   stickyRating: {
     fontSize: 16,
     fontWeight: '900',
-    color: COLORS.gold,
+    color: colors.star,
     letterSpacing: -0.2,
   },
   stickyJobs: {
     fontSize: 12,
-    color: COLORS.textMuted,
+    color: colors.textMuted,
     fontWeight: '500',
   },
   stickyBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: COLORS.primary,
+    backgroundColor: colors.info,
     paddingHorizontal: 28,
     paddingVertical: 14,
     borderRadius: 16,
     ...Platform.select({
       ios: {
-        shadowColor: COLORS.primary,
+        shadowColor: colors.info,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.35,
         shadowRadius: 10,
@@ -1392,463 +1360,20 @@ const styles = StyleSheet.create({
     }),
   },
   stickyBtnDummy: {
-    backgroundColor: COLORS.grey,
+    backgroundColor: colors.textSub,
     ...Platform.select({
-      ios: { shadowColor: COLORS.grey },
+      ios: { shadowColor: colors.textSub },
       android: {},
     }),
   },
   stickyBtnIcon: {
     fontSize: 16,
-    color: COLORS.surface,
+    color: colors.card,
   },
   stickyBtnText: {
     fontSize: 15,
     fontWeight: '800',
-    color: COLORS.surface,
+    color: colors.card,
     letterSpacing: 0.2,
   },
 });
-
-
-// import React, { useState, useEffect } from 'react';
-// import {
-//   View, Text, StyleSheet, ScrollView, Image, TouchableOpacity,
-//   ActivityIndicator, Alert, Dimensions,
-// } from 'react-native';
-// import { SafeAreaView } from 'react-native-safe-area-context';
-// import { getArtisanProfile, getArtisanReviews } from '../../api/discoveryApi';
-// import { getUser } from '../../utils/storage';
-// import BackButton from '../../components/BackButton';
-
-// const PRIMARY = '#2563EB';
-// const GREEN = '#16A34A';
-// const { width: SCREEN_W } = Dimensions.get('window');
-
-// // Icon map for common skill categories
-// const SKILL_ICONS = {
-//   Electrician: '⚡', Plumber: '🔧', Carpenter: '🪚', Painter: '🎨',
-//   Welder: '🔥', Mason: '🧱', Tiler: '🟫', Roofer: '🏠', 'AC Technician': '❄️',
-//   'Generator Repair': '⚙️', Wiring: '🔌', 'AC Maintenance': '🌡️',
-//   'Solar Installation': '☀️', 'CCTV Installation': '📹', default: '🔨',
-// };
-// const skillIcon = (s) => SKILL_ICONS[s] || SKILL_ICONS.default;
-
-// // Maps dummy profile shape → the shape the screen renders
-// function normaliseDummyProfile(d) {
-//   return {
-//     id: d.id,
-//     name: d.name,
-//     profilePhoto: d.profilePhoto || null,
-//     skills: d.skills || [],
-//     bio: d.bio || null,
-//     badgeLevel: d.badgeLevel || 'verified',
-//     location: d.location || { state: 'Lagos' },
-//     stats: {
-//       averageRating: d.stats?.averageRating || 0,
-//       completedJobs: d.stats?.completedJobs || 0,
-//       totalRatings: d.stats?.completedJobs || 0,
-//       acceptanceRate: d.stats?.acceptanceRate || null,
-//       avgResponseTimeMinutes: null,
-//     },
-//     _isDummy: true,
-//   };
-// }
-
-// export default function ArtisanProfileScreen({ route, navigation }) {
-//   const { artisanId, _dummyProfile } = route.params;
-
-//   // If a dummy profile was passed directly, skip the API call entirely
-//   const [profile, setProfile] = useState(_dummyProfile
-//     ? normaliseDummyProfile(_dummyProfile)
-//     : null
-//   );
-//   const [reviews, setReviews] = useState([]);
-//   const [loading, setLoading] = useState(!_dummyProfile);
-//   const [reviewPage, setReviewPage] = useState(1);
-//   const [hasMoreReviews, setHasMoreReviews] = useState(false);
-//   const [loadingReviews, setLoadingReviews] = useState(false);
-//   const [currentUserId, setCurrentUserId] = useState(null);
-
-//   useEffect(() => {
-//     getUser().then((u) => setCurrentUserId(u?._id || u?.id || null));
-//     if (_dummyProfile) return; // skip API for dummy profiles
-//     fetchProfile();
-//     fetchReviews(1);
-//   }, []);
-
-//   const fetchProfile = async () => {
-//     try {
-//       const res = await getArtisanProfile(artisanId);
-//       setProfile(res.data.data);
-//     } catch {
-//       Alert.alert('Error', 'Could not load profile.');
-//       navigation.goBack();
-//     } finally {
-//       setLoading(false);
-//     }
-//   };
-
-//   const fetchReviews = async (page) => {
-//     setLoadingReviews(true);
-//     try {
-//       const res = await getArtisanReviews(artisanId, { page, limit: 5 });
-//       const next = res.data.data || [];
-//       setReviews((prev) => (page === 1 ? next : [...prev, ...next]));
-//       setHasMoreReviews(next.length === 5);
-//       setReviewPage(page);
-//     } catch {
-//       // silent
-//     } finally {
-//       setLoadingReviews(false);
-//     }
-//   };
-
-//   if (loading) {
-//     return (
-//       <SafeAreaView style={styles.loaderScreen}>
-//         <ActivityIndicator size="large" color={PRIMARY} />
-//       </SafeAreaView>
-//     );
-//   }
-
-//   if (!profile) return null;
-
-//   const stats = profile.stats || {};
-//   const isVerified = profile.badgeLevel === 'verified' || profile.badgeLevel === 'trusted';
-//   const isTrusted = profile.badgeLevel === 'trusted';
-//   const primarySkill = profile.skills?.[0] || 'Artisan';
-//   const location = profile.location?.state || profile.location?.address || 'Nigeria';
-//   const isDummy = profile._isDummy === true;
-
-//   return (
-//     <SafeAreaView style={styles.container} edges={['top']}>
-//       {/* Top bar */}
-//       <View style={styles.topBar}>
-//         <BackButton onPress={() => navigation.goBack()} />
-//         <Text style={styles.topBarTitle}>FixNG</Text>
-//         <View style={{ width: 28 }} />
-//       </View>
-
-//       <ScrollView
-//         contentContainerStyle={styles.scroll}
-//         showsVerticalScrollIndicator={false}
-//       >
-//         {/* ── Profile Card ── */}
-//         <View style={styles.profileCard}>
-//           {/* Photo + badge */}
-//           <View style={styles.photoWrap}>
-//             {profile.profilePhoto ? (
-//               <Image source={{ uri: profile.profilePhoto }} style={styles.photo} />
-//             ) : (
-//               <View style={styles.photoFallback}>
-//                 <Text style={styles.photoInitial}>
-//                   {(profile.name || 'A')[0].toUpperCase()}
-//                 </Text>
-//               </View>
-//             )}
-//             {isVerified && (
-//               <View style={[styles.verifiedBadge, isTrusted && styles.trustedBadge]}>
-//                 <Text style={styles.verifiedBadgeText}>
-//                   {isTrusted ? '⭐ TRUSTED' : '✓ VERIFIED'}
-//                 </Text>
-//               </View>
-//             )}
-//           </View>
-
-//           {/* Name + specialty */}
-//           <Text style={styles.name}>{profile.name}</Text>
-//           <Text style={styles.specialty}>
-//             {isVerified ? `Verified ${primarySkill}` : primarySkill} • {location}, NG
-//           </Text>
-
-//           {/* Rating + jobs */}
-//           {stats.averageRating > 0 && (
-//             <View style={styles.ratingRow}>
-//               <View style={styles.ratingPill}>
-//                 <Text style={styles.ratingStar}>★</Text>
-//                 <Text style={styles.ratingValue}>{stats.averageRating.toFixed(1)}</Text>
-//               </View>
-//               <Text style={styles.jobsText}>{stats.completedJobs ?? 0} Completed Jobs</Text>
-//             </View>
-//           )}
-
-//           {/* Request Job / Book Now button */}
-//           <TouchableOpacity
-//             style={[styles.requestBtn, isDummy && styles.requestBtnDummy]}
-//             onPress={() => {
-//               if (isDummy) {
-//                 Alert.alert('Preview Only', 'This is a sample profile for UI preview. Sign in to book real artisans.');
-//               } else if (currentUserId && currentUserId === artisanId) {
-//                 Alert.alert(
-//                   'Action Not Allowed',
-//                   'You cannot request a job from your own profile. Please select another artisan.'
-//                 );
-//               } else {
-//                 navigation.navigate('CreateJob', { artisanId, artisanName: profile.name, artisanSkill: primarySkill });
-//               }
-//             }}
-//             activeOpacity={0.85}
-//           >
-//             <Text style={styles.requestBtnIcon}>⚡</Text>
-//             <Text style={styles.requestBtnText}>{isDummy ? 'Book Now (Preview)' : 'Request Job'}</Text>
-//           </TouchableOpacity>
-//         </View>
-
-//         {/* ── Reliability Stats ── */}
-//         <View style={styles.statsCard}>
-//           <Text style={styles.statsCardLabel}>Reliability Stats</Text>
-//           <View style={styles.statsRow}>
-//             <View style={styles.statItem}>
-//               <Text style={styles.statMain} numberOfLines={1}>
-//                 {stats.avgResponseTimeMinutes ? `${stats.avgResponseTimeMinutes} min` : '—'}
-//               </Text>
-//               <Text style={styles.statSub}>RESPONSE TIME</Text>
-//             </View>
-//             <View style={styles.statDivider} />
-//             <View style={styles.statItem}>
-//               <Text style={[styles.statMain, styles.statMainGreen]}>
-//                 {stats.acceptanceRate != null
-//                   ? `${Math.round(stats.acceptanceRate)}%`
-//                   : stats.completedJobs > 0 ? '100%' : '—'}
-//               </Text>
-//               <Text style={styles.statSub}>COMPLETION</Text>
-//             </View>
-//           </View>
-//         </View>
-
-//         {/* ── Professional Bio ── */}
-//         {profile.bio ? (
-//           <View style={styles.section}>
-//             <Text style={styles.bioTitle}>Professional Bio</Text>
-//             <Text style={styles.bioText}>{profile.bio}</Text>
-//           </View>
-//         ) : null}
-
-//         {/* ── Skills ── */}
-//         {profile.skills?.length > 0 && (
-//           <View style={styles.section}>
-//             <Text style={styles.sectionLabel}>EXPERTISE & SKILLS</Text>
-//             <View style={styles.skillsWrap}>
-//               {profile.skills.map((skill) => (
-//                 <View key={skill} style={styles.skillTag}>
-//                   <Text style={styles.skillTagIcon}>{skillIcon(skill)}</Text>
-//                   <Text style={styles.skillTagText}>{skill}</Text>
-//                 </View>
-//               ))}
-//             </View>
-//           </View>
-//         )}
-
-//         {/* ── Portfolio / Completed Work ── */}
-//         {/* Show most recent job images as portfolio */}
-//         {reviews.length > 0 && (
-//           <View style={styles.portfolioSection}>
-//             <Text style={styles.sectionLabel}>COMPLETED WORK</Text>
-//             {reviews.slice(0, 2).map((r, i) => r.jobImages?.length > 0 ? (
-//               <View key={i} style={styles.portfolioCard}>
-//                 <Image
-//                   source={{ uri: r.jobImages[0] }}
-//                   style={styles.portfolioImage}
-//                   resizeMode="cover"
-//                 />
-//                 <View style={styles.portfolioOverlay}>
-//                   <Text style={styles.portfolioCaption} numberOfLines={1}>
-//                     {r.category || 'Completed Job'} • {r.location || location}
-//                   </Text>
-//                 </View>
-//               </View>
-//             ) : null)}
-//           </View>
-//         )}
-
-//         {/* ── Reviews ── */}
-//         {reviews.length > 0 && (
-//           <View style={styles.section}>
-//             <Text style={styles.sectionLabel}>
-//               REVIEWS ({stats.totalRatings ?? 0})
-//             </Text>
-//             {reviews.map((r) => (
-//               <ReviewCard key={r.id} review={r} />
-//             ))}
-//             {hasMoreReviews && (
-//               <TouchableOpacity
-//                 style={styles.loadMoreBtn}
-//                 onPress={() => fetchReviews(reviewPage + 1)}
-//                 disabled={loadingReviews}
-//               >
-//                 {loadingReviews
-//                   ? <ActivityIndicator color={PRIMARY} />
-//                   : <Text style={styles.loadMoreText}>Load More Reviews</Text>}
-//               </TouchableOpacity>
-//             )}
-//           </View>
-//         )}
-
-//         {reviews.length === 0 && !loadingReviews && (
-//           <View style={styles.section}>
-//             <Text style={styles.sectionLabel}>REVIEWS</Text>
-//             <Text style={styles.noReviews}>No reviews yet.</Text>
-//           </View>
-//         )}
-
-//         <View style={{ height: 30 }} />
-//       </ScrollView>
-//     </SafeAreaView>
-//   );
-// }
-
-// function ReviewCard({ review }) {
-//   const overall = review.overallScore ?? 0;
-//   return (
-//     <View style={styles.reviewCard}>
-//       <View style={styles.reviewTop}>
-//         <Text style={styles.reviewerName}>{review.customerName || 'Customer'}</Text>
-//         <View style={styles.reviewRatingBadge}>
-//           <Text style={styles.reviewRatingText}>★ {overall.toFixed(1)}</Text>
-//         </View>
-//       </View>
-//       {review.comment ? (
-//         <Text style={styles.reviewComment}>"{review.comment}"</Text>
-//       ) : null}
-//       <Text style={styles.reviewDate}>
-//         {new Date(review.createdAt).toLocaleDateString('en-NG', {
-//           day: 'numeric', month: 'short', year: 'numeric',
-//         })}
-//       </Text>
-//     </View>
-//   );
-// }
-
-// const styles = StyleSheet.create({
-//   container: { flex: 1, backgroundColor: '#F5F7FB' },
-//   loaderScreen: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-
-//   topBar: {
-//     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-//     paddingHorizontal: 16, paddingVertical: 12,
-//     backgroundColor: '#FFF',
-//     borderBottomWidth: 1, borderBottomColor: '#EEF0F5',
-//   },
-//   topBarTitle: { fontSize: 20, fontWeight: '900', color: PRIMARY, letterSpacing: -0.5 },
-
-//   scroll: { paddingBottom: 20 },
-
-//   // ── Profile Card ──
-//   profileCard: {
-//     backgroundColor: '#FFF', margin: 16,
-//     borderRadius: 20, padding: 24, alignItems: 'center',
-//     elevation: 2,
-//     shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-//     shadowOpacity: 0.07, shadowRadius: 8,
-//   },
-//   photoWrap: { position: 'relative', marginBottom: 16 },
-//   photo: { width: 100, height: 100, borderRadius: 50 },
-//   photoFallback: {
-//     width: 100, height: 100, borderRadius: 50,
-//     backgroundColor: '#E0E7FF', justifyContent: 'center', alignItems: 'center',
-//   },
-//   photoInitial: { fontSize: 40, fontWeight: '800', color: PRIMARY },
-//   verifiedBadge: {
-//     position: 'absolute', top: 0, right: -10,
-//     backgroundColor: '#16A34A', borderRadius: 20,
-//     paddingHorizontal: 8, paddingVertical: 4,
-//     elevation: 2,
-//   },
-//   trustedBadge: { backgroundColor: '#D97706' },
-//   verifiedBadgeText: { fontSize: 9, fontWeight: '800', color: '#FFF', letterSpacing: 0.5 },
-
-//   name: { fontSize: 24, fontWeight: '800', color: '#1E232C', marginBottom: 6 },
-//   specialty: { fontSize: 14, color: '#6B7280', marginBottom: 14, textAlign: 'center' },
-
-//   ratingRow: {
-//     flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 20,
-//   },
-//   ratingPill: {
-//     flexDirection: 'row', alignItems: 'center', gap: 4,
-//     backgroundColor: '#FFFBEB', paddingHorizontal: 12, paddingVertical: 6,
-//     borderRadius: 20, borderWidth: 1, borderColor: '#FDE68A',
-//   },
-//   ratingStar: { fontSize: 14, color: '#F59E0B' },
-//   ratingValue: { fontSize: 14, fontWeight: '800', color: '#92400E' },
-//   jobsText: { fontSize: 13, color: '#6B7280' },
-
-//   requestBtn: {
-//     flexDirection: 'row', alignItems: 'center', gap: 8,
-//     backgroundColor: PRIMARY, width: '100%',
-//     paddingVertical: 16, borderRadius: 14, justifyContent: 'center',
-//   },
-//   requestBtnDummy: { backgroundColor: '#6B7280' },
-//   requestBtnIcon: { fontSize: 18, color: '#FFF' },
-//   requestBtnText: { fontSize: 16, fontWeight: '800', color: '#FFF' },
-
-//   // ── Stats Card ──
-//   statsCard: {
-//     backgroundColor: '#FFF', marginHorizontal: 16, marginBottom: 8,
-//     borderRadius: 16, padding: 20,
-//     elevation: 1,
-//     shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-//     shadowOpacity: 0.05, shadowRadius: 4,
-//   },
-//   statsCardLabel: { fontSize: 13, fontWeight: '700', color: '#6B7280', marginBottom: 14 },
-//   statsRow: { flexDirection: 'row', alignItems: 'center' },
-//   statItem: { flex: 1, alignItems: 'center' },
-//   statMain: { fontSize: 26, fontWeight: '800', color: PRIMARY, marginBottom: 4 },
-//   statMainGreen: { color: GREEN },
-//   statSub: { fontSize: 10, fontWeight: '700', color: '#9CA3AF', letterSpacing: 0.5 },
-//   statDivider: { width: 1, height: 40, backgroundColor: '#E5E7EB' },
-
-//   // ── Sections ──
-//   section: {
-//     backgroundColor: '#FFF', marginHorizontal: 16, marginTop: 8,
-//     borderRadius: 16, padding: 20,
-//   },
-//   sectionLabel: {
-//     fontSize: 11, fontWeight: '800', color: '#9CA3AF',
-//     letterSpacing: 1, marginBottom: 14, textTransform: 'uppercase',
-//   },
-//   bioTitle: { fontSize: 24, fontWeight: '800', color: '#1E232C', marginBottom: 12 },
-//   bioText: { fontSize: 15, color: '#4B5563', lineHeight: 26 },
-
-//   skillsWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-//   skillTag: {
-//     flexDirection: 'row', alignItems: 'center', gap: 6,
-//     backgroundColor: '#EFF6FF', paddingHorizontal: 14, paddingVertical: 8,
-//     borderRadius: 20, borderWidth: 1, borderColor: '#BFDBFE',
-//   },
-//   skillTagIcon: { fontSize: 14 },
-//   skillTagText: { fontSize: 13, fontWeight: '600', color: PRIMARY },
-
-//   // ── Portfolio ──
-//   portfolioSection: { marginTop: 8 },
-//   portfolioCard: {
-//     marginHorizontal: 16, marginBottom: 10, borderRadius: 16,
-//     overflow: 'hidden', height: 200,
-//     position: 'relative',
-//   },
-//   portfolioImage: { width: '100%', height: '100%', backgroundColor: '#1E232C' },
-//   portfolioOverlay: {
-//     position: 'absolute', bottom: 0, left: 0, right: 0,
-//     backgroundColor: 'rgba(0,0,0,0.55)', paddingHorizontal: 16, paddingVertical: 12,
-//   },
-//   portfolioCaption: { fontSize: 13, fontWeight: '600', color: '#FFF' },
-
-//   // ── Reviews ──
-//   reviewCard: {
-//     borderTopWidth: 1, borderTopColor: '#F3F4F6',
-//     paddingTop: 14, marginTop: 10,
-//   },
-//   reviewTop: {
-//     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6,
-//   },
-//   reviewerName: { fontSize: 14, fontWeight: '700', color: '#1E232C' },
-//   reviewRatingBadge: {
-//     backgroundColor: '#FEF3C7', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 20,
-//   },
-//   reviewRatingText: { fontSize: 12, fontWeight: '700', color: '#92400E' },
-//   reviewComment: { fontSize: 14, color: '#4B5563', lineHeight: 21, fontStyle: 'italic', marginBottom: 6 },
-//   reviewDate: { fontSize: 11, color: '#9CA3AF' },
-//   noReviews: { fontSize: 14, color: '#9CA3AF', textAlign: 'center', paddingVertical: 10 },
-//   loadMoreBtn: { alignItems: 'center', paddingVertical: 14 },
-//   loadMoreText: { fontSize: 14, fontWeight: '700', color: PRIMARY },
-// });

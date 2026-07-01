@@ -5,20 +5,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import BackButton from '../../components/BackButton';
+import { useTheme } from '../../context/ThemeContext';
 
-// ── Design tokens ──────────────────────────────────────────────────────────────
-const C = {
-  primary: '#2563EB',
-  red:     '#EF4444',
-  text:    '#0F172A',
-  sub:     '#64748B',
-  muted:   '#94A3B8',
-  border:  '#E2E8F0',
-  surface: '#FFFFFF',
-  bg:      '#F8FAFF',
-};
-
-// ── Section data ───────────────────────────────────────────────────────────────
 const SECTIONS = [
   {
     title: 'Account Security',
@@ -171,11 +159,11 @@ const SECTIONS = [
   },
 ];
 
-// ── Component ──────────────────────────────────────────────────────────────────
 export default function PrivacySecurityScreen({ navigation }) {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
-      {/* Header */}
       <View style={styles.header}>
         <BackButton onPress={() => navigation.goBack()} />
         <Text style={styles.headerTitle}>Privacy & Security</Text>
@@ -186,7 +174,6 @@ export default function PrivacySecurityScreen({ navigation }) {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
       >
-        {/* Hero banner */}
         <View style={styles.heroBanner}>
           <Text style={styles.heroIcon}>🔒</Text>
           <View style={{ flex: 1 }}>
@@ -219,7 +206,7 @@ export default function PrivacySecurityScreen({ navigation }) {
                     <Text style={styles.rowIcon}>{item.icon}</Text>
                   </View>
                   <View style={styles.rowBody}>
-                    <Text style={[styles.rowLabel, item.danger && { color: C.red }]}>
+                    <Text style={[styles.rowLabel, item.danger && { color: colors.error }]}>
                       {item.label}
                     </Text>
                     <Text style={styles.rowSub}>{item.sub}</Text>
@@ -231,7 +218,7 @@ export default function PrivacySecurityScreen({ navigation }) {
                       </Text>
                     </View>
                   ) : (
-                    <Text style={[styles.chevron, item.danger && { color: C.red }]}>›</Text>
+                    <Text style={[styles.chevron, item.danger && { color: colors.error }]}>›</Text>
                   )}
                 </TouchableOpacity>
               ))}
@@ -245,60 +232,59 @@ export default function PrivacySecurityScreen({ navigation }) {
   );
 }
 
-// ── Styles ─────────────────────────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.surface },
 
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
-    backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border,
+    backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border,
   },
-  headerTitle: { fontSize: 18, fontWeight: '700', color: C.text },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
 
   scroll: { padding: 16, paddingBottom: 48 },
 
   heroBanner: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    backgroundColor: '#EFF6FF', borderRadius: 16,
+    backgroundColor: colors.infoBg, borderRadius: 16,
     padding: 16, marginBottom: 24,
-    borderWidth: 1, borderColor: '#BFDBFE',
+    borderWidth: 1, borderColor: colors.info,
   },
   heroIcon:  { fontSize: 36 },
-  heroTitle: { fontSize: 15, fontWeight: '800', color: C.primary, marginBottom: 4 },
-  heroSub:   { fontSize: 13, color: C.sub, lineHeight: 19 },
+  heroTitle: { fontSize: 15, fontWeight: '800', color: colors.info, marginBottom: 4 },
+  heroSub:   { fontSize: 13, color: colors.textSub, lineHeight: 19 },
 
   section:       { marginBottom: 24 },
   sectionHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 10 },
   sectionIcon:   { fontSize: 18 },
-  sectionTitle:  { fontSize: 13, fontWeight: '700', color: C.sub, textTransform: 'uppercase', letterSpacing: 0.5 },
+  sectionTitle:  { fontSize: 13, fontWeight: '700', color: colors.textSub, textTransform: 'uppercase', letterSpacing: 0.5 },
 
   sectionCard: {
-    backgroundColor: C.surface, borderRadius: 16,
-    borderWidth: 1, borderColor: C.border,
+    backgroundColor: colors.card, borderRadius: 16,
+    borderWidth: 1, borderColor: colors.border,
     overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
   },
   row: {
     flexDirection: 'row', alignItems: 'center', gap: 14,
     paddingHorizontal: 16, paddingVertical: 14,
   },
-  rowBorder: { borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  rowBorder: { borderBottomWidth: 1, borderBottomColor: colors.surface },
   rowIconWrap: {
     width: 38, height: 38, borderRadius: 10,
-    backgroundColor: C.bg, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center',
   },
   rowIcon:   { fontSize: 18 },
   rowBody:   { flex: 1 },
-  rowLabel:  { fontSize: 15, fontWeight: '600', color: C.text, marginBottom: 2 },
-  rowSub:    { fontSize: 12, color: C.muted },
+  rowLabel:  { fontSize: 15, fontWeight: '600', color: colors.text, marginBottom: 2 },
+  rowSub:    { fontSize: 12, color: colors.textMuted },
 
   badge: {
     borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
   },
   badgeText: { fontSize: 12, fontWeight: '700' },
-  chevron:   { fontSize: 20, color: '#CBD5E1' },
+  chevron:   { fontSize: 20, color: colors.textHint },
 
-  footer: { textAlign: 'center', fontSize: 12, color: C.muted, marginTop: 8 },
+  footer: { textAlign: 'center', fontSize: 12, color: colors.textMuted, marginTop: 8 },
 });

@@ -11,14 +11,16 @@ import { getUser, clearSession } from '../../utils/storage';
 import { getMe } from '../../api/authApi';
 import { getMySubscription } from '../../api/subscriptionApi';
 import useSocket from '../../hooks/useSocket';
+import { useTheme } from '../../context/ThemeContext';
 
 const BADGE_CONFIG = {
-  new: { label: 'New', color: '#9CA3AF', bg: '#F3F4F6', icon: '🌱' },
+  new:      { label: 'New',     color: '#9CA3AF', bg: '#F3F4F6', icon: '🌱' },
   verified: { label: 'Verified', color: '#3B82F6', bg: '#EFF6FF', icon: '✓' },
-  trusted: { label: 'Trusted', color: '#F59E0B', bg: '#FFFBEB', icon: '⭐' },
+  trusted:  { label: 'Trusted', color: '#F59E0B', bg: '#FFFBEB', icon: '⭐' },
 };
 
 export default function ArtisanDashboard({ navigation, onLogout }) {
+  const { colors } = useTheme();
   const [user, setUser] = useState(null);
   const [artisanProfile, setArtisanProfile] = useState(null);
   const [recentJobs, setRecentJobs] = useState([]);
@@ -33,11 +35,9 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
     }, [])
   );
 
-  // Real-time: new jobs pushed to this artisan
   useSocket(user?.id, {
     new_job: () => {
-      // Badge on the "Available Jobs" tab
-      setRecentJobs((prev) => prev); // triggers re-render prompt
+      setRecentJobs((prev) => prev);
     },
     job_cancelled: () => loadData(),
     profile_verified: () => loadData(),
@@ -46,7 +46,7 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
     },
     account_suspended: (data) => {
       Alert.alert('Account Suspended', data.message);
-      onLogout(); // force logout on suspension
+      onLogout();
     },
   });
 
@@ -90,8 +90,6 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
   const stats      = artisanProfile?.stats || {};
   const isVerified = ['verified', 'trusted'].includes(artisanProfile?.badgeLevel);
 
-  // Admin-granted Pro (isPro=true) is identical to a paid subscription.
-  // Check both paths so admin-granted artisans never see the subscribe prompt.
   const adminGranted = artisanProfile?.isPro === true;
   const subStatus    = (adminGranted && !['trial', 'active', 'grace'].includes(subscription?.status))
     ? 'active'
@@ -107,12 +105,14 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
     disputed: '#EF4444', cancelled: '#9CA3AF',
   };
 
+  const styles = makeStyles(colors);
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => loadData(true)} tintColor="#2563EB" />
+          <RefreshControl refreshing={refreshing} onRefresh={() => loadData(true)} tintColor={colors.info} />
         }
       >
         {/* Header */}
@@ -125,20 +125,23 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
               </Text>
             </View>
             {user?.artisanCode && (
-              <TouchableOpacity
-                style={styles.myArtisanIdRow}
-                onPress={async () => {
-                  await Clipboard.setStringAsync(user.artisanCode);
-                  setDashCodeCopied(true);
-                  setTimeout(() => setDashCodeCopied(false), 2000);
-                }}
-                activeOpacity={0.7}
-              >
-                <Text style={styles.myArtisanIdText}>
-                  Your ID: <Text style={styles.myArtisanIdCode}>{user.artisanCode}</Text>
-                  {'  '}{dashCodeCopied ? '✓' : '📋'}
-                </Text>
-              </TouchableOpacity>
+              <View style={styles.myArtisanIdRow}>
+                <Text style={styles.myArtisanIdLabel}>Your ID: </Text>
+                <Text style={styles.myArtisanIdCode}>{user.artisanCode}</Text>
+                <TouchableOpacity
+                  style={[styles.copyBtn, dashCodeCopied && styles.copyBtnDone]}
+                  onPress={async () => {
+                    await Clipboard.setStringAsync(user.artisanCode);
+                    setDashCodeCopied(true);
+                    setTimeout(() => setDashCodeCopied(false), 2000);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={[styles.copyBtnText, dashCodeCopied && styles.copyBtnDoneText]}>
+                    {dashCodeCopied ? 'Copied ✓' : 'Copy'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
             )}
           </View>
           <TouchableOpacity onPress={handleLogout}>
@@ -172,7 +175,7 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
           </View>
         </View>
 
-        {/* ── Subscription card ─────────────────────────────────────────── */}
+        {/* Subscription card */}
         {subStatus === 'trial' && (
           <TouchableOpacity
             style={subCard.trialWrap}
@@ -268,7 +271,7 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
           <TouchableOpacity
             style={styles.actionCard}
             onPress={() => navigation.navigate('AvailableJobs')}
-          > 
+          >
             <Text style={styles.actionIcon}>📋</Text>
             <Text style={styles.actionLabel}>Browse Jobs</Text>
           </TouchableOpacity>
@@ -333,67 +336,74 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bgAlt },
   scroll: { padding: 20, paddingBottom: 30 },
   header: {
     flexDirection: 'row', justifyContent: 'space-between',
     alignItems: 'flex-start', marginBottom: 20,
   },
-  greeting: { fontSize: 22, fontWeight: '800', color: '#1A1A1A', marginBottom: 6 },
+  greeting: { fontSize: 22, fontWeight: '800', color: colors.text, marginBottom: 6 },
   badgePill: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   badgeText: { fontSize: 12, fontWeight: '700' },
-  myArtisanIdRow: { marginTop: 6 },
-  myArtisanIdText: { fontSize: 11, color: '#9CA3AF' },
+
+  myArtisanIdRow: { flexDirection: 'row', alignItems: 'center', marginTop: 6 },
+  myArtisanIdLabel: { fontSize: 11, color: colors.textMuted },
   myArtisanIdCode: {
     fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
-    color: '#3B82F6',
+    color: colors.info,
     fontWeight: '700',
     letterSpacing: 1,
+    fontSize: 11,
   },
-  logoutBtn: { color: '#999', fontSize: 13, fontWeight: '600', marginTop: 4 },
-  statsRow: {
-    flexDirection: 'row', gap: 8, marginBottom: 24,
+  copyBtn: {
+    marginLeft: 8, paddingHorizontal: 7, paddingVertical: 2,
+    borderRadius: 5, borderWidth: 1, borderColor: colors.info,
   },
+  copyBtnDone: { borderColor: colors.success },
+  copyBtnText: { fontSize: 10, fontWeight: '700', color: colors.info },
+  copyBtnDoneText: { color: colors.success },
+
+  logoutBtn: { color: colors.textMuted, fontSize: 13, fontWeight: '600', marginTop: 4 },
+  statsRow: { flexDirection: 'row', gap: 8, marginBottom: 24 },
   statCard: {
-    flex: 1, backgroundColor: '#FFF', borderRadius: 12, padding: 12,
-    alignItems: 'center', borderWidth: 1, borderColor: '#F0F0F0',
+    flex: 1, backgroundColor: colors.card, borderRadius: 12, padding: 12,
+    alignItems: 'center', borderWidth: 1, borderColor: colors.borderLight,
   },
-  statValue: { fontSize: 18, fontWeight: '800', color: '#2563EB', marginBottom: 4 },
-  statLabel: { fontSize: 10, color: '#999', fontWeight: '600' },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#1A1A1A', marginBottom: 12, marginTop: 4 },
+  statValue: { fontSize: 18, fontWeight: '800', color: colors.info, marginBottom: 4 },
+  statLabel: { fontSize: 10, color: colors.textMuted, fontWeight: '600' },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 12, marginTop: 4 },
   actionsRow: { flexDirection: 'row', gap: 12, marginBottom: 24 },
   actionCard: {
-    flex: 1, backgroundColor: '#FFF', borderRadius: 14, padding: 18,
-    alignItems: 'center', borderWidth: 1, borderColor: '#F0F0F0', elevation: 1,
+    flex: 1, backgroundColor: colors.card, borderRadius: 14, padding: 18,
+    alignItems: 'center', borderWidth: 1, borderColor: colors.borderLight, elevation: 1,
   },
   actionIcon: { fontSize: 28, marginBottom: 8 },
-  actionLabel: { fontSize: 13, fontWeight: '700', color: '#1A1A1A' },
-  loadingText: { color: '#AAA', fontSize: 14, textAlign: 'center', paddingVertical: 20 },
+  actionLabel: { fontSize: 13, fontWeight: '700', color: colors.text },
+  loadingText: { color: colors.textHint, fontSize: 14, textAlign: 'center', paddingVertical: 20 },
   emptyState: { alignItems: 'center', paddingVertical: 24 },
   emptyIcon: { fontSize: 40, marginBottom: 10 },
-  emptyText: { color: '#999', fontSize: 14, textAlign: 'center', marginBottom: 16 },
+  emptyText: { color: colors.textMuted, fontSize: 14, textAlign: 'center', marginBottom: 16 },
   browseBtn: {
-    backgroundColor: '#2563EB', paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10,
+    backgroundColor: colors.info, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 10,
   },
   browseBtnText: { color: '#FFF', fontWeight: '700', fontSize: 14 },
   jobCard: {
-    backgroundColor: '#FFF', borderRadius: 12, padding: 14,
-    marginBottom: 10, borderWidth: 1, borderColor: '#F0F0F0',
+    backgroundColor: colors.card, borderRadius: 12, padding: 14,
+    marginBottom: 10, borderWidth: 1, borderColor: colors.borderLight,
   },
   jobCardTop: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
-  jobCategory: { flex: 1, fontSize: 15, fontWeight: '700', color: '#1A1A1A' },
+  jobCategory: { flex: 1, fontSize: 15, fontWeight: '700', color: colors.text },
   statusDot: { width: 7, height: 7, borderRadius: 3.5, marginRight: 4 },
   jobStatus: { fontSize: 12, fontWeight: '700', textTransform: 'capitalize' },
-  jobDesc: { fontSize: 13, color: '#666', marginBottom: 4 },
-  jobLocation: { fontSize: 11, color: '#BBB' },
+  jobDesc: { fontSize: 13, color: colors.textSub, marginBottom: 4 },
+  jobLocation: { fontSize: 11, color: colors.textHint },
   viewAllBtn: { alignItems: 'center', marginTop: 8, paddingVertical: 12 },
-  viewAllBtnText: { color: '#2563EB', fontWeight: '700', fontSize: 14 },
+  viewAllBtnText: { color: colors.info, fontWeight: '700', fontSize: 14 },
 });
 
-// ── Subscription card styles ──────────────────────────────────────────────────
+// Subscription card — intentionally dark to convey premium status; same in both themes
 const subCard = StyleSheet.create({
-  // Not subscribed / expired → upgrade prompt
   freeWrap: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#1E293B', borderRadius: 18,
@@ -415,14 +425,12 @@ const subCard = StyleSheet.create({
   },
   freeBtnText: { fontSize: 12, fontWeight: '800', color: '#FFFFFF' },
 
-  // Trial prompt
   trialWrap: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#1E3A8A', borderRadius: 18,
     padding: 16, marginBottom: 24, gap: 12,
   },
 
-  // Pro active / grace
   proWrap: {
     backgroundColor: '#EFF6FF', borderRadius: 18, padding: 16,
     marginBottom: 24, borderWidth: 2, borderColor: '#2563EB',

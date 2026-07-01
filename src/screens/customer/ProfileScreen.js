@@ -1,7 +1,3 @@
-
-
-
-
 import React, { useState, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
@@ -13,9 +9,8 @@ import { getUser } from '../../utils/storage';
 import { getMyJobs } from '../../api/jobApi';
 import { becomeArtisan, getOnboardingStatus } from '../../api/artisanApi';
 import { getMySubscription } from '../../api/subscriptionApi';
+import { useTheme } from '../../context/ThemeContext';
 
-const PRIMARY   = '#2563EB';
-const PRIMARY_L = '#EFF6FF';
 const TOS_URL   = 'https://ematech81.github.io/FixNGTerms/';
 
 const CUSTOMER_MENU_ITEMS = [
@@ -60,6 +55,7 @@ const ARTISAN_STATUS_CONFIG = {
 };
 
 export default function ProfileScreen({ navigation, onLogout, onRefreshAuth }) {
+  const { colors } = useTheme();
   const [user, setUser]                         = useState(null);
   const [stats, setStats]                       = useState({ total: 0, completed: 0, active: 0 });
   const [activeJob, setActiveJob]               = useState(null);
@@ -142,6 +138,9 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth }) {
   const statusConfig     = isArtisan && artisanStatus ? ARTISAN_STATUS_CONFIG[artisanStatus] : null;
   const menuItems        = isArtisan ? ARTISAN_MENU_ITEMS : CUSTOMER_MENU_ITEMS;
 
+  const styles    = makeStyles(colors);
+  const subStyles = makeSubStyles(colors);
+
   /* ─── Subscription banner ─────────────────────────────────────────────── */
   const SubscriptionBanner = () => {
     if (!isArtisan || !isArtisanVerified) return null;
@@ -186,7 +185,7 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth }) {
         <View style={subStyles.accentBar} />
         <View style={subStyles.inner}>
           <View style={subStyles.planRow}>
-            <View style={[subStyles.badge, { backgroundColor: PRIMARY }]}>
+            <View style={[subStyles.badge, { backgroundColor: colors.info }]}>
               <Text style={subStyles.badgeText}>✓ PRO</Text>
             </View>
             <View style={subStyles.activePill}>
@@ -295,11 +294,11 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth }) {
           {isArtisan && (
             <View style={[
               styles.rolePill,
-              { backgroundColor: isArtisanVerified ? '#DCFCE7' : '#FEF9C3' },
+              { backgroundColor: isArtisanVerified ? colors.successBg : '#FEF9C3' },
             ]}>
               <Text style={[
                 styles.rolePillText,
-                { color: isArtisanVerified ? '#16A34A' : '#92400E' },
+                { color: isArtisanVerified ? colors.success : '#92400E' },
               ]}>
                 {isArtisanVerified ? '✅  Verified Artisan' : '⏳  Artisan'}
               </Text>
@@ -309,9 +308,9 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth }) {
 
         {/* ── Stats row ─────────────────────────────────────────────────── */}
         <View style={styles.statsRow}>
-          <StatBox label="Total Jobs"  value={loadingStats ? '—' : stats.total}     accent="#6366F1" />
-          <StatBox label="Completed"   value={loadingStats ? '—' : stats.completed}  accent="#10B981" />
-          <StatBox label="Active"      value={loadingStats ? '—' : stats.active}     accent="#F59E0B" />
+          <StatBox label="Total Jobs"  value={loadingStats ? '—' : stats.total}     accent="#6366F1" colors={colors} />
+          <StatBox label="Completed"   value={loadingStats ? '—' : stats.completed}  accent="#10B981" colors={colors} />
+          <StatBox label="Active"      value={loadingStats ? '—' : stats.active}     accent="#F59E0B" colors={colors} />
         </View>
 
         {/* ── Subscription banner ────────────────────────────────────────── */}
@@ -322,7 +321,7 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth }) {
           loadingArtisanStatus
             ? (
               <View style={styles.loadingCard}>
-                <ActivityIndicator color={PRIMARY} size="small" />
+                <ActivityIndicator color={colors.info} size="small" />
                 <Text style={styles.loadingText}>Loading artisan status…</Text>
               </View>
             )
@@ -370,14 +369,16 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth }) {
             <ActionCard
               icon="👁️" title="View Public Profile"
               subtitle="See what customers see when they find you"
-              accentColor="#16A34A" bgColor="#F0FDF4" borderColor="#BBF7D0"
+              accentColor={colors.success} bgColor={colors.successBg} borderColor="#BBF7D0"
               onPress={() => navigation.navigate('ArtisanProfile', { artisanId: user._id || user.id })}
+              colors={colors}
             />
             <ActionCard
               icon="🔧" title="Job Dashboard"
               subtitle="View and manage available job requests"
-              accentColor={PRIMARY} bgColor={PRIMARY_L} borderColor="#BFDBFE"
+              accentColor={colors.info} bgColor={colors.infoBg} borderColor="#BFDBFE"
               onPress={() => navigation.navigate('JobScreen')}
+              colors={colors}
             />
           </>
         ) : isArtisanPending ? (
@@ -386,14 +387,16 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth }) {
             subtitle="Tap to return to the job dashboard"
             accentColor="#D97706" bgColor="#FFFBEB" borderColor="#FDE68A"
             onPress={() => navigation.navigate('JobScreen')}
+            colors={colors}
           />
         ) : !isArtisan ? (
           <ActionCard
             icon="🔧" title="Become an Artisan"
             subtitle="List your skills & earn money"
-            accentColor={PRIMARY} bgColor={PRIMARY_L} borderColor="#BFDBFE"
+            accentColor={colors.info} bgColor={colors.infoBg} borderColor="#BFDBFE"
             onPress={handleBecomeArtisan}
             loading={becomingArtisan}
+            colors={colors}
           />
         ) : null}
 
@@ -404,6 +407,7 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth }) {
             subtitle={`${activeJob.category} · ${activeJob.status.replace('-', ' ')}`}
             accentColor="#C2410C" bgColor="#FFF7ED" borderColor="#FED7AA"
             onPress={() => navigation.navigate('JobDetail', { jobId: activeJob._id })}
+            colors={colors}
           />
         )}
 
@@ -442,7 +446,8 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth }) {
 
 /* ─── Reusable sub-components ──────────────────────────────────────────────── */
 
-function StatBox({ label, value, accent }) {
+function StatBox({ label, value, accent, colors }) {
+  const styles = makeStyles(colors);
   return (
     <View style={styles.statBox}>
       <View style={[styles.statAccentDot, { backgroundColor: accent }]} />
@@ -452,7 +457,8 @@ function StatBox({ label, value, accent }) {
   );
 }
 
-function ActionCard({ icon, title, subtitle, accentColor, bgColor, borderColor, onPress, loading }) {
+function ActionCard({ icon, title, subtitle, accentColor, bgColor, borderColor, onPress, loading, colors }) {
+  const styles = makeStyles(colors);
   return (
     <TouchableOpacity
       style={[styles.actionCard, { backgroundColor: bgColor, borderColor }]}
@@ -477,13 +483,13 @@ function ActionCard({ icon, title, subtitle, accentColor, bgColor, borderColor, 
 }
 
 /* ─── Styles ────────────────────────────────────────────────────────────────── */
-const styles = StyleSheet.create({
-  safe:   { flex: 1, backgroundColor: '#F1F5F9' },
+const makeStyles = (colors) => StyleSheet.create({
+  safe:   { flex: 1, backgroundColor: colors.surface },
   scroll: { paddingBottom: 40 },
 
   /* Hero */
   hero: {
-    backgroundColor: PRIMARY,
+    backgroundColor: colors.info,
     paddingTop: 20,
     paddingHorizontal: 24,
     paddingBottom: 52,          // extra space so avatar overlaps nicely
@@ -492,7 +498,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
   heroTitle: {
-    fontSize: 20, fontWeight: '800', color: '#fff', letterSpacing: 0.3,
+    fontSize: 20, fontWeight: '800', color: colors.card, letterSpacing: 0.3,
   },
   heroEditBtn: {
     fontSize: 14, fontWeight: '700', color: 'rgba(255,255,255,0.85)',
@@ -508,34 +514,34 @@ const styles = StyleSheet.create({
   },
   avatarRing: {
     width: 90, height: 90, borderRadius: 45,
-    borderWidth: 3, borderColor: '#fff',
+    borderWidth: 3, borderColor: colors.card,
     backgroundColor: '#C7D2FE',
     justifyContent: 'center', alignItems: 'center',
     overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowColor: colors.shadow, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.18, shadowRadius: 8, elevation: 6,
   },
   avatarImage:   { width: 90, height: 90, borderRadius: 45 },
-  avatarInitial: { fontSize: 36, fontWeight: '900', color: PRIMARY },
+  avatarInitial: { fontSize: 36, fontWeight: '900', color: colors.info },
   verifiedBadge: {
     position: 'absolute', bottom: 2, right: 2,
     width: 24, height: 24, borderRadius: 12,
-    backgroundColor: '#16A34A',
+    backgroundColor: colors.success,
     justifyContent: 'center', alignItems: 'center',
-    borderWidth: 2, borderColor: '#fff',
+    borderWidth: 2, borderColor: colors.card,
   },
-  verifiedBadgeText: { fontSize: 11, color: '#fff', fontWeight: '900' },
+  verifiedBadgeText: { fontSize: 11, color: colors.card, fontWeight: '900' },
 
   /* Name block — sits below hero, centred */
   nameBlock: {
     alignItems: 'center',
     marginTop: -46,             // pulls up into the hero overlap
     paddingTop: 52,             // clears the avatar
-    backgroundColor: '#F1F5F9',
+    backgroundColor: colors.surface,
     paddingBottom: 8,
   },
-  userName:  { fontSize: 22, fontWeight: '900', color: '#0F172A', marginBottom: 3 },
-  userPhone: { fontSize: 14, color: '#64748B', marginBottom: 10 },
+  userName:  { fontSize: 22, fontWeight: '900', color: colors.text, marginBottom: 3 },
+  userPhone: { fontSize: 14, color: colors.textSub, marginBottom: 10 },
   rolePill: {
     paddingHorizontal: 14, paddingVertical: 5,
     borderRadius: 20,
@@ -546,38 +552,38 @@ const styles = StyleSheet.create({
   statsRow: {
     flexDirection: 'row',
     marginHorizontal: 16, marginTop: 18, marginBottom: 16,
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     borderRadius: 20,
     paddingVertical: 18,
-    shadowColor: '#64748B', shadowOffset: { width: 0, height: 2 },
+    shadowColor: colors.textSub, shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08, shadowRadius: 8, elevation: 2,
   },
   statBox:       { flex: 1, alignItems: 'center' },
   statAccentDot: { width: 6, height: 6, borderRadius: 3, marginBottom: 6 },
-  statValue:     { fontSize: 24, fontWeight: '900', color: '#0F172A', marginBottom: 2 },
-  statLabel:     { fontSize: 11, color: '#94A3B8', fontWeight: '600', letterSpacing: 0.3 },
+  statValue:     { fontSize: 24, fontWeight: '900', color: colors.text, marginBottom: 2 },
+  statLabel:     { fontSize: 11, color: colors.textMuted, fontWeight: '600', letterSpacing: 0.3 },
 
   /* Loading state */
   loadingCard: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     marginHorizontal: 16, marginBottom: 12,
-    padding: 14, backgroundColor: '#fff',
+    padding: 14, backgroundColor: colors.card,
     borderRadius: 14,
   },
-  loadingText: { fontSize: 13, color: '#64748B' },
+  loadingText: { fontSize: 13, color: colors.textSub },
 
   /* Status card — left-border style */
   statusCard: {
     marginHorizontal: 16, marginBottom: 12,
     borderRadius: 14, padding: 14,
     borderLeftWidth: 4,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04, shadowRadius: 4, elevation: 1,
   },
   statusTop:   { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
   statusIcon:  { fontSize: 20 },
   statusLabel: { fontSize: 14, fontWeight: '800' },
-  statusNote:  { fontSize: 12, color: '#374151', lineHeight: 17 },
+  statusNote:  { fontSize: 12, color: colors.textSub, lineHeight: 17 },
   statusTap:   { fontSize: 12, fontWeight: '700', marginTop: 6 },
 
   /* Action cards */
@@ -586,7 +592,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 16, marginBottom: 10,
     borderRadius: 16, borderWidth: 1,
     overflow: 'hidden',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05, shadowRadius: 4, elevation: 1,
   },
   actionStripe:  { width: 4, alignSelf: 'stretch' },
@@ -594,35 +600,35 @@ const styles = StyleSheet.create({
   actionIcon:    { fontSize: 26 },
   actionText:    { flex: 1, paddingHorizontal: 10, paddingVertical: 18 },
   actionTitle:   { fontSize: 15, fontWeight: '800', marginBottom: 2 },
-  actionSubtitle:{ fontSize: 12, color: '#64748B', textTransform: 'capitalize' },
+  actionSubtitle:{ fontSize: 12, color: colors.textSub, textTransform: 'capitalize' },
   actionArrow:   { fontSize: 26, fontWeight: '700', paddingRight: 16 },
 
   /* Section label */
   sectionLabel: {
     marginHorizontal: 20, marginBottom: 8, marginTop: 8,
-    fontSize: 11, fontWeight: '800', color: '#94A3B8', letterSpacing: 1.2,
+    fontSize: 11, fontWeight: '800', color: colors.textMuted, letterSpacing: 1.2,
   },
 
   /* Menu */
   menuCard: {
-    backgroundColor: '#fff',
+    backgroundColor: colors.card,
     marginHorizontal: 16, marginBottom: 16,
     borderRadius: 20, overflow: 'hidden',
-    shadowColor: '#64748B', shadowOffset: { width: 0, height: 2 },
+    shadowColor: colors.textSub, shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.07, shadowRadius: 8, elevation: 2,
   },
   menuItem: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     paddingHorizontal: 16, paddingVertical: 15,
   },
-  menuItemBorder: { borderBottomWidth: 1, borderBottomColor: '#F1F5F9' },
+  menuItemBorder: { borderBottomWidth: 1, borderBottomColor: colors.borderLight },
   menuIconBox: {
     width: 38, height: 38, borderRadius: 10,
     justifyContent: 'center', alignItems: 'center',
   },
   menuIconEmoji: { fontSize: 18 },
-  menuLabel:     { flex: 1, fontSize: 15, fontWeight: '600', color: '#1E293B' },
-  menuChevron:   { fontSize: 20, color: '#CBD5E1' },
+  menuLabel:     { flex: 1, fontSize: 15, fontWeight: '600', color: colors.text },
+  menuChevron:   { fontSize: 20, color: colors.textHint },
 
   /* Logout */
   logoutBtn: {
@@ -630,32 +636,32 @@ const styles = StyleSheet.create({
     marginHorizontal: 16, marginBottom: 20,
     borderRadius: 16, paddingVertical: 15,
     borderWidth: 1.5, borderColor: '#FECACA',
-    backgroundColor: '#FFF5F5',
+    backgroundColor: colors.errorBg,
   },
   logoutIcon: { fontSize: 18 },
-  logoutText: { fontSize: 15, fontWeight: '700', color: '#EF4444' },
+  logoutText: { fontSize: 15, fontWeight: '700', color: colors.error },
 
-  version: { textAlign: 'center', fontSize: 11, color: '#CBD5E1', letterSpacing: 0.5 },
+  version: { textAlign: 'center', fontSize: 11, color: colors.textHint, letterSpacing: 0.5 },
 });
 
 /* ─── Subscription styles ───────────────────────────────────────────────────── */
-const subStyles = StyleSheet.create({
+const makeSubStyles = (colors) => StyleSheet.create({
   /* Shared card shell */
   basicWrap: {
     marginHorizontal: 16, marginBottom: 12,
     borderRadius: 16,
-    backgroundColor: '#EFF6FF',
+    backgroundColor: colors.infoBg,
     borderWidth: 1.5, borderColor: '#BFDBFE',
     overflow: 'hidden',
-    shadowColor: PRIMARY, shadowOffset: { width: 0, height: 2 },
+    shadowColor: colors.info, shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.10, shadowRadius: 6, elevation: 2,
   },
   premiumWrap: {
-    backgroundColor: '#FFFBEB',
+    backgroundColor: colors.warningBg,
     borderColor: '#FDE68A',
   },
   accentBar: {
-    height: 4, backgroundColor: PRIMARY,
+    height: 4, backgroundColor: colors.info,
   },
   inner: { padding: 16 },
 
@@ -667,33 +673,33 @@ const subStyles = StyleSheet.create({
   badge: {
     borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4,
   },
-  badgeText:  { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
+  badgeText:  { color: colors.card, fontSize: 11, fontWeight: '800', letterSpacing: 0.5 },
   activePill: {
     flexDirection: 'row', alignItems: 'center', gap: 5,
-    backgroundColor: '#DCFCE7', borderRadius: 20,
+    backgroundColor: colors.successBg, borderRadius: 20,
     paddingHorizontal: 10, paddingVertical: 4,
   },
-  activeDot:     { width: 6, height: 6, borderRadius: 3, backgroundColor: '#16A34A' },
-  activePillText:{ fontSize: 12, fontWeight: '700', color: '#16A34A' },
+  activeDot:     { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.success },
+  activePillText:{ fontSize: 12, fontWeight: '700', color: colors.success },
 
-  planHeadline: { fontSize: 17, fontWeight: '900', color: '#0F172A', marginBottom: 4 },
-  planSub:      { fontSize: 13, color: '#475569', lineHeight: 18, marginBottom: 8 },
-  expiry:       { fontSize: 12, color: '#94A3B8', marginBottom: 8 },
-  manageLink:   { fontSize: 12, color: PRIMARY, fontWeight: '700' },
+  planHeadline: { fontSize: 17, fontWeight: '900', color: colors.text, marginBottom: 4 },
+  planSub:      { fontSize: 13, color: colors.textSub, lineHeight: 18, marginBottom: 8 },
+  expiry:       { fontSize: 12, color: colors.textMuted, marginBottom: 8 },
+  manageLink:   { fontSize: 12, color: colors.info, fontWeight: '700' },
 
   upgradeBtn: {
-    backgroundColor: PRIMARY, borderRadius: 10,
+    backgroundColor: colors.info, borderRadius: 10,
     paddingVertical: 11, alignItems: 'center',
   },
-  upgradeBtnText: { color: '#fff', fontSize: 14, fontWeight: '800' },
+  upgradeBtnText: { color: colors.card, fontSize: 14, fontWeight: '800' },
 
   /* Free / upsell card */
   freeWrap: {
     flexDirection: 'row', alignItems: 'center',
     marginHorizontal: 16, marginBottom: 12,
     borderRadius: 16, padding: 16,
-    backgroundColor: '#0F172A',
-    shadowColor: '#0F172A', shadowOffset: { width: 0, height: 4 },
+    backgroundColor: colors.text,
+    shadowColor: colors.text, shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.22, shadowRadius: 10, elevation: 4,
   },
   freeLeft:  { flex: 1, paddingRight: 12 },
@@ -704,15 +710,15 @@ const subStyles = StyleSheet.create({
   verifiedLabel: { fontSize: 12, fontWeight: '700', color: '#34D399' },
 
   freeHeadline: { fontSize: 15, fontWeight: '800', color: '#F8FAFC', marginBottom: 4 },
-  freeSub:      { fontSize: 12, color: '#94A3B8', lineHeight: 17 },
+  freeSub:      { fontSize: 12, color: colors.textMuted, lineHeight: 17 },
 
   freePrice: {
     fontSize: 13, fontWeight: '800',
     color: '#F8FAFC', textAlign: 'center', lineHeight: 18,
   },
   freeBtn: {
-    backgroundColor: PRIMARY, borderRadius: 10,
+    backgroundColor: colors.info, borderRadius: 10,
     paddingHorizontal: 14, paddingVertical: 9,
   },
-  freeBtnText: { color: '#fff', fontSize: 13, fontWeight: '800' },
+  freeBtnText: { color: colors.card, fontSize: 13, fontWeight: '800' },
 });

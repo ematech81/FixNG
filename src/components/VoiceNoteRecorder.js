@@ -11,6 +11,7 @@ import {
   View, Text, TouchableOpacity, StyleSheet, Alert, Animated,
 } from 'react-native';
 import { Audio } from 'expo-av';
+import { useTheme } from '../context/ThemeContext';
 
 const MAX_DURATION = 180; // 3 minutes
 
@@ -19,6 +20,8 @@ export default function VoiceNoteRecorder({
   onCancel,
   maxDuration = MAX_DURATION,
 }) {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
   const [phase, setPhase] = useState('idle'); // idle | recording | preview
   const [elapsed, setElapsed] = useState(0);
   const [recordingUri, setRecordingUri] = useState(null);
@@ -32,7 +35,6 @@ export default function VoiceNoteRecorder({
   const pulseAnim = useRef(new Animated.Value(1)).current;
   const pulseLoop = useRef(null);
 
-  // Clean up on unmount
   useEffect(() => {
     return () => {
       clearInterval(timerRef.current);
@@ -42,7 +44,6 @@ export default function VoiceNoteRecorder({
     };
   }, [sound]);
 
-  // Pulse animation while recording
   const startPulse = useCallback(() => {
     pulseLoop.current = Animated.loop(
       Animated.sequence([
@@ -171,7 +172,6 @@ export default function VoiceNoteRecorder({
     return `${m}:${s}`;
   };
 
-  // ── IDLE: show mic button to start ──────────────────────────────────────────
   if (phase === 'idle') {
     return (
       <View style={styles.container}>
@@ -186,7 +186,6 @@ export default function VoiceNoteRecorder({
     );
   }
 
-  // ── RECORDING: show pulsing mic + live timer + stop button ──────────────────
   if (phase === 'recording') {
     const remaining = maxDuration - elapsed;
     return (
@@ -212,7 +211,6 @@ export default function VoiceNoteRecorder({
     );
   }
 
-  // ── PREVIEW: play/pause + discard + send ────────────────────────────────────
   const progressRatio = duration > 0 ? (playPosition / 1000) / duration : 0;
   return (
     <View style={styles.container}>
@@ -225,7 +223,6 @@ export default function VoiceNoteRecorder({
           <Text style={styles.playIcon}>{isPlaying ? '⏸' : '▶️'}</Text>
         </TouchableOpacity>
 
-        {/* Progress bar */}
         <View style={styles.progressTrack}>
           <View style={[styles.progressFill, { width: `${Math.round(progressRatio * 100)}%` }]} />
         </View>
@@ -245,31 +242,29 @@ export default function VoiceNoteRecorder({
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   container: {
     alignItems: 'center',
     paddingVertical: 20,
     paddingHorizontal: 16,
-    backgroundColor: '#FFF',
+    backgroundColor: colors.card,
     borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    borderTopColor: colors.borderLight,
   },
 
-  // Idle
   micBtn: {
     width: 72, height: 72, borderRadius: 36,
-    backgroundColor: '#FF6B00',
+    backgroundColor: colors.primary,
     justifyContent: 'center', alignItems: 'center',
     marginBottom: 12,
-    shadowColor: '#FF6B00', shadowOpacity: 0.4, shadowRadius: 8,
+    shadowColor: colors.primary, shadowOpacity: 0.4, shadowRadius: 8,
     elevation: 4,
   },
   micIcon: { fontSize: 32 },
-  hintText: { fontSize: 12, color: '#888', marginBottom: 12, textAlign: 'center' },
+  hintText: { fontSize: 12, color: colors.textMuted, marginBottom: 12, textAlign: 'center' },
   cancelLink: { paddingVertical: 4 },
-  cancelLinkText: { fontSize: 13, color: '#FF6B00', fontWeight: '600' },
+  cancelLinkText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
 
-  // Recording
   pulseRing: {
     width: 88, height: 88, borderRadius: 44,
     backgroundColor: 'rgba(255,107,0,0.18)',
@@ -278,53 +273,52 @@ const styles = StyleSheet.create({
   },
   micBtnRecording: {
     width: 72, height: 72, borderRadius: 36,
-    backgroundColor: '#FF6B00',
+    backgroundColor: colors.primary,
     justifyContent: 'center', alignItems: 'center',
   },
   timerText: {
-    fontSize: 28, fontWeight: '700', color: '#1A1A1A',
+    fontSize: 28, fontWeight: '700', color: colors.text,
     fontVariant: ['tabular-nums'],
     marginBottom: 4,
   },
-  remainingText: { fontSize: 12, color: '#EF4444', marginBottom: 8 },
+  remainingText: { fontSize: 12, color: colors.error, marginBottom: 8 },
   stopBtn: {
     flexDirection: 'row', alignItems: 'center', gap: 8,
     paddingHorizontal: 24, paddingVertical: 12, borderRadius: 24,
-    backgroundColor: '#F3F4F6', marginTop: 12,
+    backgroundColor: colors.borderLight, marginTop: 12,
   },
   stopSquare: {
-    width: 14, height: 14, borderRadius: 2, backgroundColor: '#EF4444',
+    width: 14, height: 14, borderRadius: 2, backgroundColor: colors.error,
   },
-  stopText: { fontSize: 14, fontWeight: '600', color: '#333' },
+  stopText: { fontSize: 14, fontWeight: '600', color: colors.textSub },
 
-  // Preview
   previewRow: {
     flexDirection: 'row', alignItems: 'center', gap: 10,
     width: '100%', marginBottom: 16,
   },
   playBtn: {
     width: 44, height: 44, borderRadius: 22,
-    backgroundColor: '#FF6B00',
+    backgroundColor: colors.primary,
     justifyContent: 'center', alignItems: 'center',
   },
   playIcon: { fontSize: 18 },
   progressTrack: {
-    flex: 1, height: 4, borderRadius: 2, backgroundColor: '#E5E7EB', overflow: 'hidden',
+    flex: 1, height: 4, borderRadius: 2, backgroundColor: colors.border, overflow: 'hidden',
   },
-  progressFill: { height: '100%', backgroundColor: '#FF6B00', borderRadius: 2 },
-  durationText: { fontSize: 12, color: '#888', minWidth: 36, textAlign: 'right' },
+  progressFill: { height: '100%', backgroundColor: colors.primary, borderRadius: 2 },
+  durationText: { fontSize: 12, color: colors.textMuted, minWidth: 36, textAlign: 'right' },
   previewActions: {
     flexDirection: 'row', gap: 12, width: '100%',
   },
   discardBtn: {
     flex: 1, paddingVertical: 12, borderRadius: 10,
-    borderWidth: 1, borderColor: '#E5E7EB',
+    borderWidth: 1, borderColor: colors.border,
     alignItems: 'center',
   },
-  discardText: { fontSize: 14, color: '#666', fontWeight: '500' },
+  discardText: { fontSize: 14, color: colors.textSub, fontWeight: '500' },
   sendVoiceBtn: {
     flex: 2, paddingVertical: 12, borderRadius: 10,
-    backgroundColor: '#FF6B00', alignItems: 'center',
+    backgroundColor: colors.primary, alignItems: 'center',
   },
   sendVoiceText: { fontSize: 14, color: '#FFF', fontWeight: '700' },
 });

@@ -12,20 +12,7 @@ import {
 } from '../../api/notificationApi';
 import { connectSocket } from '../../hooks/useSocket';
 import { getUser } from '../../utils/storage';
-
-// ── Design tokens ──────────────────────────────────────────────────────────────
-const C = {
-  primary:   '#2563EB',
-  surface:   '#FFFFFF',
-  bg:        '#F8FAFF',
-  border:    '#F1F5F9',
-  textMain:  '#0F172A',
-  textSub:   '#64748B',
-  textMuted: '#94A3B8',
-  unreadBg:  '#EFF6FF',
-  unreadDot: '#2563EB',
-  red:       '#EF4444',
-};
+import { useTheme } from '../../context/ThemeContext';
 
 // ── Icon + accent colour per notification type ─────────────────────────────────
 const TYPE_CONFIG = {
@@ -46,7 +33,7 @@ const TYPE_CONFIG = {
   account_unsuspended:{ icon: '🔓', color: '#16A34A', label: 'Account Restored'   },
 };
 
-const cfg = (type) => TYPE_CONFIG[type] || { icon: '🔔', color: C.primary, label: 'Notification' };
+const cfg = (type, colors) => TYPE_CONFIG[type] || { icon: '🔔', color: colors.info, label: 'Notification' };
 
 // ── Time format ────────────────────────────────────────────────────────────────
 function timeAgo(dateStr) {
@@ -62,6 +49,7 @@ function timeAgo(dateStr) {
 }
 
 export default function NotificationsScreen({ navigation }) {
+  const { colors } = useTheme();
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading]             = useState(true);
   const [refreshing, setRefreshing]       = useState(false);
@@ -69,7 +57,9 @@ export default function NotificationsScreen({ navigation }) {
   const [page, setPage]                   = useState(1);
   const [hasMore, setHasMore]             = useState(false);
   const [loadingMore, setLoadingMore]     = useState(false);
-  const [detailModal, setDetailModal]     = useState(null); // notification item or null
+  const [detailModal, setDetailModal]     = useState(null);
+
+  const styles = makeStyles(colors);
 
   useFocusEffect(useCallback(() => { fetchNotifications(1, false); }, []));
 
@@ -83,7 +73,6 @@ export default function NotificationsScreen({ navigation }) {
 
       connectSocket(uid).then((socket) => {
         const handleNotification = (notif) => {
-          // Map socket payload (id) to REST shape (_id) so renders consistently
           const normalized = { ...notif, _id: notif.id || notif._id, read: false };
           setNotifications((prev) => {
             const exists = prev.find((n) => n._id?.toString() === normalized._id?.toString());
@@ -127,7 +116,6 @@ export default function NotificationsScreen({ navigation }) {
   };
 
   const handleTap = async (item) => {
-    // Mark as read
     if (!item.read) {
       markRead(item._id).catch(() => {});
       setNotifications((prev) =>
@@ -135,7 +123,6 @@ export default function NotificationsScreen({ navigation }) {
       );
       setUnreadCount((c) => Math.max(0, c - 1));
     }
-    // Deep-link to relevant screen
     if (item.type === 'profile_rejected') {
       navigation.navigate('AccountStatus', { type: 'rejected' });
       return;
@@ -153,7 +140,6 @@ export default function NotificationsScreen({ navigation }) {
       }
       return;
     }
-    // No navigation target — show detail modal so user can read the full message
     setDetailModal(item);
   };
 
@@ -188,7 +174,7 @@ export default function NotificationsScreen({ navigation }) {
   };
 
   const renderItem = ({ item }) => {
-    const { icon, color } = cfg(item.type);
+    const { icon, color } = cfg(item.type, colors);
     const unread = !item.read;
     return (
       <TouchableOpacity
@@ -249,7 +235,7 @@ export default function NotificationsScreen({ navigation }) {
 
       {loading ? (
         <View style={styles.centred}>
-          <ActivityIndicator size="large" color={C.primary} />
+          <ActivityIndicator size="large" color={colors.info} />
         </View>
       ) : notifications.length === 0 ? (
         <View style={styles.centred}>
@@ -266,15 +252,15 @@ export default function NotificationsScreen({ navigation }) {
             <RefreshControl
               refreshing={refreshing}
               onRefresh={() => fetchNotifications(1, true)}
-              tintColor={C.primary}
-              colors={[C.primary]}
+              tintColor={colors.info}
+              colors={[colors.info]}
             />
           }
           onEndReached={handleLoadMore}
           onEndReachedThreshold={0.3}
           ListFooterComponent={
             loadingMore
-              ? <ActivityIndicator color={C.primary} style={{ marginVertical: 16 }} />
+              ? <ActivityIndicator color={colors.info} style={{ marginVertical: 16 }} />
               : null
           }
           ListHeaderComponent={
@@ -302,11 +288,11 @@ export default function NotificationsScreen({ navigation }) {
             <Pressable style={styles.modalSheet} onPress={(e) => e.stopPropagation()}>
               {/* Icon + type label */}
               <View style={styles.modalIconRow}>
-                <View style={[styles.modalIconBubble, { backgroundColor: cfg(detailModal.type).color + '18' }]}>
-                  <Text style={styles.modalIconText}>{cfg(detailModal.type).icon}</Text>
+                <View style={[styles.modalIconBubble, { backgroundColor: cfg(detailModal.type, colors).color + '18' }]}>
+                  <Text style={styles.modalIconText}>{cfg(detailModal.type, colors).icon}</Text>
                 </View>
-                <Text style={[styles.modalTypeLabel, { color: cfg(detailModal.type).color }]}>
-                  {cfg(detailModal.type).label}
+                <Text style={[styles.modalTypeLabel, { color: cfg(detailModal.type, colors).color }]}>
+                  {cfg(detailModal.type, colors).label}
                 </Text>
               </View>
 
@@ -325,25 +311,25 @@ export default function NotificationsScreen({ navigation }) {
   );
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: C.bg },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bg },
 
   // Header
   header: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     paddingHorizontal: 16, paddingVertical: 12,
-    backgroundColor: C.surface, borderBottomWidth: 1, borderBottomColor: C.border,
+    backgroundColor: colors.card, borderBottomWidth: 1, borderBottomColor: colors.border,
   },
   headerCenter: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  headerTitle:  { fontSize: 18, fontWeight: '700', color: C.textMain },
+  headerTitle:  { fontSize: 18, fontWeight: '700', color: colors.text },
   headerBadge:  {
-    backgroundColor: C.red, borderRadius: 10,
+    backgroundColor: colors.error, borderRadius: 10,
     paddingHorizontal: 7, paddingVertical: 2, minWidth: 20, alignItems: 'center',
   },
-  headerBadgeText: { color: '#FFF', fontSize: 11, fontWeight: '700' },
+  headerBadgeText: { color: colors.card, fontSize: 11, fontWeight: '700' },
   headerActions:   { minWidth: 70, alignItems: 'flex-end' },
   actionBtn:       { paddingVertical: 4, paddingHorizontal: 8 },
-  actionBtnText:   { color: C.primary, fontSize: 13, fontWeight: '600' },
+  actionBtnText:   { color: colors.info, fontSize: 13, fontWeight: '600' },
 
   // List
   list: { paddingBottom: 32 },
@@ -351,23 +337,23 @@ const styles = StyleSheet.create({
     alignSelf: 'flex-end', marginRight: 16, marginTop: 8, marginBottom: 4,
     paddingVertical: 4, paddingHorizontal: 10,
   },
-  clearAllText: { color: C.textSub, fontSize: 12, fontWeight: '500' },
+  clearAllText: { color: colors.textSub, fontSize: 12, fontWeight: '500' },
 
   // Item
   item: {
     flexDirection: 'row', alignItems: 'flex-start',
-    backgroundColor: C.surface, marginHorizontal: 12, marginTop: 8,
+    backgroundColor: colors.card, marginHorizontal: 12, marginTop: 8,
     borderRadius: 12, padding: 14,
-    borderWidth: 1, borderColor: C.border,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    borderWidth: 1, borderColor: colors.border,
+    shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.04, shadowRadius: 3, elevation: 1,
   },
   itemUnread: {
-    backgroundColor: C.unreadBg, borderColor: '#BFDBFE',
+    backgroundColor: colors.infoBg, borderColor: colors.info,
   },
   unreadDot: {
     position: 'absolute', top: 14, left: 4,
-    width: 7, height: 7, borderRadius: 4, backgroundColor: C.unreadDot,
+    width: 7, height: 7, borderRadius: 4, backgroundColor: colors.info,
   },
   iconBubble: {
     width: 42, height: 42, borderRadius: 21,
@@ -375,40 +361,40 @@ const styles = StyleSheet.create({
   },
   iconText: { fontSize: 20 },
   itemContent: { flex: 1, paddingRight: 8 },
-  itemTitle:       { fontSize: 14, fontWeight: '600', color: C.textMain, marginBottom: 2 },
+  itemTitle:       { fontSize: 14, fontWeight: '600', color: colors.text, marginBottom: 2 },
   itemTitleUnread: { fontWeight: '700' },
-  itemBody:  { fontSize: 13, color: C.textSub, lineHeight: 18, marginBottom: 4 },
-  itemTime:  { fontSize: 11, color: C.textMuted },
+  itemBody:  { fontSize: 13, color: colors.textSub, lineHeight: 18, marginBottom: 4 },
+  itemTime:  { fontSize: 11, color: colors.textMuted },
   deleteBtn: { paddingLeft: 4, paddingTop: 2 },
-  deleteBtnText: { fontSize: 13, color: C.textMuted },
+  deleteBtnText: { fontSize: 13, color: colors.textMuted },
 
   // Empty / loading
   centred: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: 60 },
   emptyIcon:  { fontSize: 52, marginBottom: 12 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: C.textMain, marginBottom: 6 },
-  emptyBody:  { fontSize: 14, color: C.textSub, textAlign: 'center' },
+  emptyTitle: { fontSize: 18, fontWeight: '700', color: colors.text, marginBottom: 6 },
+  emptyBody:  { fontSize: 14, color: colors.textSub, textAlign: 'center' },
 
   // Detail modal
   modalOverlay: {
-    flex: 1, backgroundColor: 'rgba(0,0,0,0.45)',
+    flex: 1, backgroundColor: colors.overlay,
     justifyContent: 'center', alignItems: 'center', padding: 24,
   },
   modalSheet: {
-    backgroundColor: C.surface, borderRadius: 20,
+    backgroundColor: colors.card, borderRadius: 20,
     padding: 24, width: '100%',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 8 },
+    shadowColor: colors.shadow, shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 0.12, shadowRadius: 20, elevation: 8,
   },
   modalIconRow:    { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 16 },
   modalIconBubble: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center' },
   modalIconText:   { fontSize: 22 },
   modalTypeLabel:  { fontSize: 13, fontWeight: '700', textTransform: 'uppercase', letterSpacing: 0.4 },
-  modalTitle:  { fontSize: 16, fontWeight: '700', color: C.textMain, marginBottom: 8 },
-  modalBody:   { fontSize: 14, color: C.textSub, lineHeight: 21, marginBottom: 12 },
-  modalTime:   { fontSize: 11, color: C.textMuted, marginBottom: 20 },
+  modalTitle:  { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  modalBody:   { fontSize: 14, color: colors.textSub, lineHeight: 21, marginBottom: 12 },
+  modalTime:   { fontSize: 11, color: colors.textMuted, marginBottom: 20 },
   modalCloseBtn: {
-    backgroundColor: C.primary, borderRadius: 12,
+    backgroundColor: colors.info, borderRadius: 12,
     paddingVertical: 13, alignItems: 'center',
   },
-  modalCloseBtnText: { color: '#FFF', fontWeight: '700', fontSize: 15 },
+  modalCloseBtnText: { color: colors.card, fontWeight: '700', fontSize: 15 },
 });

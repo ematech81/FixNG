@@ -9,8 +9,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { Audio } from 'expo-av';
+import { useTheme } from '../context/ThemeContext';
 
 export default function VoiceNotePlayer({ uri, duration, isMine }) {
+  const { colors } = useTheme();
+  const styles = makeStyles(colors);
   const [status, setStatus] = useState('idle'); // idle | loading | playing | paused
   const [positionMs, setPositionMs] = useState(0);
   const [durationMs, setDurationMs] = useState((duration || 0) * 1000);
@@ -59,7 +62,6 @@ export default function VoiceNotePlayer({ uri, duration, isMine }) {
     if (s.didJustFinish) {
       setStatus('idle');
       setPositionMs(0);
-      // Unload so next tap creates a fresh instance from the start
       soundRef.current?.unloadAsync().catch(() => {});
       soundRef.current = null;
     }
@@ -77,11 +79,11 @@ export default function VoiceNotePlayer({ uri, duration, isMine }) {
     ? formatTime(positionMs)
     : formatTime(durationMs);
 
-  const trackColor = isMine ? 'rgba(255,255,255,0.3)' : '#E5E7EB';
-  const fillColor  = isMine ? '#FFF' : '#FF6B00';
-  const iconColor  = isMine ? '#FF6B00' : '#FFF';
-  const btnBg      = isMine ? '#FFF' : '#FF6B00';
-  const timeColor  = isMine ? 'rgba(255,255,255,0.85)' : '#666';
+  const trackColor = isMine ? 'rgba(255,255,255,0.3)' : colors.border;
+  const fillColor  = isMine ? '#FFF' : colors.primary;
+  const iconColor  = isMine ? colors.primary : '#FFF';
+  const btnBg      = isMine ? '#FFF' : colors.primary;
+  const timeColor  = isMine ? 'rgba(255,255,255,0.85)' : colors.textSub;
 
   return (
     <View style={styles.container}>
@@ -110,7 +112,7 @@ export default function VoiceNotePlayer({ uri, duration, isMine }) {
   );
 }
 
-const styles = StyleSheet.create({
+const makeStyles = (colors) => StyleSheet.create({
   container: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -121,7 +123,7 @@ const styles = StyleSheet.create({
   playBtn: {
     width: 36, height: 36, borderRadius: 18,
     justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 3,
+    shadowColor: colors.shadow, shadowOpacity: 0.12, shadowRadius: 3,
     elevation: 2,
   },
   waveformArea: {

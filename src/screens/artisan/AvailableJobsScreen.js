@@ -8,14 +8,17 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getAvailableJobs } from '../../api/jobApi';
 import useSocket from '../../hooks/useSocket';
 import { getUser } from '../../utils/storage';
+import { useTheme } from '../../context/ThemeContext';
 
 const URGENCY_COLOR = { normal: '#3B82F6', emergency: '#EF4444' };
 
 export default function AvailableJobsScreen({ navigation }) {
+  const { colors } = useTheme();
   const [jobs, setJobs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [userId, setUserId] = useState(null);
+  const styles = makeStyles(colors);
 
   // Load userId once for socket
   React.useEffect(() => {
@@ -60,7 +63,7 @@ export default function AvailableJobsScreen({ navigation }) {
   };
 
   const renderJob = ({ item }) => {
-    const urgencyColor = URGENCY_COLOR[item.urgency] || '#3B82F6';
+    const urgencyColor = URGENCY_COLOR[item.urgency] || colors.info;
     const isExpiringSoon =
       item.expiresAt && new Date(item.expiresAt) - Date.now() < 30 * 60 * 1000;
 
@@ -116,7 +119,7 @@ export default function AvailableJobsScreen({ navigation }) {
   if (loading) {
     return (
       <SafeAreaView style={styles.centered}>
-        <ActivityIndicator size="large" color="#FF6B00" />
+        <ActivityIndicator size="large" color={colors.primary} />
       </SafeAreaView>
     );
   }
@@ -137,7 +140,7 @@ export default function AvailableJobsScreen({ navigation }) {
           <RefreshControl
             refreshing={refreshing}
             onRefresh={() => fetchJobs(true)}
-            tintColor="#FF6B00"
+            tintColor={colors.primary}
           />
         }
         ListEmptyComponent={
@@ -163,49 +166,49 @@ const formatTime = (dateStr) => {
   return `${Math.floor(hrs / 24)}d ago`;
 };
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F5F5' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF' },
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.surface },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.card },
   header: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#FFF',
-    borderBottomWidth: 1, borderBottomColor: '#F0F0F0',
+    paddingHorizontal: 20, paddingVertical: 16, backgroundColor: colors.card,
+    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
   },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: '#1A1A1A' },
-  headerCount: { fontSize: 13, color: '#FF6B00', fontWeight: '600' },
+  headerTitle: { fontSize: 20, fontWeight: '700', color: colors.text },
+  headerCount: { fontSize: 13, color: colors.primary, fontWeight: '600' },
   list: { padding: 16, gap: 12, paddingBottom: 30 },
   jobCard: {
-    backgroundColor: '#FFF', borderRadius: 14, padding: 16,
-    borderWidth: 1, borderColor: '#F0F0F0', elevation: 2,
+    backgroundColor: colors.card, borderRadius: 14, padding: 16,
+    borderWidth: 1, borderColor: colors.borderLight, elevation: 2,
   },
-  jobCardNew: { borderColor: '#FF6B00', borderWidth: 1.5 },
+  jobCardNew: { borderColor: colors.primary, borderWidth: 1.5 },
   newBadge: {
-    alignSelf: 'flex-start', backgroundColor: '#FF6B00',
+    alignSelf: 'flex-start', backgroundColor: colors.primary,
     borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3, marginBottom: 8,
   },
-  newBadgeText: { color: '#FFF', fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
+  newBadgeText: { color: colors.card, fontSize: 10, fontWeight: '800', letterSpacing: 0.5 },
   jobCardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   urgencyBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
   urgencyText: { fontSize: 12, fontWeight: '700' },
-  timeAgo: { fontSize: 12, color: '#BBB' },
-  jobCategory: { fontSize: 17, fontWeight: '700', color: '#1A1A1A', marginBottom: 4 },
-  jobDesc: { fontSize: 14, color: '#666', lineHeight: 20, marginBottom: 8 },
+  timeAgo: { fontSize: 12, color: colors.textHint },
+  jobCategory: { fontSize: 17, fontWeight: '700', color: colors.text, marginBottom: 4 },
+  jobDesc: { fontSize: 14, color: colors.textSub, lineHeight: 20, marginBottom: 8 },
   voiceBadge: {
     flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#FFF3EC', borderRadius: 8, paddingVertical: 7, paddingHorizontal: 10,
+    backgroundColor: colors.primaryLight, borderRadius: 8, paddingVertical: 7, paddingHorizontal: 10,
     marginBottom: 8, borderWidth: 1, borderColor: '#FDBA74', alignSelf: 'flex-start',
   },
   voiceBadgeIcon: { fontSize: 15 },
   voiceBadgeText: { fontSize: 13, color: '#92400E', fontWeight: '600' },
-  jobLocation: { fontSize: 13, color: '#888', marginBottom: 6 },
-  expiring: { fontSize: 12, color: '#F59E0B', fontWeight: '600', marginBottom: 8 },
+  jobLocation: { fontSize: 13, color: colors.textMuted, marginBottom: 6 },
+  expiring: { fontSize: 12, color: colors.warning, fontWeight: '600', marginBottom: 8 },
   viewBtn: {
     marginTop: 8, padding: 12, borderRadius: 10,
-    backgroundColor: '#FFF3EC', alignItems: 'center',
+    backgroundColor: colors.primaryLight, alignItems: 'center',
   },
-  viewBtnText: { color: '#FF6B00', fontWeight: '700', fontSize: 14 },
+  viewBtnText: { color: colors.primary, fontWeight: '700', fontSize: 14 },
   empty: { alignItems: 'center', paddingTop: 80 },
   emptyIcon: { fontSize: 48, marginBottom: 16 },
-  emptyTitle: { fontSize: 17, fontWeight: '700', color: '#333', marginBottom: 8 },
-  emptyText: { fontSize: 14, color: '#999', textAlign: 'center', lineHeight: 20 },
+  emptyTitle: { fontSize: 17, fontWeight: '700', color: colors.text, marginBottom: 8 },
+  emptyText: { fontSize: 14, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
 });

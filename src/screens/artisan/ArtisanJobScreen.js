@@ -10,19 +10,15 @@ import { getMyJobs, getAvailableJobs, acceptJob, declineJob, markCompleted } fro
 import { getMySubscription } from '../../api/subscriptionApi';
 import BackButton from '../../components/BackButton';
 import VoiceNotePlayer from '../../components/VoiceNotePlayer';
-
-const PRIMARY = '#2563EB'; 
-const GREEN = '#16A34A';
-const ACCEPT_GREEN = '#15803D';
+import { useTheme } from '../../context/ThemeContext';
 
 const ACTIVE_STATUSES = ['accepted', 'arrived', 'in-progress'];
 
-// Maps job status → display badge label + colors
 const STATUS_META = {
   accepted:     { label: 'In Progress', color: '#1D4ED8', bg: '#DBEAFE' },
   arrived:      { label: 'On Site',     color: '#0F766E', bg: '#CCFBF1' },
   'in-progress':{ label: 'In Progress', color: '#1D4ED8', bg: '#DBEAFE' },
-  completed:    { label: 'Completed',   color: GREEN,     bg: '#DCFCE7' },
+  completed:    { label: 'Completed',   color: '#16A34A', bg: '#DCFCE7' },
   disputed:     { label: 'Disputed',    color: '#DC2626', bg: '#FEE2E2' },
 };
 
@@ -38,6 +34,7 @@ function getTimeAgo(dateStr) {
 }
 
 export default function ArtisanJobScreen({ navigation }) {
+  const { colors } = useTheme();
   const [user, setUser] = useState(null);
   const [artisanProfile, setArtisanProfile] = useState(null);
   const [activeJobs, setActiveJobs] = useState([]);
@@ -47,9 +44,7 @@ export default function ArtisanJobScreen({ navigation }) {
   const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
-    useCallback(() => {
-      fetchAll();
-    }, [])
+    useCallback(() => { fetchAll(); }, [])
   );
 
   const fetchAll = async (isRefresh = false) => {
@@ -104,8 +99,6 @@ export default function ArtisanJobScreen({ navigation }) {
           ]
         );
       } else if (message.toLowerCase().includes('expired')) {
-        // Job expired between the time it was listed and when the artisan tapped Accept.
-        // Remove it from the list when the artisan dismisses the alert.
         Alert.alert(
           'Job No Longer Available',
           'This job has expired and is no longer accepting responses.',
@@ -125,7 +118,6 @@ export default function ArtisanJobScreen({ navigation }) {
         onPress: async () => {
           try {
             await declineJob(jobId);
-            // Remove immediately from local state — no need for a full refetch
             removeNearbyJob(jobId);
           } catch (err) {
             Alert.alert('Error', err?.message || 'Could not decline job.');
@@ -167,11 +159,13 @@ export default function ArtisanJobScreen({ navigation }) {
     navigation.navigate('Step4_VerificationID', { isEdit: true });
   };
 
+  const styles = makeStyles(colors);
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container} edges={['top']}>
         <View style={styles.loaderBox}>
-          <ActivityIndicator size="large" color={PRIMARY} />
+          <ActivityIndicator size="large" color={colors.info} />
         </View>
       </SafeAreaView>
     );
@@ -183,19 +177,17 @@ export default function ArtisanJobScreen({ navigation }) {
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => fetchAll(true)} tintColor={PRIMARY} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => fetchAll(true)} tintColor={colors.info} />
         }
       >
-        {/* ── Header ── */}
+        {/* Header */}
         <View style={styles.header}>
           <View style={styles.headerTop}>
             <BackButton onPress={() => navigation.goBack()} />
             {isVerified && (
               <View style={styles.verifiedBadge}>
                 <Text style={styles.verifiedIcon}>✓</Text>
-                <Text style={styles.verifiedText}>
-                  Verified {skill || 'Artisan'}
-                </Text>
+                <Text style={styles.verifiedText}>Verified {skill || 'Artisan'}</Text>
               </View>
             )}
           </View>
@@ -203,14 +195,11 @@ export default function ArtisanJobScreen({ navigation }) {
           <Text style={styles.pageTitle}>Job Dashboard</Text>
         </View>
 
-        {/* ── Subscription banner ── */}
+        {/* Subscription banner */}
         {isVerified && (() => {
-          // An artisan has Pro access if their subscription is active/trial/grace,
-          // OR if an admin has manually granted them Pro status (isPro from artisanProfile).
-          // Both paths must hide the "subscribe" prompt.
           const adminGranted = artisanProfile?.isPro === true;
           const status = (adminGranted && !['trial', 'active', 'grace'].includes(subscription?.status))
-            ? 'active'           // admin-granted — treat as active so the Pro badge shows
+            ? 'active'
             : subscription?.status;
           const days   = subscription?.daysRemaining ?? 0;
           const fmtEnd = subscription?.endsAt
@@ -218,11 +207,7 @@ export default function ArtisanJobScreen({ navigation }) {
             : null;
 
           if (status === 'trial') return (
-            <TouchableOpacity
-              style={styles.subTrialWrap}
-              onPress={() => navigation.navigate('Subscription')}
-              activeOpacity={0.88}
-            >
+            <TouchableOpacity style={styles.subTrialWrap} onPress={() => navigation.navigate('Subscription')} activeOpacity={0.88}>
               <Text style={styles.subTrialIcon}>🎁</Text>
               <View style={{ flex: 1 }}>
                 <Text style={styles.subTrialTitle}>Free Trial Active</Text>
@@ -237,9 +222,7 @@ export default function ArtisanJobScreen({ navigation }) {
           if (status === 'active') return (
             <View style={styles.subActiveWrap}>
               <View style={styles.subPlanRow}>
-                <View style={styles.subProBadge}>
-                  <Text style={styles.subBadgeText}>✓ PRO</Text>
-                </View>
+                <View style={styles.subProBadge}><Text style={styles.subBadgeText}>✓ PRO</Text></View>
                 <Text style={styles.subActiveLabel}>● Active</Text>
               </View>
               <Text style={styles.subPlanHeadline}>FixNG Pro</Text>
@@ -248,50 +231,35 @@ export default function ArtisanJobScreen({ navigation }) {
           );
 
           if (status === 'grace') return (
-            <TouchableOpacity
-              style={styles.subGraceWrap}
-              onPress={() => navigation.navigate('Subscription')}
-              activeOpacity={0.88}
-            >
+            <TouchableOpacity style={styles.subGraceWrap} onPress={() => navigation.navigate('Subscription')} activeOpacity={0.88}>
               <Text style={styles.subGraceIcon}>⚠️</Text>
               <View style={{ flex: 1 }}>
                 <Text style={styles.subGraceTitle}>Subscription Expired — Renew Now</Text>
-                <Text style={styles.subGraceSub}>
-                  Grace period ends in {days} day{days !== 1 ? 's' : ''}. After that you'll be removed from search.
-                </Text>
+                <Text style={styles.subGraceSub}>Grace period ends in {days} day{days !== 1 ? 's' : ''}.</Text>
               </View>
               <Text style={styles.subGraceArrow}>›</Text>
             </TouchableOpacity>
           );
 
-          // expired / cancelled / null
           return (
-            <TouchableOpacity
-              style={styles.subExpiredWrap}
-              onPress={() => navigation.navigate('Subscription')}
-              activeOpacity={0.88}
-            >
+            <TouchableOpacity style={styles.subExpiredWrap} onPress={() => navigation.navigate('Subscription')} activeOpacity={0.88}>
               <Text style={styles.subExpiredIcon}>❌</Text>
               <View style={{ flex: 1 }}>
                 <Text style={styles.subExpiredTitle}>Subscribe to Be Discoverable</Text>
-                <Text style={styles.subExpiredSub}>
-                  Customers can't find you while your subscription is inactive. Plans from ₦5,000/mo.
-                </Text>
+                <Text style={styles.subExpiredSub}>Customers can't find you while your subscription is inactive.</Text>
               </View>
               <Text style={styles.subExpiredArrow}>›</Text>
             </TouchableOpacity>
           );
         })()}
 
-        {/* ── Verification status banner ── */}
+        {/* Verification banners */}
         {isPending && (
           <View style={styles.pendingBanner}>
             <Text style={styles.pendingIcon}>⏳</Text>
             <View style={styles.pendingBody}>
               <Text style={styles.pendingTitle}>Verification Pending</Text>
-              <Text style={styles.pendingText}>
-                Your profile is under review. You can browse jobs but cannot accept them until verified.
-              </Text>
+              <Text style={styles.pendingText}>Your profile is under review. You can browse jobs but cannot accept them until verified.</Text>
             </View>
           </View>
         )}
@@ -300,14 +268,12 @@ export default function ArtisanJobScreen({ navigation }) {
             <Text style={styles.pendingIcon}>❌</Text>
             <View style={styles.pendingBody}>
               <Text style={[styles.pendingTitle, { color: '#991B1B' }]}>Verification Rejected</Text>
-              <Text style={styles.pendingText}>
-                Your application was not approved. Please contact support for assistance.
-              </Text>
+              <Text style={styles.pendingText}>Your application was not approved. Please contact support for assistance.</Text>
             </View>
           </View>
         )}
 
-        {/* ── Incomplete registration banner ── */}
+        {/* Incomplete registration banner */}
         {hasIncomplete && (
           <View style={styles.incompleteBanner}>
             <View style={styles.incompleteBannerLeft}>
@@ -315,9 +281,7 @@ export default function ArtisanJobScreen({ navigation }) {
               <View style={styles.incompleteBody}>
                 <Text style={styles.incompleteTitle}>Complete Your Registration</Text>
                 <Text style={styles.incompleteText}>Missing: Verification ID / Professional Certificate</Text>
-                <Text style={styles.incompleteSubText}>
-                  Upload your ID or certificate to become eligible for the Verified badge and full platform access.
-                </Text>
+                <Text style={styles.incompleteSubText}>Upload your ID or certificate to become eligible for the Verified badge.</Text>
               </View>
             </View>
             <TouchableOpacity style={styles.editProfileBtn} onPress={handleEditProfile}>
@@ -326,7 +290,7 @@ export default function ArtisanJobScreen({ navigation }) {
           </View>
         )}
 
-        {/* ── Active Jobs ── */}
+        {/* Active Jobs */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Active Jobs</Text>
           {activeJobs.length > 0 && (
@@ -346,6 +310,7 @@ export default function ArtisanJobScreen({ navigation }) {
             <ActiveJobCard
               key={job._id}
               job={job}
+              colors={colors}
               onViewDetails={() => navigation.navigate('JobDetail', { jobId: job._id })}
               onComplete={() => handleComplete(job._id)}
               onUpdateStatus={() => navigation.navigate('JobDetail', { jobId: job._id })}
@@ -353,12 +318,10 @@ export default function ArtisanJobScreen({ navigation }) {
           ))
         )}
 
-        {/* ── Nearby Requests ── */}
+        {/* Nearby Requests */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Nearby Requests</Text>
-          <TouchableOpacity>
-            <Text style={styles.viewMapText}>View Map</Text>
-          </TouchableOpacity>
+          <TouchableOpacity><Text style={styles.viewMapText}>View Map</Text></TouchableOpacity>
         </View>
 
         {nearbyJobs.length === 0 ? (
@@ -371,6 +334,7 @@ export default function ArtisanJobScreen({ navigation }) {
             <NearbyJobCard
               key={job._id}
               job={job}
+              colors={colors}
               canAccept={isVerified}
               onAccept={() => {
                 if (!isVerified) {
@@ -384,14 +348,12 @@ export default function ArtisanJobScreen({ navigation }) {
           ))
         )}
 
-        {/* ── Safety Banner ── */}
+        {/* Safety Banner */}
         <View style={styles.safetyBanner}>
           <Text style={styles.safetyIcon}>🛡️</Text>
           <View style={styles.safetyBody}>
             <Text style={styles.safetyTitle}>Safety First!</Text>
-            <Text style={styles.safetyText}>
-              Always verify the customer's location before starting a journey late at night.
-            </Text>
+            <Text style={styles.safetyText}>Always verify the customer's location before starting a journey late at night.</Text>
           </View>
         </View>
 
@@ -401,119 +363,103 @@ export default function ArtisanJobScreen({ navigation }) {
   );
 }
 
-// ── Active Job Card ────────────────────────────────────────────────────────────
-function ActiveJobCard({ job, onViewDetails, onComplete, onUpdateStatus }) {
+function ActiveJobCard({ job, colors, onViewDetails, onComplete, onUpdateStatus }) {
   const meta = STATUS_META[job.status] || STATUS_META.accepted;
-  const isArrived = job.status === 'arrived';
   const image = job.images?.[0]?.url;
   const address = job.location?.address || job.location?.lga || 'Lagos';
-  const due = job.timeline?.acceptedAt
-    ? getDueLabel(job.timeline.acceptedAt)
-    : 'Scheduled';
+  const due = job.timeline?.acceptedAt ? getDueLabel(job.timeline.acceptedAt) : 'Scheduled';
 
   return (
-    <View style={styles.activeCard}>
-      {/* Image + status badge */}
-      <View style={styles.activeCardTop}>
+    <View style={[activeCardStyles(colors).card, { borderLeftColor: colors.info }]}>
+      <View style={activeCardStyles(colors).top}>
         {image ? (
-          <Image source={{ uri: image }} style={styles.activeCardImage} />
+          <Image source={{ uri: image }} style={activeCardStyles(colors).image} />
         ) : (
-          <View style={[styles.activeCardImage, styles.activeCardImagePlaceholder]}>
-            <Text style={styles.activeCardImageIcon}>🔧</Text>
+          <View style={[activeCardStyles(colors).image, activeCardStyles(colors).imagePlaceholder]}>
+            <Text style={{ fontSize: 28 }}>🔧</Text>
           </View>
         )}
-        <View style={[styles.statusBadge, { backgroundColor: meta.bg }]}>
-          <Text style={[styles.statusBadgeText, { color: meta.color }]}>{meta.label}</Text>
+        <View style={[activeCardStyles(colors).statusBadge, { backgroundColor: meta.bg }]}>
+          <Text style={[activeCardStyles(colors).statusText, { color: meta.color }]}>{meta.label}</Text>
         </View>
       </View>
 
-      {/* Details */}
-      <Text style={styles.activeCardTitle} numberOfLines={1}>{job.category}</Text>
+      <Text style={activeCardStyles(colors).title} numberOfLines={1}>{job.category}</Text>
       {job.voiceDescription?.url ? (
-        <View style={styles.voiceCard}>
-          <View style={styles.voiceCardHeader}>
-            <View style={styles.voiceIconCircle}>
-              <Text style={styles.voiceIconEmoji}>🎤</Text>
+        <View style={activeCardStyles(colors).voiceCard}>
+          <View style={activeCardStyles(colors).voiceHeader}>
+            <View style={activeCardStyles(colors).voiceIconCircle}>
+              <Text style={{ fontSize: 18 }}>🎤</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.voiceCardTitle}>Voice Description</Text>
-              <Text style={styles.voiceCardHint}>Tap ▶ to listen</Text>
+              <Text style={activeCardStyles(colors).voiceTitle}>Voice Description</Text>
+              <Text style={activeCardStyles(colors).voiceHint}>Tap ▶ to listen</Text>
             </View>
           </View>
-          <VoiceNotePlayer
-            uri={job.voiceDescription.url}
-            duration={job.voiceDescription.duration}
-            isMine={false}
-          />
+          <VoiceNotePlayer uri={job.voiceDescription.url} duration={job.voiceDescription.duration} isMine={false} />
         </View>
       ) : job.description ? (
-        <Text style={styles.activeCardDesc} numberOfLines={2}>{job.description}</Text>
+        <Text style={activeCardStyles(colors).desc} numberOfLines={2}>{job.description}</Text>
       ) : null}
 
-      <View style={styles.metaRow}>
-        <Text style={styles.metaIcon}>📍</Text>
-        <Text style={styles.metaText}>{address}</Text>
-        <Text style={styles.metaSep}> · </Text>
-        <Text style={styles.metaIcon}>🕐</Text>
-        <Text style={styles.metaText}>{due}</Text>
+      <View style={activeCardStyles(colors).metaRow}>
+        <Text style={{ fontSize: 13 }}>📍</Text>
+        <Text style={activeCardStyles(colors).metaText}>{address}</Text>
+        <Text style={{ color: colors.border }}> · </Text>
+        <Text style={{ fontSize: 13 }}>🕐</Text>
+        <Text style={activeCardStyles(colors).metaText}>{due}</Text>
       </View>
 
       {job.agreedPrice != null && (
-        <Text style={styles.priceText}>₦{job.agreedPrice.toLocaleString()}</Text>
+        <Text style={activeCardStyles(colors).price}>₦{job.agreedPrice.toLocaleString()}</Text>
       )}
 
-      {/* Action buttons */}
-      <View style={styles.activeCardButtons}>
-       
-          <TouchableOpacity style={styles.updateBtn} onPress={onUpdateStatus}>
-            <Text style={styles.updateBtnText}>Start Job</Text>
-          </TouchableOpacity>
-        
-      </View>
+      <TouchableOpacity style={[activeCardStyles(colors).updateBtn, { backgroundColor: colors.info }]} onPress={onUpdateStatus}>
+        <Text style={activeCardStyles(colors).updateBtnText}>Start Job</Text>
+      </TouchableOpacity>
     </View>
   );
 }
 
-// ── Nearby Job Card ────────────────────────────────────────────────────────────
-function NearbyJobCard({ job, onAccept, onDecline, canAccept = true }) {
+function NearbyJobCard({ job, colors, onAccept, onDecline, canAccept = true }) {
   const address = job.location?.address || job.location?.lga || 'Lagos';
   const distanceKm = job.distanceKm != null ? `${job.distanceKm}km away` : null;
   const timeAgo = getTimeAgo(job.createdAt);
 
   return (
-    <View style={styles.nearbyCard}>
-      <View style={styles.nearbyCardTop}>
+    <View style={nearbyCardStyles(colors).card}>
+      <View style={nearbyCardStyles(colors).top}>
         {distanceKm && (
-          <View style={styles.distanceBadge}>
-            <Text style={styles.distanceText}>{distanceKm}</Text>
+          <View style={[nearbyCardStyles(colors).distanceBadge, { backgroundColor: colors.infoBg }]}>
+            <Text style={[nearbyCardStyles(colors).distanceText, { color: colors.info }]}>{distanceKm}</Text>
           </View>
         )}
-        <Text style={styles.nearbyTimeAgo}>{timeAgo}</Text>
+        <Text style={nearbyCardStyles(colors).timeAgo}>{timeAgo}</Text>
       </View>
 
-      <Text style={styles.nearbyTitle} numberOfLines={1}>{job.category}</Text>
+      <Text style={nearbyCardStyles(colors).title} numberOfLines={1}>{job.category}</Text>
       {job.voiceDescription?.url ? (
-        <View style={styles.voiceBadge}>
-          <Text style={styles.voiceBadgeIcon}>🎤</Text>
-          <Text style={styles.voiceBadgeText}>Voice description — tap to listen</Text>
+        <View style={nearbyCardStyles(colors).voiceBadge}>
+          <Text style={{ fontSize: 13 }}>🎤</Text>
+          <Text style={nearbyCardStyles(colors).voiceText}>Voice description — tap to listen</Text>
         </View>
       ) : job.description ? (
-        <Text style={styles.nearbyDesc} numberOfLines={1}>{job.description}</Text>
+        <Text style={nearbyCardStyles(colors).desc} numberOfLines={1}>{job.description}</Text>
       ) : null}
-      <View style={styles.nearbyLocation}>
-        <Text style={styles.nearbyLocIcon}>📍</Text>
-        <Text style={styles.nearbyLocText}>{address}</Text>
+      <View style={nearbyCardStyles(colors).location}>
+        <Text style={{ fontSize: 13 }}>📍</Text>
+        <Text style={nearbyCardStyles(colors).locationText}>{address}</Text>
       </View>
 
-      <View style={styles.nearbyButtons}>
-        <TouchableOpacity style={styles.declineBtn} onPress={onDecline}>
-          <Text style={styles.declineBtnText}>Decline</Text>
+      <View style={nearbyCardStyles(colors).buttons}>
+        <TouchableOpacity style={[nearbyCardStyles(colors).declineBtn, { backgroundColor: colors.surface }]} onPress={onDecline}>
+          <Text style={[nearbyCardStyles(colors).declineText, { color: colors.textSub }]}>Decline</Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={[styles.acceptBtn, !canAccept && styles.acceptBtnDisabled]}
+          style={[nearbyCardStyles(colors).acceptBtn, { backgroundColor: !canAccept ? colors.textHint : '#15803D' }]}
           onPress={onAccept}
         >
-          <Text style={styles.acceptBtnText}>{canAccept ? 'Accept' : 'Locked'}</Text>
+          <Text style={nearbyCardStyles(colors).acceptText}>{canAccept ? 'Accept' : 'Locked'}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -528,55 +474,107 @@ function getDueLabel(acceptedAt) {
   return `Due in ${days} day${days !== 1 ? 's' : ''}`;
 }
 
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F5F7FB' },
+const activeCardStyles = (colors) => StyleSheet.create({
+  card: {
+    marginHorizontal: 16, backgroundColor: colors.card,
+    borderRadius: 16, overflow: 'hidden', marginBottom: 14,
+    borderWidth: 1, borderColor: colors.borderLight,
+    borderLeftWidth: 4,
+    elevation: 2, shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.06, shadowRadius: 6,
+    padding: 16,
+  },
+  top: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 12 },
+  image: { width: 80, height: 70, borderRadius: 10 },
+  imagePlaceholder: { backgroundColor: colors.surfaceAlt, justifyContent: 'center', alignItems: 'center' },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20 },
+  statusText: { fontSize: 11, fontWeight: '800' },
+  title: { fontSize: 17, fontWeight: '800', color: colors.text, marginBottom: 4 },
+  desc: { fontSize: 13, color: colors.textSub, marginBottom: 10, lineHeight: 18 },
+  metaRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  metaText: { fontSize: 12, color: colors.textSub },
+  price: { fontSize: 17, fontWeight: '800', color: '#16A34A', marginBottom: 14, marginTop: 4 },
+  updateBtn: { paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginTop: 10 },
+  updateBtnText: { fontSize: 15, fontWeight: '800', color: '#FFF' },
+  voiceCard: {
+    backgroundColor: colors.primaryLight, borderRadius: 12, padding: 12,
+    borderWidth: 1.5, borderColor: colors.primaryFaint, marginBottom: 10,
+  },
+  voiceHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
+  voiceIconCircle: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: colors.primary, justifyContent: 'center', alignItems: 'center',
+  },
+  voiceTitle: { fontSize: 13, fontWeight: '700', color: colors.primaryDark },
+  voiceHint: { fontSize: 11, color: colors.textSub, marginTop: 1 },
+});
+
+const nearbyCardStyles = (colors) => StyleSheet.create({
+  card: {
+    marginHorizontal: 16, backgroundColor: colors.card,
+    borderRadius: 16, padding: 16, marginBottom: 10,
+    borderWidth: 1, borderColor: colors.borderLight,
+    elevation: 1, shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4,
+  },
+  top: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  distanceBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  distanceText: { fontSize: 12, fontWeight: '700' },
+  timeAgo: { fontSize: 12, color: colors.textHint },
+  title: { fontSize: 16, fontWeight: '800', color: colors.text, marginBottom: 2 },
+  desc: { fontSize: 13, color: colors.textSub, marginBottom: 6 },
+  location: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
+  locationText: { fontSize: 13, color: colors.textSub },
+  voiceBadge: {
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: colors.primaryLight, borderRadius: 8,
+    paddingVertical: 5, paddingHorizontal: 9,
+    marginBottom: 6, borderWidth: 1, borderColor: colors.primaryFaint,
+    alignSelf: 'flex-start',
+  },
+  voiceText: { fontSize: 12, color: colors.primaryDark, fontWeight: '600' },
+  buttons: { flexDirection: 'row', gap: 10 },
+  declineBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  declineText: { fontSize: 13, fontWeight: '700' },
+  acceptBtn: { flex: 1, paddingVertical: 12, borderRadius: 12, alignItems: 'center' },
+  acceptText: { fontSize: 13, fontWeight: '800', color: '#FFF' },
+});
+
+const makeStyles = (colors) => StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.bgAlt },
   scroll: { paddingBottom: 12 },
   loaderBox: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  // ── Header ──
   header: {
     paddingHorizontal: 20, paddingVertical: 20,
-    backgroundColor: '#FFF',
-    borderBottomWidth: 1, borderBottomColor: '#EEF0F5',
+    backgroundColor: colors.card,
+    borderBottomWidth: 1, borderBottomColor: colors.borderLight,
   },
-  headerTop: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 12,
-  },
-  welcomeLabel: {
-    fontSize: 12, fontWeight: '700', color: '#8391A1',
-    letterSpacing: 0.8, marginBottom: 4,
-  },
-  pageTitle: { fontSize: 26, fontWeight: '800', color: '#1E232C', marginBottom: 10 },
+  headerTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  welcomeLabel: { fontSize: 12, fontWeight: '700', color: colors.textMuted, letterSpacing: 0.8, marginBottom: 4 },
+  pageTitle: { fontSize: 26, fontWeight: '800', color: colors.text, marginBottom: 10 },
   verifiedBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    alignSelf: 'flex-start',
-    backgroundColor: '#DCFCE7', paddingHorizontal: 14, paddingVertical: 7,
-    borderRadius: 20,
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+    backgroundColor: '#DCFCE7', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20,
   },
-  verifiedIcon: { fontSize: 14, color: GREEN, fontWeight: '900' },
-  verifiedText: { fontSize: 13, fontWeight: '700', color: GREEN },
+  verifiedIcon: { fontSize: 14, color: '#16A34A', fontWeight: '900' },
+  verifiedText: { fontSize: 13, fontWeight: '700', color: '#16A34A' },
 
-  // ── Verification banners ──
   pendingBanner: {
     flexDirection: 'row', gap: 12, alignItems: 'flex-start',
     marginHorizontal: 16, marginBottom: 4, marginTop: 8,
     backgroundColor: '#FFFBEB', borderRadius: 14, padding: 14,
     borderWidth: 1, borderColor: '#FDE68A',
   },
-  rejectedBanner: {
-    backgroundColor: '#FEF2F2', borderColor: '#FECACA',
-  },
+  rejectedBanner: { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
   pendingIcon: { fontSize: 22, marginTop: 1 },
   pendingBody: { flex: 1 },
   pendingTitle: { fontSize: 13, fontWeight: '800', color: '#92400E', marginBottom: 3 },
   pendingText: { fontSize: 12, color: '#78350F', lineHeight: 17 },
 
-  // ── Incomplete registration banner ──
   incompleteBanner: {
     marginHorizontal: 16, marginTop: 8, marginBottom: 4,
-    backgroundColor: '#FEF2F2',
-    borderRadius: 14, padding: 14,
+    backgroundColor: '#FEF2F2', borderRadius: 14, padding: 14,
     borderWidth: 1.5, borderColor: '#FECACA',
   },
   incompleteBannerLeft: { flexDirection: 'row', alignItems: 'flex-start', gap: 10, marginBottom: 12 },
@@ -591,134 +589,27 @@ const styles = StyleSheet.create({
   },
   editProfileBtnText: { color: '#FFF', fontWeight: '800', fontSize: 14 },
 
-  // ── Sections ──
   sectionHeader: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
     paddingHorizontal: 20, paddingVertical: 16,
   },
-  sectionTitle: { fontSize: 20, fontWeight: '800', color: '#1E232C' },
-  countBadge: {
-    backgroundColor: '#EFF6FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
-  },
-  countText: { fontSize: 12, fontWeight: '700', color: PRIMARY },
-  viewMapText: { fontSize: 13, fontWeight: '700', color: PRIMARY },
+  sectionTitle: { fontSize: 20, fontWeight: '800', color: colors.text },
+  countBadge: { backgroundColor: colors.infoBg, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  countText: { fontSize: 12, fontWeight: '700', color: colors.info },
+  viewMapText: { fontSize: 13, fontWeight: '700', color: colors.info },
 
   emptyCard: {
-    marginHorizontal: 16, backgroundColor: '#FFF',
-    borderRadius: 16, padding: 24, alignItems: 'center',
-    marginBottom: 16,
-    borderWidth: 1, borderColor: '#EEF0F5',
+    marginHorizontal: 16, backgroundColor: colors.card,
+    borderRadius: 16, padding: 24, alignItems: 'center', marginBottom: 16,
+    borderWidth: 1, borderColor: colors.borderLight,
   },
   emptyIcon: { fontSize: 36, marginBottom: 10 },
-  emptyText: { fontSize: 13, color: '#6B7280', textAlign: 'center', lineHeight: 20 },
+  emptyText: { fontSize: 13, color: colors.textMuted, textAlign: 'center', lineHeight: 20 },
 
-  // ── Active Job Card ──
-  activeCard: {
-    marginHorizontal: 16, backgroundColor: '#FFF',
-    borderRadius: 16, overflow: 'hidden',
-    marginBottom: 14,
-    borderWidth: 1, borderColor: '#EEF0F5',
-    borderLeftWidth: 4, borderLeftColor: PRIMARY,
-    elevation: 2,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 6,
-    padding: 16,
-  },
-  activeCardTop: {
-    flexDirection: 'row', alignItems: 'flex-start',
-    justifyContent: 'space-between', marginBottom: 12,
-  },
-  activeCardImage: {
-    width: 80, height: 70, borderRadius: 10,
-  },
-  activeCardImagePlaceholder: {
-    backgroundColor: '#F0F4FF', justifyContent: 'center', alignItems: 'center',
-  },
-  activeCardImageIcon: { fontSize: 28 },
-  statusBadge: {
-    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 20,
-  },
-  statusBadgeText: { fontSize: 11, fontWeight: '800' },
-
-  activeCardTitle: {
-    fontSize: 17, fontWeight: '800', color: '#1E232C', marginBottom: 4,
-  },
-  activeCardDesc: {
-    fontSize: 13, color: '#6B7280', marginBottom: 10, lineHeight: 18,
-  },
-
-  metaRow: {
-    flexDirection: 'row', alignItems: 'center', marginBottom: 6,
-  },
-  metaIcon: { fontSize: 13, marginRight: 3 },
-  metaText: { fontSize: 12, color: '#6B7280' },
-  metaSep: { color: '#D1D5DB' },
-
-  priceText: {
-    fontSize: 17, fontWeight: '800', color: GREEN,
-    marginBottom: 14, marginTop: 4,
-  },
-
-  activeCardButtons: { flexDirection: 'row', gap: 10 },
-  viewDetailsBtn: {
-    flex: 1, paddingVertical: 12, borderRadius: 12,
-    borderWidth: 1.5, borderColor: '#D1D5DB', alignItems: 'center',
-  },
-  viewDetailsBtnText: { fontSize: 13, fontWeight: '700', color: '#374151' },
-  updateBtn: {
-    flex: 1, paddingVertical: 12, borderRadius: 12,
-    backgroundColor: PRIMARY, alignItems: 'center',marginTop: 10
-  },
-  updateBtnText: { fontSize: 15, fontWeight: '800', color: '#FFF' },
-  completeBtn: {
-    flex: 1, paddingVertical: 12, borderRadius: 12,
-    backgroundColor: GREEN, alignItems: 'center',
-  },
-  completeBtnText: { fontSize: 13, fontWeight: '800', color: '#FFF' },
-
-  // ── Nearby Job Card ──
-  nearbyCard: {
-    marginHorizontal: 16, backgroundColor: '#FFF',
-    borderRadius: 16, padding: 16, marginBottom: 10,
-    borderWidth: 1, borderColor: '#EEF0F5',
-    elevation: 1,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04, shadowRadius: 4,
-  },
-  nearbyCardTop: {
-    flexDirection: 'row', justifyContent: 'space-between',
-    alignItems: 'center', marginBottom: 8,
-  },
-  distanceBadge: {
-    backgroundColor: '#EFF6FF', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20,
-  },
-  distanceText: { fontSize: 12, fontWeight: '700', color: PRIMARY },
-  nearbyTimeAgo: { fontSize: 12, color: '#9CA3AF' },
-  nearbyTitle: { fontSize: 16, fontWeight: '800', color: '#1E232C', marginBottom: 2 },
-  nearbyDesc: { fontSize: 13, color: '#6B7280', marginBottom: 6 },
-  nearbyLocation: { flexDirection: 'row', alignItems: 'center', marginBottom: 14 },
-  nearbyLocIcon: { fontSize: 13, marginRight: 4 },
-  nearbyLocText: { fontSize: 13, color: '#6B7280' },
-
-  nearbyButtons: { flexDirection: 'row', gap: 10 },
-  declineBtn: {
-    flex: 1, paddingVertical: 12, borderRadius: 12,
-    backgroundColor: '#F3F4F6', alignItems: 'center',
-  },
-  declineBtnText: { fontSize: 13, fontWeight: '700', color: '#374151' },
-  acceptBtn: {
-    flex: 1, paddingVertical: 12, borderRadius: 12,
-    backgroundColor: ACCEPT_GREEN, alignItems: 'center',
-  },
-  acceptBtnDisabled: { backgroundColor: '#9CA3AF' },
-  acceptBtnText: { fontSize: 13, fontWeight: '800', color: '#FFF' },
-
-  // ── Safety banner ──
   safetyBanner: {
     flexDirection: 'row', gap: 14, alignItems: 'flex-start',
     marginHorizontal: 16, marginTop: 8, marginBottom: 6,
-    backgroundColor: '#FFFBEB',
-    borderRadius: 16, padding: 16,
+    backgroundColor: '#FFFBEB', borderRadius: 16, padding: 16,
     borderWidth: 1, borderColor: '#FDE68A',
   },
   safetyIcon: { fontSize: 24, marginTop: 2 },
@@ -726,15 +617,15 @@ const styles = StyleSheet.create({
   safetyTitle: { fontSize: 14, fontWeight: '800', color: '#92400E', marginBottom: 4 },
   safetyText: { fontSize: 13, color: '#78350F', lineHeight: 18 },
 
-  // ── Subscription banners ──
+  // Subscription banners (intentionally brand-specific colors)
   subTrialWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     marginHorizontal: 16, marginBottom: 12, borderRadius: 14, padding: 14,
     backgroundColor: '#EFF6FF', borderWidth: 1.5, borderColor: '#BFDBFE',
   },
-  subTrialIcon:  { fontSize: 22 },
+  subTrialIcon: { fontSize: 22 },
   subTrialTitle: { fontSize: 13, fontWeight: '800', color: '#1D4ED8', marginBottom: 2 },
-  subTrialSub:   { fontSize: 11, color: '#3B82F6' },
+  subTrialSub: { fontSize: 11, color: '#3B82F6' },
   subTrialArrow: { fontSize: 22, color: '#2563EB', fontWeight: '700' },
 
   subActiveWrap: {
@@ -743,19 +634,19 @@ const styles = StyleSheet.create({
   },
   subPlanRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 },
   subProBadge: { backgroundColor: '#16A34A', borderRadius: 20, paddingHorizontal: 10, paddingVertical: 4 },
-  subBadgeText:    { color: '#FFF', fontSize: 11, fontWeight: '800' },
-  subActiveLabel:  { fontSize: 13, fontWeight: '700', color: '#16A34A' },
-  subPlanHeadline: { fontSize: 16, fontWeight: '800', color: '#0F172A', marginBottom: 3 },
-  subExpiry:       { fontSize: 11, color: '#64748B' },
+  subBadgeText: { color: '#FFF', fontSize: 11, fontWeight: '800' },
+  subActiveLabel: { fontSize: 13, fontWeight: '700', color: '#16A34A' },
+  subPlanHeadline: { fontSize: 16, fontWeight: '800', color: colors.text, marginBottom: 3 },
+  subExpiry: { fontSize: 11, color: colors.textMuted },
 
   subGraceWrap: {
     flexDirection: 'row', alignItems: 'center', gap: 12,
     marginHorizontal: 16, marginBottom: 12, borderRadius: 14, padding: 14,
     backgroundColor: '#FFF7ED', borderWidth: 2, borderColor: '#F59E0B',
   },
-  subGraceIcon:  { fontSize: 22 },
+  subGraceIcon: { fontSize: 22 },
   subGraceTitle: { fontSize: 13, fontWeight: '800', color: '#C2410C', marginBottom: 2 },
-  subGraceSub:   { fontSize: 11, color: '#EA580C', lineHeight: 16 },
+  subGraceSub: { fontSize: 11, color: '#EA580C', lineHeight: 16 },
   subGraceArrow: { fontSize: 22, color: '#EA580C', fontWeight: '700' },
 
   subExpiredWrap: {
@@ -763,33 +654,8 @@ const styles = StyleSheet.create({
     marginHorizontal: 16, marginBottom: 12, borderRadius: 14, padding: 14,
     backgroundColor: '#1E293B',
   },
-  subExpiredIcon:  { fontSize: 22 },
+  subExpiredIcon: { fontSize: 22 },
   subExpiredTitle: { fontSize: 13, fontWeight: '800', color: '#F8FAFC', marginBottom: 2 },
-  subExpiredSub:   { fontSize: 11, color: '#94A3B8', lineHeight: 16 },
+  subExpiredSub: { fontSize: 11, color: '#94A3B8', lineHeight: 16 },
   subExpiredArrow: { fontSize: 22, color: '#94A3B8', fontWeight: '700' },
-
-  // ── Voice note (active card) ──
-  voiceCard: {
-    backgroundColor: '#FFF3EC', borderRadius: 12, padding: 12,
-    borderWidth: 1.5, borderColor: '#FB923C', marginBottom: 10,
-  },
-  voiceCardHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 10 },
-  voiceIconCircle: {
-    width: 38, height: 38, borderRadius: 19,
-    backgroundColor: '#FF6B00', justifyContent: 'center', alignItems: 'center',
-  },
-  voiceIconEmoji: { fontSize: 18 },
-  voiceCardTitle: { fontSize: 13, fontWeight: '700', color: '#92400E' },
-  voiceCardHint:  { fontSize: 11, color: '#B45309', marginTop: 1 },
-
-  // ── Voice badge (nearby card) ──
-  voiceBadge: {
-    flexDirection: 'row', alignItems: 'center', gap: 6,
-    backgroundColor: '#FFF3EC', borderRadius: 8,
-    paddingVertical: 5, paddingHorizontal: 9,
-    marginBottom: 6, borderWidth: 1, borderColor: '#FDBA74',
-    alignSelf: 'flex-start',
-  },
-  voiceBadgeIcon: { fontSize: 13 },
-  voiceBadgeText: { fontSize: 12, color: '#92400E', fontWeight: '600' },
 });
