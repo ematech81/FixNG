@@ -4,6 +4,7 @@ import {
   ActivityIndicator, Alert, Dimensions, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Clipboard from 'expo-clipboard';
 import { getArtisanProfile, getArtisanReviews } from '../../api/discoveryApi';
 import { getUser } from '../../utils/storage';
 import BackButton from '../../components/BackButton';
@@ -83,6 +84,7 @@ export default function ArtisanProfileScreen({ route, navigation }) {
   const [hasMoreReviews, setHasMoreReviews] = useState(false);
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [currentUserId, setCurrentUserId]   = useState(null);
+  const [codeCopied, setCodeCopied]         = useState(false);
 
   // ── All original logic preserved exactly ────────────────────────────────────
   useEffect(() => {
@@ -117,6 +119,11 @@ export default function ArtisanProfileScreen({ route, navigation }) {
     } finally {
       setLoadingReviews(false);
     }
+  };
+  const handleCopyCode = async (code) => {
+    await Clipboard.setStringAsync(code);
+    setCodeCopied(true);
+    setTimeout(() => setCodeCopied(false), 2000);
   };
   // ── End of original logic ───────────────────────────────────────────────────
 
@@ -212,6 +219,19 @@ export default function ArtisanProfileScreen({ route, navigation }) {
 
           {/* Name */}
           <Text style={styles.heroName}>{profile.name}</Text>
+
+          {/* Artisan ID badge */}
+          {profile.artisanCode && !isDummy && (
+            <TouchableOpacity
+              style={styles.artisanIdRow}
+              onPress={() => handleCopyCode(profile.artisanCode)}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.artisanIdLabel}>ID: </Text>
+              <Text style={styles.artisanIdCode}>{profile.artisanCode}</Text>
+              <Text style={styles.artisanIdCopy}>{codeCopied ? ' ✓ Copied' : ' 📋'}</Text>
+            </TouchableOpacity>
+          )}
 
           {/* Trusted Artisan banner — only for subscribed artisans */}
           {profile.isPro && (
@@ -829,9 +849,32 @@ const styles = StyleSheet.create({
     fontWeight: '900',
     color: COLORS.textPrimary,
     letterSpacing: -0.5,
-    marginBottom: 10,
+    marginBottom: 6,
     textAlign: 'center',
     paddingHorizontal: 20,
+  },
+  artisanIdRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  artisanIdLabel: {
+    fontSize: 12,
+    color: COLORS.textMuted,
+    fontWeight: '500',
+  },
+  artisanIdCode: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.primary,
+    letterSpacing: 1,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  artisanIdCopy: {
+    fontSize: 12,
+    color: COLORS.primary,
+    marginLeft: 2,
   },
   heroMetaRow: {
     flexDirection: 'row',

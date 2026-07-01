@@ -26,9 +26,10 @@ function StarPicker({ value, onChange }) {
 }
 
 export default function RateJobScreen({ route, navigation }) {
-  const { jobId } = route.params;
+  const { jobId, artisanCode: prefilledCode } = route.params;
   const [ratings, setRatings] = useState({ quality: 0, timeliness: 0, communication: 0 });
   const [comment, setComment] = useState('');
+  const [artisanCode, setArtisanCode] = useState(prefilledCode || '');
   const [submitting, setSubmitting] = useState(false);
 
   const setRating = (key, value) => {
@@ -45,6 +46,12 @@ export default function RateJobScreen({ route, navigation }) {
       return;
     }
 
+    const trimmedCode = artisanCode.trim().toUpperCase();
+    if (trimmedCode && !/^FNG-[A-Z0-9]{5}$/.test(trimmedCode)) {
+      Alert.alert('Invalid ID', 'Artisan ID must be in the format FNG-XXXXX (e.g. FNG-AB23K).');
+      return;
+    }
+
     setSubmitting(true);
     try {
       await rateJob(jobId, {
@@ -52,6 +59,7 @@ export default function RateJobScreen({ route, navigation }) {
         timeliness: ratings.timeliness,
         communication: ratings.communication,
         comment: comment.trim() || undefined,
+        artisanCode: trimmedCode || undefined,
       });
 
       Alert.alert(
@@ -126,6 +134,21 @@ export default function RateJobScreen({ route, navigation }) {
         />
         <Text style={styles.charCount}>{comment.length}/500</Text>
 
+        {/* Artisan ID */}
+        <Text style={styles.label}>Artisan ID (optional)</Text>
+        <TextInput
+          style={styles.codeInput}
+          placeholder="FNG-XXXXX"
+          value={artisanCode}
+          onChangeText={(t) => setArtisanCode(t.toUpperCase())}
+          autoCapitalize="characters"
+          autoCorrect={false}
+          maxLength={9}
+        />
+        <Text style={styles.codeHint}>
+          Confirm the artisan who served you. Copy from the job detail screen.
+        </Text>
+
         {/* Submit */}
         <TouchableOpacity
           style={[styles.submitBtn, submitting && styles.submitBtnDisabled]}
@@ -182,7 +205,13 @@ const styles = StyleSheet.create({
     padding: 13, fontSize: 15, textAlignVertical: 'top', minHeight: 100,
     backgroundColor: '#FAFAFA',
   },
-  charCount: { fontSize: 12, color: '#BBB', textAlign: 'right', marginTop: 4, marginBottom: 24 },
+  charCount: { fontSize: 12, color: '#BBB', textAlign: 'right', marginTop: 4, marginBottom: 20 },
+  codeInput: {
+    borderWidth: 1.5, borderColor: '#E5E5E5', borderRadius: 10,
+    padding: 13, fontSize: 16, letterSpacing: 2,
+    backgroundColor: '#FAFAFA', fontFamily: 'monospace',
+  },
+  codeHint: { fontSize: 11, color: '#BBB', marginTop: 4, marginBottom: 24 },
   submitBtn: {
     backgroundColor: '#FF6B00', padding: 16, borderRadius: 12, alignItems: 'center',
   },

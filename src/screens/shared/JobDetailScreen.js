@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
-  Image, ActivityIndicator, Alert, TextInput, Modal,
+  Image, ActivityIndicator, Alert, TextInput, Modal, Platform,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getJob, acceptJob, declineJob, markArrived, markCompleted, raiseDispute, cancelJob } from '../../api/jobApi';
 import useSocket from '../../hooks/useSocket';
@@ -26,6 +27,7 @@ export default function JobDetailScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
+  const [jobCodeCopied, setJobCodeCopied] = useState(false);
   const [disputeModal, setDisputeModal] = useState(false);
   const [disputeReason, setDisputeReason] = useState('');
   const [acceptModal, setAcceptModal] = useState(false);
@@ -286,6 +288,22 @@ export default function JobDetailScreen({ route, navigation }) {
             <Text style={styles.sectionTitle}>Artisan</Text>
             <View style={styles.personCard}>
               <Text style={styles.personName}>{job.assignedArtisanId.name}</Text>
+              {job.artisanCode && (
+                <TouchableOpacity
+                  style={styles.artisanIdRow}
+                  onPress={async () => {
+                    await Clipboard.setStringAsync(job.artisanCode);
+                    setJobCodeCopied(true);
+                    setTimeout(() => setJobCodeCopied(false), 2000);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.artisanIdText}>
+                    ID: <Text style={styles.artisanIdCode}>{job.artisanCode}</Text>
+                    {'  '}{jobCodeCopied ? '✓ Copied' : '📋 Copy'}
+                  </Text>
+                </TouchableOpacity>
+              )}
               {job.estimatedArrivalMinutes && (
                 <Text style={styles.eta}>
                   ETA: {job.estimatedArrivalMinutes} min
@@ -386,7 +404,7 @@ export default function JobDetailScreen({ route, navigation }) {
           {isCustomer && job.status === 'completed' && !job.rating?.score && (
             <TouchableOpacity
               style={styles.primaryBtn}
-              onPress={() => navigation.navigate('RateJob', { jobId })}
+              onPress={() => navigation.navigate('RateJob', { jobId, artisanCode: job.artisanCode || null })}
             >
               <Text style={styles.primaryBtnText}>⭐ Rate Artisan</Text>
             </TouchableOpacity>
@@ -569,6 +587,9 @@ const styles = StyleSheet.create({
   locationState: { fontSize: 13, color: '#999', marginTop: 2 },
   personCard: { backgroundColor: '#F9FAFB', borderRadius: 10, padding: 14 },
   personName: { fontSize: 15, fontWeight: '700', color: '#1A1A1A', marginBottom: 4 },
+  artisanIdRow: { marginBottom: 6 },
+  artisanIdText: { fontSize: 12, color: '#6B7280' },
+  artisanIdCode: { fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', color: '#2563EB', fontWeight: '700', letterSpacing: 1 },
   eta: { fontSize: 13, color: '#3B82F6' },
   agreedPrice: { fontSize: 13, color: '#22C55E', marginTop: 4 },
   chatBtn: {

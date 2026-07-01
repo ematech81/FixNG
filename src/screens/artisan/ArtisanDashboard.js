@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
-  Alert, RefreshControl,
+  Alert, RefreshControl, Platform,
 } from 'react-native';
+import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getMyJobs } from '../../api/jobApi';
@@ -24,6 +25,7 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [dashCodeCopied, setDashCodeCopied] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -122,6 +124,22 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
                 {badge.icon} {badge.label}
               </Text>
             </View>
+            {user?.artisanCode && (
+              <TouchableOpacity
+                style={styles.myArtisanIdRow}
+                onPress={async () => {
+                  await Clipboard.setStringAsync(user.artisanCode);
+                  setDashCodeCopied(true);
+                  setTimeout(() => setDashCodeCopied(false), 2000);
+                }}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.myArtisanIdText}>
+                  Your ID: <Text style={styles.myArtisanIdCode}>{user.artisanCode}</Text>
+                  {'  '}{dashCodeCopied ? '✓' : '📋'}
+                </Text>
+              </TouchableOpacity>
+            )}
           </View>
           <TouchableOpacity onPress={handleLogout}>
             <Text style={styles.logoutBtn}>Log Out</Text>
@@ -325,6 +343,14 @@ const styles = StyleSheet.create({
   greeting: { fontSize: 22, fontWeight: '800', color: '#1A1A1A', marginBottom: 6 },
   badgePill: { alignSelf: 'flex-start', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
   badgeText: { fontSize: 12, fontWeight: '700' },
+  myArtisanIdRow: { marginTop: 6 },
+  myArtisanIdText: { fontSize: 11, color: '#9CA3AF' },
+  myArtisanIdCode: {
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+    color: '#3B82F6',
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
   logoutBtn: { color: '#999', fontSize: 13, fontWeight: '600', marginTop: 4 },
   statsRow: {
     flexDirection: 'row', gap: 8, marginBottom: 24,
