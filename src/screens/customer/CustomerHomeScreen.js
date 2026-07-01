@@ -1,54 +1,34 @@
+
+
+
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, FlatList, TouchableOpacity,
-  ActivityIndicator, RefreshControl, Image, Platform,
+  ActivityIndicator, RefreshControl, Image, Platform, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Location from 'expo-location';
 import { searchArtisans } from '../../api/discoveryApi';
 import { getMyJobs } from '../../api/jobApi';
-import { getUnreadCount } from '../../api/notificationApi';
+import { getUnreadCount, getBanners, dismissBanner } from '../../api/notificationApi';
 import { getUser } from '../../utils/storage';
 import { DUMMY_NEARBY_ARTISANS } from '../../constants/dummyProfiles';
 import DispatchSafetyModal from '../../components/DispatchSafetyModal';
+import HomeBannerList from '../../components/HomeBanner';
 import { useTheme } from '../../context/ThemeContext';
 
-// ── Design Tokens ──────────────────────────────────────────────────────────────
-const COLORS = {
-  primary:       '#2563EB',
-  primaryLight:  '#EFF6FF',
-  primaryMid:    '#BFDBFE',
-  accent:        '#0EA5E9',
-  surface:       '#FFFFFF',
-  background:    '#F8FAFF',
-  cardBorder:    '#F1F5F9',
-  textPrimary:   '#0F172A',
-  textSecondary: '#64748B',
-  textMuted:     '#94A3B8',
-  gold:          '#F59E0B',
-  goldLight:     '#FFFBEB',
-  green:         '#16A34A',
-  greenLight:    '#F0FDF4',
-  amber:         '#D97706',
-  amberLight:    '#FFFBEB',
-  grey:          '#6B7280',
-  greyLight:     '#F3F4F6',
-  divider:       '#F1F5F9',
-  shadow:        '#1E40AF',
-};
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const BADGE_CONFIG = {
-  new:      { color: COLORS.grey,  label: 'New',      bg: COLORS.greyLight  },
-  verified: { color: COLORS.green, label: 'Verified', bg: COLORS.greenLight  },
-  trusted:  { color: COLORS.amber, label: 'Trusted',  bg: COLORS.amberLight  },
+  new:      { color: '#6B7280', label: 'New',      bg: '#F3F4F6' },
+  verified: { color: '#16A34A', label: 'Verified', bg: '#F0FDF4' },
+  trusted:  { color: '#D97706', label: 'Trusted',  bg: '#FFFBEB' },
 };
 
-// ── Category Quick-Filters ────────────────────────────────────────────────────
-// id must match the exact skill string stored in ArtisanProfile.skills (backend)
 const CATEGORIES = [
   { id: 'all',                      label: 'All',          icon: '⚡' },
-  { id: 'Dispatch Rider',          label: 'Dispatch Rider',     icon: '🏍️' },
+  { id: 'Dispatch Rider',           label: 'Dispatch',     icon: '🏍️' },
   { id: 'Plumber',                  label: 'Plumbing',     icon: '🔧' },
   { id: 'Electrician',              label: 'Electrical',   icon: '💡' },
   { id: 'Carpenter',                label: 'Carpentry',    icon: '🪚' },
@@ -85,27 +65,26 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
   const { colors } = useTheme();
   const [user, setUser] = useState(null);
 
-  // Trusted Professionals (isPro only) — horizontal scroll
-  const [trustedArtisans, setTrustedArtisans]         = useState([]);
-  const [trustedPage, setTrustedPage]                 = useState(1);
-  const [hasMoreTrusted, setHasMoreTrusted]           = useState(false);
-  const [loadingMoreTrusted, setLoadingMoreTrusted]   = useState(false);
+  const [trustedArtisans, setTrustedArtisans]       = useState([]);
+  const [trustedPage, setTrustedPage]               = useState(1);
+  const [hasMoreTrusted, setHasMoreTrusted]         = useState(false);
+  const [loadingMoreTrusted, setLoadingMoreTrusted] = useState(false);
 
-  // Nearby artisans — vertical list
   const [nearbyArtisans, setNearbyArtisans] = useState([]);
   const [nearbyPage, setNearbyPage]         = useState(1);
   const [hasMoreNearby, setHasMoreNearby]   = useState(false);
   const [loadingMore, setLoadingMore]       = useState(false);
 
-  const [loading, setLoading]           = useState(true);
-  const [refreshing, setRefreshing]           = useState(false);
-  const [filterLoading, setFilterLoading]     = useState(false);
+  const [loading, setLoading]                   = useState(true);
+  const [refreshing, setRefreshing]             = useState(false);
+  const [filterLoading, setFilterLoading]       = useState(false);
   const [safetyModalArtisanId, setSafetyModalArtisanId] = useState(null);
-  const [locationLabel, setLocationLabel] = useState('Your Area');
-  const [activeCategory, setActiveCategory] = useState('all');
-  const [pendingJobCount, setPendingJobCount]       = useState(0);
-  const [showPendingBanner, setShowPendingBanner]   = useState(true);
-  const [unreadNotifCount, setUnreadNotifCount]     = useState(0);
+  const [locationLabel, setLocationLabel]       = useState('Your Area');
+  const [activeCategory, setActiveCategory]     = useState('all');
+  const [pendingJobCount, setPendingJobCount]   = useState(0);
+  const [showPendingBanner, setShowPendingBanner] = useState(true);
+  const [unreadNotifCount, setUnreadNotifCount] = useState(0);
+  const [banners, setBanners] = useState([]);
 
   const coordsRef = useRef(null);
 
@@ -117,8 +96,18 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
   useFocusEffect(useCallback(() => {
     loadAll();
     checkPendingRequests();
-    getUnreadCount().then((res) => setUnreadNotifCount(res.data.count || 0)).catch(() => {});
-  }, [])); // eslint-disable-line react-hooks/exhaustive-deps
+    getUnreadCount()
+      .then((res) => setUnreadNotifCount(res.data.count || 0))
+      .catch(() => {});
+    getBanners()
+      .then((res) => setBanners(res.data.data || []))
+      .catch(() => {});
+  }, [])); // eslint-disable-line
+
+  const handleDismissBanner = async (id) => {
+    setBanners((prev) => prev.filter((b) => b._id !== id));
+    try { await dismissBanner(id); } catch { /* silent */ }
+  };
 
   const checkPendingRequests = async () => {
     try {
@@ -156,28 +145,22 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
   const loadAll = async (isRefresh = false, categoryOverride) => {
     const cat = categoryOverride !== undefined ? categoryOverride : activeCategory;
     const categoryParam = cat !== 'all' ? { category: cat } : {};
-
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
-
     const coords = coordsRef.current;
     const geoParams = coords
       ? { latitude: coords.latitude, longitude: coords.longitude, maxDistance: 20 }
       : {};
-
     try {
       const [trustedRes, nearbyRes] = await Promise.all([
-        // Trusted section: only subscribed (isPro) artisans
         searchArtisans({ isPro: true, limit: 20, page: 1, ...categoryParam }),
         searchArtisans({ ...geoParams, limit: 20, page: 1, ...categoryParam }),
       ]);
-      const trustedData = trustedRes.data.data  || [];
-      const nearData    = nearbyRes.data.data   || [];
-
+      const trustedData = trustedRes.data.data || [];
+      const nearData    = nearbyRes.data.data  || [];
       setTrustedArtisans(trustedData);
       setHasMoreTrusted(trustedData.length === 20);
       setTrustedPage(1);
-
       setNearbyArtisans(nearData.length > 0 ? nearData : (cat === 'all' ? DUMMY_NEARBY_ARTISANS : []));
       setHasMoreNearby(nearData.length === 20);
       setNearbyPage(1);
@@ -194,8 +177,7 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
   const loadMoreTrusted = async () => {
     if (loadingMoreTrusted || !hasMoreTrusted) return;
     setLoadingMoreTrusted(true);
-    const cat = activeCategory;
-    const categoryParam = cat !== 'all' ? { category: cat } : {};
+    const categoryParam = activeCategory !== 'all' ? { category: activeCategory } : {};
     try {
       const nextPage = trustedPage + 1;
       const res = await searchArtisans({ isPro: true, limit: 20, page: nextPage, ...categoryParam });
@@ -246,33 +228,36 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
   };
 
   const goToSearch = () => onSwitchTab?.('search');
-  // ── End of original logic ─────────────────────────────────────────────────
 
   const firstName = (user?.name || '').split(' ')[0] || 'there';
   const initials  = (user?.name || 'U')[0].toUpperCase();
+  const styles    = makeStyles(colors);
 
-  const styles = makeStyles(colors);
+  // ── Greeting helper ────────────────────────────────────────────────────────
+  const getGreeting = () => {
+    const h = new Date().getHours();
+    if (h < 12) return 'Good morning ☀️';
+    if (h < 17) return 'Good afternoon 👋';
+    return 'Good evening 🌙';
+  };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
 
-      {/* ════════════════════════════════════════
-          TOP BAR
-      ════════════════════════════════════════ */}
+      {/* ── TOP BAR ─────────────────────────────────────────────────────── */}
       <View style={styles.topBar}>
-        {/* Left: Brand */}
         <View style={styles.topBarLeft}>
-          <View style={styles.brandDot} />
+          <View style={styles.brandMark}>
+            <Text style={styles.brandMarkText}>F</Text>
+          </View>
           <Text style={styles.appName}>FixNG</Text>
         </View>
 
-        {/* Right: Bell + Avatar */}
         <View style={styles.topBarRight}>
-          {/* Notification bell */}
           <TouchableOpacity
             onPress={() => navigation.navigate('Notifications')}
             activeOpacity={0.8}
-            style={styles.bellBtn}
+            style={styles.iconBtn}
           >
             <Text style={styles.bellIcon}>🔔</Text>
             {unreadNotifCount > 0 && (
@@ -284,7 +269,6 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
             )}
           </TouchableOpacity>
 
-          {/* Avatar */}
           <TouchableOpacity
             onPress={() => onSwitchTab?.('profile')}
             activeOpacity={0.8}
@@ -300,6 +284,9 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
         </View>
       </View>
 
+      {/* Sticky banners — always visible above scroll content */}
+      <HomeBannerList banners={banners} onDismiss={handleDismissBanner} />
+
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={styles.scroll}
@@ -312,38 +299,45 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
           />
         }
       >
-
-        {/* ════════════════════════════════════════
-            HERO GREETING SECTION
-        ════════════════════════════════════════ */}
+        {/* ── HERO ──────────────────────────────────────────────────────── */}
         <View style={styles.heroSection}>
-          {/* Greeting */}
-          <View style={styles.greetingBlock}>
-            <Text style={styles.greetingSub}>Good day 👋</Text>
-            <Text style={styles.greetingName}>Hello, {firstName}</Text>
-            <Text style={styles.greetingTagline}>
-              Find trusted artisans near you
-            </Text>
-          </View>
+          {/* Decorative circles */}
+          <View style={styles.heroBubble1} />
+          <View style={styles.heroBubble2} />
 
-          {/* Location Pill */}
-          <TouchableOpacity style={styles.locationPill} activeOpacity={0.7}>
-            <View style={styles.locationPillIcon}>
-              <Text style={{ fontSize: 12 }}>📍</Text>
-            </View>
-            <View style={styles.locationPillText}>
-              <Text style={styles.locationMeta}>LOCATION</Text>
-              <Text style={styles.locationName} numberOfLines={1}>
-                {locationLabel}
+          <View style={styles.heroContent}>
+            <View style={styles.heroLeft}>
+              <Text style={styles.greetingSub}>{getGreeting()}</Text>
+              <Text style={styles.greetingName}>Hello, {firstName} 👋</Text>
+              <Text style={styles.greetingTagline}>
+                Find skilled artisans near you
               </Text>
+
+              {/* Location pill */}
+              <TouchableOpacity style={styles.locationPill} activeOpacity={0.7}>
+                <Text style={styles.locationPillIcon}>📍</Text>
+                <Text style={styles.locationName} numberOfLines={1}>
+                  {locationLabel}
+                </Text>
+                <Text style={styles.locationChevron}>›</Text>
+              </TouchableOpacity>
             </View>
-            <Text style={styles.locationChevron}>›</Text>
-          </TouchableOpacity>
+
+            {/* Stats badge cluster */}
+            <View style={styles.heroStatsCluster}>
+              <View style={styles.heroStatCard}>
+                <Text style={styles.heroStatNumber}>500+</Text>
+                <Text style={styles.heroStatLabel}>Artisans</Text>
+              </View>
+              <View style={[styles.heroStatCard, styles.heroStatCardAlt]}>
+                <Text style={[styles.heroStatNumber, { color: colors.info }]}>4.8★</Text>
+                <Text style={styles.heroStatLabel}>Rating</Text>
+              </View>
+            </View>
+          </View>
         </View>
 
-        {/* ════════════════════════════════════════
-            SEARCH BAR
-        ════════════════════════════════════════ */}
+        {/* ── SEARCH BAR ────────────────────────────────────────────────── */}
         <View style={styles.searchWrapper}>
           <TouchableOpacity
             style={styles.searchBar}
@@ -354,7 +348,7 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
               <Text style={{ fontSize: 15 }}>🔍</Text>
             </View>
             <Text style={styles.searchPlaceholder}>
-              Find a plumber, electrician...
+              Search plumber, electrician...
             </Text>
             <View style={styles.searchArrow}>
               <Text style={styles.searchArrowText}>›</Text>
@@ -362,18 +356,16 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
           </TouchableOpacity>
         </View>
 
-        {/* ════════════════════════════════════════
-            ARTISAN PENDING REQUEST BANNER
-        ════════════════════════════════════════ */}
+        {/* ── PENDING BANNER ────────────────────────────────────────────── */}
         {showPendingBanner && pendingJobCount > 0 && (
           <View style={styles.pendingBanner}>
             <View style={styles.pendingBannerLeft}>
-              <View style={styles.pendingBannerDot} />
+              <View style={styles.pendingPulse} />
               <View style={styles.pendingBannerBody}>
                 <Text style={styles.pendingBannerTitle}>
                   {pendingJobCount === 1
-                    ? 'You have a new job request!'
-                    : `You have ${pendingJobCount} new job requests!`}
+                    ? '🎉 New job request!'
+                    : `🎉 ${pendingJobCount} new job requests!`}
                 </Text>
                 <Text style={styles.pendingBannerSub}>
                   A customer is waiting for your response.
@@ -385,7 +377,7 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
                 style={styles.pendingViewBtn}
                 onPress={() => navigation.navigate('JobScreen')}
               >
-                <Text style={styles.pendingViewBtnText}>View Now</Text>
+                <Text style={styles.pendingViewBtnText}>View</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.pendingCloseBtn}
@@ -397,12 +389,10 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
           </View>
         )}
 
-        {/* ════════════════════════════════════════
-            CATEGORY QUICK FILTERS
-        ════════════════════════════════════════ */}
+        {/* ── CATEGORY CHIPS ────────────────────────────────────────────── */}
         <ScrollView
           horizontal
-          showsHorizontalScrollIndicator={true}
+          showsHorizontalScrollIndicator={false}
           contentContainerStyle={styles.categoryScroll}
         >
           {CATEGORIES.map((cat) => {
@@ -426,17 +416,14 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
           })}
         </ScrollView>
 
-        {/* ════════════════════════════════════════
-            SECTION A: TRUSTED PROFESSIONALS
-        ════════════════════════════════════════ */}
+        {/* ── TRUSTED PROFESSIONALS ─────────────────────────────────────── */}
         <View style={styles.sectionHeader}>
           <View style={styles.sectionTitleGroup}>
             <View style={styles.sectionAccentBar} />
             <Text style={styles.sectionTitle}>Trusted Professionals</Text>
           </View>
-          <TouchableOpacity onPress={goToSearch} style={styles.viewMoreBtn}>
-            <Text style={styles.viewMoreText}>See All</Text>
-            <Text style={styles.viewMoreArrow}> →</Text>
+          <TouchableOpacity onPress={goToSearch} style={styles.seeAllBtn}>
+            <Text style={styles.seeAllText}>See All →</Text>
           </TouchableOpacity>
         </View>
 
@@ -444,17 +431,13 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
           <View style={styles.loadingBox}>
             <ActivityIndicator color={colors.info} size="large" />
             <Text style={styles.loadingText}>
-              {filterLoading ? `Filtering by ${activeCategory}…` : 'Finding professionals...'}
+              {filterLoading ? `Filtering…` : 'Finding professionals...'}
             </Text>
           </View>
         ) : trustedArtisans.length === 0 ? (
           <View style={styles.emptyHScroll}>
             <Text style={styles.emptyIcon}>⭐</Text>
-            <Text style={styles.emptyHScrollText}>
-              {activeCategory === 'all'
-                ? 'No Trusted artisans yet — check back soon'
-                : `No Trusted ${activeCategory} artisans found`}
-            </Text>
+            <Text style={styles.emptyHScrollText}>No trusted artisans yet</Text>
           </View>
         ) : (
           <FlatList
@@ -467,11 +450,11 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
             onEndReachedThreshold={0.4}
             ListFooterComponent={
               loadingMoreTrusted
-                ? <ActivityIndicator color={colors.info} style={{ marginHorizontal: 16, alignSelf: 'center' }} />
+                ? <ActivityIndicator color={colors.info} style={{ marginHorizontal: 12, alignSelf: 'center' }} />
                 : null
             }
             renderItem={({ item }) => (
-              <TrustedProfessionalsCard
+              <TrustedCard
                 artisan={item}
                 onPress={() => goToProfile(item)}
                 colors={colors}
@@ -480,17 +463,14 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
           />
         )}
 
-        {/* ════════════════════════════════════════
-            SECTION B: NEARBY ARTISANS
-        ════════════════════════════════════════ */}
-        <View style={[styles.sectionHeader, styles.nearbySectionHeader]}>
+        {/* ── NEARBY ARTISANS ───────────────────────────────────────────── */}
+        <View style={[styles.sectionHeader, { marginTop: 28 }]}>
           <View style={styles.sectionTitleGroup}>
             <View style={[styles.sectionAccentBar, { backgroundColor: '#0EA5E9' }]} />
             <Text style={styles.sectionTitle}>Nearby Artisans</Text>
           </View>
           <TouchableOpacity style={styles.filterBtn} onPress={goToSearch}>
-            <Text style={styles.filterIcon}>⚙</Text>
-            <Text style={styles.filterBtnText}>Filter</Text>
+            <Text style={styles.filterBtnText}>⚙ Filter</Text>
           </TouchableOpacity>
         </View>
 
@@ -522,7 +502,6 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
           </View>
         )}
 
-        {/* Load More */}
         {hasMoreNearby && (
           <TouchableOpacity
             style={styles.loadMoreBtn}
@@ -533,15 +512,12 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
             {loadingMore ? (
               <ActivityIndicator color={colors.info} size="small" />
             ) : (
-              <View style={styles.loadMoreInner}>
-                <Text style={styles.loadMoreText}>Load More Artisans</Text>
-                <Text style={styles.loadMoreArrow}> ↓</Text>
-              </View>
+              <Text style={styles.loadMoreText}>Load More Artisans ↓</Text>
             )}
           </TouchableOpacity>
         )}
 
-        <View style={{ height: 32 }} />
+        <View style={{ height: 40 }} />
       </ScrollView>
 
       <DispatchSafetyModal
@@ -562,206 +538,154 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// TRUSTED PROFESSIONALS CARD  (horizontal scroll)
+// TRUSTED CARD — compact horizontal card
 // ══════════════════════════════════════════════════════════════════════════════
-function TrustedProfessionalsCard({ artisan, onPress, colors }) {
+function TrustedCard({ artisan, onPress, colors }) {
   const badge  = BADGE_CONFIG[artisan.badgeLevel] || BADGE_CONFIG.new;
   const rating = artisan.stats?.averageRating;
   const jobs   = artisan.stats?.completedJobs || 0;
-  const proCard = makeProCard(colors);
+  const s      = trustedCardStyles(colors);
 
   return (
-    <TouchableOpacity
-      style={proCard.container}
-      onPress={onPress}
-      activeOpacity={0.92}
-    >
-      {/* Gradient-style header strip */}
-      <View style={[proCard.headerStrip, artisan.isPro && proCard.headerStripPro]}>
-        {/* Trusted badge (top-left) */}
-        {artisan.isPro && (
-          <View style={proCard.proLabel}>
-            <Text style={proCard.proLabelText}>✓ TRUSTED</Text>
-          </View>
-        )}
-        {/* Badge pill top-right */}
-        <View style={[proCard.badgePill, { backgroundColor: badge.bg }]}>
-          <Text style={[proCard.badgeLabel, { color: badge.color }]}>
-            {badge.label}
-          </Text>
-        </View>
-      </View>
-
-      {/* Avatar — overlapping the strip */}
-      <View style={proCard.avatarBlock}>
-        <View style={proCard.avatarRing}>
+    <TouchableOpacity style={s.card} onPress={onPress} activeOpacity={0.92}>
+      {/* Top row: avatar + name/skill + badge */}
+      <View style={s.topRow}>
+        {/* Avatar */}
+        <View style={s.avatarWrap}>
           {artisan.profilePhoto ? (
-            <Image source={{ uri: artisan.profilePhoto }} style={proCard.avatar} />
+            <Image source={{ uri: artisan.profilePhoto }} style={s.avatar} />
           ) : (
-            <View style={proCard.avatarFallback}>
-              <Text style={proCard.avatarInitial}>
-                {(artisan.name || 'A')[0].toUpperCase()}
-              </Text>
+            <View style={s.avatarFallback}>
+              <Text style={s.avatarInitial}>{(artisan.name || 'A')[0].toUpperCase()}</Text>
+            </View>
+          )}
+          {artisan.isPro && (
+            <View style={s.proSticker}>
+              <Text style={s.proStickerText}>✓</Text>
             </View>
           )}
         </View>
-        {artisan.badgeLevel !== 'new' && (
-          <View style={[
-            proCard.verifiedDot,
-            {
-              backgroundColor:
-                artisan.badgeLevel === 'trusted' ? COLORS.amber : COLORS.green,
-            },
-          ]}>
-            <Text style={proCard.verifiedDotText}>
-              {artisan.badgeLevel === 'trusted' ? '★' : '✓'}
-            </Text>
-          </View>
-        )}
-      </View>
 
-      {/* Skills (primary) & name (secondary) */}
-      <Text style={proCard.skills} numberOfLines={1}>
-        {(artisan.skills || []).join(' · ')}
-      </Text>
-      <Text style={proCard.name} numberOfLines={1}>{artisan.name}</Text>
-
-      {/* Stats row */}
-      <View style={proCard.statsRow}>
-        {rating > 0 && (
-          <View style={proCard.statChip}>
-            <Text style={proCard.statChipText}>⭐ {rating.toFixed(1)}</Text>
-          </View>
-        )}
-        <View style={proCard.statChip}>
-          <Text style={proCard.statChipText}>{jobs} jobs</Text>
+        {/* Name + skill */}
+        <View style={s.nameBlock}>
+          <Text style={s.skillText} numberOfLines={1}>
+            {(artisan.skills || []).slice(0, 2).join(' · ')}
+          </Text>
+          <Text style={s.nameText} numberOfLines={1}>{artisan.name}</Text>
         </View>
-        {artisan.distanceKm != null && (
-          <View style={proCard.statChip}>
-            <Text style={[proCard.statChipText, { color: colors.info }]}>
-              {artisan.distanceKm}km away
-            </Text>
-          </View>
-        )}
-        {(artisan.address || artisan.state) && (
-          <View style={proCard.statChip}>
-            <Text style={[proCard.statChipText, { color: colors.info }]} numberOfLines={1}>
-              📍 {artisan.address || artisan.state}
-            </Text>
-          </View>
-        )}
+
+        {/* Badge pill */}
+        <View style={[s.badgePill, { backgroundColor: badge.bg }]}>
+          <Text style={[s.badgeLabel, { color: badge.color }]}>{badge.label}</Text>
+        </View>
       </View>
 
-      {/* Book Now CTA */}
-      <TouchableOpacity style={proCard.bookBtn} onPress={onPress} activeOpacity={0.85}>
-        <Text style={proCard.bookBtnText}>Book Now</Text>
-      </TouchableOpacity>
+      {/* Divider */}
+      <View style={s.divider} />
+
+      {/* Bottom row: stats + CTA */}
+      <View style={s.bottomRow}>
+        <View style={s.statsGroup}>
+          {rating > 0 && (
+            <View style={s.stat}>
+              <Text style={s.statIcon}>⭐</Text>
+              <Text style={s.statVal}>{rating.toFixed(1)}</Text>
+            </View>
+          )}
+          <View style={s.stat}>
+            <Text style={s.statIcon}>💼</Text>
+            <Text style={s.statVal}>{jobs}</Text>
+          </View>
+          {artisan.distanceKm != null && (
+            <View style={s.stat}>
+              <Text style={s.statIcon}>📍</Text>
+              <Text style={[s.statVal, { color: colors.info }]}>{artisan.distanceKm}km</Text>
+            </View>
+          )}
+        </View>
+
+        <TouchableOpacity style={s.bookBtn} onPress={onPress} activeOpacity={0.85}>
+          <Text style={s.bookBtnText}>Book</Text>
+        </TouchableOpacity>
+      </View>
     </TouchableOpacity>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// NEARBY ARTISAN CARD  (vertical list)
+// NEARBY ARTISAN CARD
 // ══════════════════════════════════════════════════════════════════════════════
 function ArtisanCard({ artisan, onPress, colors }) {
-  const badge       = BADGE_CONFIG[artisan.badgeLevel] || BADGE_CONFIG.new;
-  const rating      = artisan.stats?.averageRating;
-  const jobs        = artisan.stats?.completedJobs || 0;
-  const placeName   = artisan.address || artisan.state || null;
-  const distText    = artisan.distanceKm != null ? `${artisan.distanceKm}km from here` : null;
-  const nearbyCard  = makeNearbyCard(colors);
+  const badge     = BADGE_CONFIG[artisan.badgeLevel] || BADGE_CONFIG.new;
+  const rating    = artisan.stats?.averageRating;
+  const jobs      = artisan.stats?.completedJobs || 0;
+  const placeName = artisan.address || artisan.state || null;
+  const distText  = artisan.distanceKm != null ? `${artisan.distanceKm}km` : null;
+  const s         = nearbyCardStyles(colors);
 
   return (
-    <TouchableOpacity
-      style={nearbyCard.container}
-      onPress={onPress}
-      activeOpacity={0.92}
-    >
-      {/* Left: Avatar */}
-      <View style={nearbyCard.avatarWrap}>
+    <TouchableOpacity style={s.container} onPress={onPress} activeOpacity={0.92}>
+      {/* Avatar */}
+      <View style={s.avatarWrap}>
         {artisan.profilePhoto ? (
-          <Image source={{ uri: artisan.profilePhoto }} style={nearbyCard.avatar} />
+          <Image source={{ uri: artisan.profilePhoto }} style={s.avatar} />
         ) : (
-          <View style={nearbyCard.avatarFallback}>
-            <Text style={nearbyCard.avatarInitial}>
-              {(artisan.name || 'A')[0].toUpperCase()}
-            </Text>
+          <View style={s.avatarFallback}>
+            <Text style={s.avatarInitial}>{(artisan.name || 'A')[0].toUpperCase()}</Text>
           </View>
         )}
         {artisan.badgeLevel !== 'new' && (
           <View style={[
-            nearbyCard.verifiedDot,
-            {
-              backgroundColor:
-                artisan.badgeLevel === 'trusted' ? COLORS.amber : COLORS.green,
-            },
+            s.verifiedDot,
+            { backgroundColor: artisan.badgeLevel === 'trusted' ? '#D97706' : '#16A34A' },
           ]}>
-            <Text style={nearbyCard.verifiedDotText}>
+            <Text style={s.verifiedDotText}>
               {artisan.badgeLevel === 'trusted' ? '★' : '✓'}
             </Text>
           </View>
         )}
       </View>
 
-      {/* Middle: Info */}
-      <View style={nearbyCard.info}>
-        {/* Skills (primary) */}
-        <Text style={nearbyCard.skills} numberOfLines={1}>
+      {/* Info */}
+      <View style={s.info}>
+        <Text style={s.skills} numberOfLines={1}>
           {(artisan.skills || []).join(' · ')}
         </Text>
-
-        {/* Name + Badges (secondary) */}
-        <View style={nearbyCard.nameRow}>
-          <Text style={nearbyCard.name} numberOfLines={1}>{artisan.name}</Text>
+        <View style={s.nameRow}>
+          <Text style={s.name} numberOfLines={1}>{artisan.name}</Text>
           <View style={{ flexDirection: 'row', gap: 4, alignItems: 'center' }}>
             {artisan.isPro && (
-              <View style={nearbyCard.proBadge}>
-                <Text style={nearbyCard.proBadgeText}>✓ Trusted</Text>
+              <View style={s.proBadge}>
+                <Text style={s.proBadgeText}>✓ Pro</Text>
               </View>
             )}
-            <View style={[nearbyCard.badgePill, { backgroundColor: badge.bg }]}>
-              <Text style={[nearbyCard.badgeLabel, { color: badge.color }]}>
-                {badge.label}
-              </Text>
+            <View style={[s.badgePill, { backgroundColor: badge.bg }]}>
+              <Text style={[s.badgeLabel, { color: badge.color }]}>{badge.label}</Text>
             </View>
           </View>
         </View>
 
-        {/* Stats */}
-        <View style={nearbyCard.statsRow}>
-          {rating > 0 && (
-            <Text style={nearbyCard.rating}>⭐ {rating.toFixed(1)}</Text>
-          )}
-          {rating > 0 && <Text style={nearbyCard.dividerDot}>·</Text>}
-          <Text style={nearbyCard.jobs}>{jobs} jobs</Text>
+        <View style={s.statsRow}>
+          {rating > 0 && <Text style={s.rating}>⭐ {rating.toFixed(1)}</Text>}
+          {rating > 0 && <Text style={s.dot}>·</Text>}
+          <Text style={s.jobs}>{jobs} jobs</Text>
+          {distText && <Text style={s.dot}>·</Text>}
+          {distText && <Text style={s.dist}>📍 {distText}{placeName ? `, ${placeName}` : ''}</Text>}
         </View>
-
-        {/* Distance + Location Name */}
-        {(distText || placeName) && (
-          <Text style={nearbyCard.locationLine} numberOfLines={1}>
-            {[distText, placeName ? `📍 ${placeName}` : null].filter(Boolean).join('  ·  ')}
-          </Text>
-        )}
       </View>
 
-      {/* Right: Book button */}
-      <TouchableOpacity
-        style={nearbyCard.bookBtn}
-        onPress={onPress}
-        activeOpacity={0.85}
-      >
-        <Text style={nearbyCard.bookBtnText}>Book</Text>
+      {/* Book */}
+      <TouchableOpacity style={s.bookBtn} onPress={onPress} activeOpacity={0.85}>
+        <Text style={s.bookBtnText}>Book</Text>
       </TouchableOpacity>
     </TouchableOpacity>
   );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// STYLES
+// SCREEN STYLES
 // ══════════════════════════════════════════════════════════════════════════════
 const makeStyles = (colors) => StyleSheet.create({
-
-  // ── Screen ──────────────────────────────────────────────────────────────────
   container: {
     flex: 1,
     backgroundColor: colors.bgAlt,
@@ -770,811 +694,398 @@ const makeStyles = (colors) => StyleSheet.create({
     paddingBottom: 16,
   },
 
-  // ── Top Bar ─────────────────────────────────────────────────────────────────
+  // ── Top Bar ──────────────────────────────────────────────────────────────
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 10,
+    paddingVertical: 12,
     backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.borderLight,
     ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-      },
-      android: { elevation: 2 },
-    }),
-  },
-  topBarLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  topBarRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  bellBtn: { position: 'relative', padding: 4 },
-  bellIcon: { fontSize: 22 },
-  bellBadge: {
-    position: 'absolute', top: 0, right: 0,
-    backgroundColor: colors.error, borderRadius: 8,
-    minWidth: 16, height: 16,
-    alignItems: 'center', justifyContent: 'center',
-    paddingHorizontal: 3,
-    borderWidth: 1.5, borderColor: colors.card,
-  },
-  bellBadgeText: { color: colors.card, fontSize: 8, fontWeight: '800' },
-  brandDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: colors.info,
-  },
-  appName: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: colors.info,
-    letterSpacing: -0.8,
-  },
-  avatarBtn: {
-    position: 'relative',
-  },
-  avatarRing: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    borderWidth: 2,
-    borderColor: '#BFDBFE',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarCircle: {
-    width: 34,
-    height: 34,
-    borderRadius: 17,
-    backgroundColor: colors.infoBg,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  avatarInitial: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: colors.info,
-  },
-  onlineDot: {
-    position: 'absolute',
-    bottom: 1,
-    right: 1,
-    width: 10,
-    height: 10,
-    borderRadius: 5,
-    backgroundColor: colors.success,
-    borderWidth: 2,
-    borderColor: colors.card,
-  },
-
-  // ── Hero Section ─────────────────────────────────────────────────────────────
-  heroSection: {
-    backgroundColor: colors.card,
-    paddingHorizontal: 20,
-    paddingTop: 20,
-    paddingBottom: 24,
-    borderBottomLeftRadius: 28,
-    borderBottomRightRadius: 28,
-    marginBottom: 20,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.07,
-        shadowRadius: 12,
-      },
+      ios:     { shadowColor: colors.shadow, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 6 },
       android: { elevation: 3 },
     }),
   },
-  greetingBlock: {
-    marginBottom: 16,
+  topBarLeft: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  topBarRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+
+  brandMark: {
+    width: 30, height: 30, borderRadius: 9,
+    backgroundColor: colors.info,
+    justifyContent: 'center', alignItems: 'center',
   },
+  brandMarkText: { fontSize: 16, fontWeight: '900', color: '#fff' },
+  appName: { fontSize: 20, fontWeight: '900', color: colors.info, letterSpacing: -0.5 },
+
+  iconBtn: { position: 'relative', padding: 6 },
+  bellIcon: { fontSize: 20 },
+  bellBadge: {
+    position: 'absolute', top: 2, right: 2,
+    backgroundColor: colors.error, borderRadius: 8,
+    minWidth: 16, height: 16, alignItems: 'center', justifyContent: 'center',
+    paddingHorizontal: 3, borderWidth: 1.5, borderColor: colors.card,
+  },
+  bellBadgeText: { color: '#fff', fontSize: 8, fontWeight: '800' },
+
+  avatarBtn: { position: 'relative' },
+  avatarRing: {
+    width: 40, height: 40, borderRadius: 20,
+    borderWidth: 2, borderColor: '#BFDBFE',
+    justifyContent: 'center', alignItems: 'center',
+  },
+  avatarCircle: {
+    width: 32, height: 32, borderRadius: 16,
+    backgroundColor: colors.infoBg,
+    justifyContent: 'center', alignItems: 'center',
+  },
+  avatarInitial: { fontSize: 14, fontWeight: '800', color: colors.info },
+  onlineDot: {
+    position: 'absolute', bottom: 1, right: 1,
+    width: 10, height: 10, borderRadius: 5,
+    backgroundColor: colors.success, borderWidth: 2, borderColor: colors.card,
+  },
+
+  // ── Hero ─────────────────────────────────────────────────────────────────
+  heroSection: {
+    backgroundColor: colors.info,
+    paddingTop: 24,
+    paddingBottom: 28,
+    paddingHorizontal: 20,
+    marginBottom: 0,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  heroBubble1: {
+    position: 'absolute', width: 160, height: 160,
+    borderRadius: 80, backgroundColor: 'rgba(255,255,255,0.07)',
+    top: -40, right: -30,
+  },
+  heroBubble2: {
+    position: 'absolute', width: 100, height: 100,
+    borderRadius: 50, backgroundColor: 'rgba(255,255,255,0.05)',
+    bottom: -20, right: 80,
+  },
+  heroContent: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
+  heroLeft: { flex: 1 },
   greetingSub: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textMuted,
-    marginBottom: 2,
-    letterSpacing: 0.2,
+    fontSize: 12, fontWeight: '600',
+    color: 'rgba(255,255,255,0.75)',
+    marginBottom: 4, letterSpacing: 0.3,
   },
   greetingName: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: colors.text,
-    letterSpacing: -0.5,
-    marginBottom: 4,
+    fontSize: 24, fontWeight: '900',
+    color: '#fff', letterSpacing: -0.5, marginBottom: 4,
   },
   greetingTagline: {
-    fontSize: 14,
-    color: colors.textSub,
-    fontWeight: '400',
+    fontSize: 13, color: 'rgba(255,255,255,0.80)',
+    fontWeight: '400', marginBottom: 16,
   },
   locationPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.infoBg,
-    borderRadius: 14,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    gap: 10,
+    flexDirection: 'row', alignItems: 'center', gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.18)',
+    borderRadius: 24, paddingVertical: 7, paddingHorizontal: 12,
     alignSelf: 'flex-start',
-    maxWidth: '100%',
   },
-  locationPillIcon: {
-    width: 28,
-    height: 28,
-    borderRadius: 8,
-    backgroundColor: '#BFDBFE',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  locationPillText: {
-    flex: 1,
-  },
-  locationMeta: {
-    fontSize: 9,
-    fontWeight: '800',
-    color: colors.info,
-    letterSpacing: 1,
-    marginBottom: 1,
-  },
-  locationName: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.text,
-  },
-  locationChevron: {
-    fontSize: 20,
-    color: colors.info,
-    fontWeight: '600',
-    marginTop: -2,
-  },
+  locationPillIcon: { fontSize: 13 },
+  locationName: { fontSize: 13, fontWeight: '700', color: '#fff', maxWidth: 160 },
+  locationChevron: { fontSize: 18, color: 'rgba(255,255,255,0.7)', marginTop: -1 },
 
-  // ── Search Bar ───────────────────────────────────────────────────────────────
+  heroStatsCluster: { gap: 8, alignItems: 'flex-end', paddingTop: 4 },
+  heroStatCard: {
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 14, paddingHorizontal: 14, paddingVertical: 10,
+    alignItems: 'center', minWidth: 72,
+  },
+  heroStatCardAlt: { backgroundColor: 'rgba(255,255,255,0.22)' },
+  heroStatNumber: { fontSize: 16, fontWeight: '900', color: '#fff', marginBottom: 1 },
+  heroStatLabel: { fontSize: 10, fontWeight: '600', color: 'rgba(255,255,255,0.75)', letterSpacing: 0.3 },
+
+  // ── Search ────────────────────────────────────────────────────────────────
   searchWrapper: {
     paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 16,
+    backgroundColor: colors.card,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
     marginBottom: 20,
+    ...Platform.select({
+      ios:     { shadowColor: colors.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.07, shadowRadius: 10 },
+      android: { elevation: 3 },
+    }),
   },
   searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 18,
-    paddingHorizontal: 6,
-    paddingVertical: 6,
-    gap: 12,
-    borderWidth: 1.5,
-    borderColor: colors.borderLight,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-      },
-      android: { elevation: 2 },
-    }),
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: colors.bgAlt,
+    borderRadius: 16, paddingHorizontal: 6, paddingVertical: 6,
+    gap: 10, borderWidth: 1.5, borderColor: colors.borderLight,
   },
   searchIconWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 14,
+    width: 38, height: 38, borderRadius: 12,
     backgroundColor: colors.infoBg,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center', alignItems: 'center',
   },
-  searchPlaceholder: {
-    flex: 1,
-    fontSize: 14,
-    color: colors.textMuted,
-    fontWeight: '500',
-  },
+  searchPlaceholder: { flex: 1, fontSize: 14, color: colors.textMuted, fontWeight: '500' },
   searchArrow: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
+    width: 34, height: 34, borderRadius: 11,
     backgroundColor: colors.info,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 2,
+    justifyContent: 'center', alignItems: 'center', marginRight: 2,
   },
-  searchArrowText: {
-    fontSize: 20,
-    color: colors.card,
-    fontWeight: '700',
-    marginTop: -2,
-  },
+  searchArrowText: { fontSize: 20, color: '#fff', fontWeight: '700', marginTop: -2 },
 
-  // ── Artisan Pending Request Banner ───────────────────────────────────────────
+  // ── Pending Banner ────────────────────────────────────────────────────────
   pendingBanner: {
-    marginHorizontal: 20,
-    marginBottom: 16,
+    marginHorizontal: 20, marginBottom: 16,
     backgroundColor: colors.successBg,
-    borderRadius: 16,
-    padding: 14,
-    borderWidth: 1.5,
-    borderColor: '#86EFAC',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 10,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.success,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 6,
-      },
-      android: { elevation: 2 },
-    }),
+    borderRadius: 16, padding: 12,
+    borderWidth: 1.5, borderColor: '#86EFAC',
+    flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'space-between', gap: 10,
   },
   pendingBannerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1, gap: 10 },
-  pendingBannerDot: {
+  pendingPulse: {
     width: 10, height: 10, borderRadius: 5,
     backgroundColor: colors.success, flexShrink: 0,
   },
   pendingBannerBody: { flex: 1 },
-  pendingBannerTitle: { fontSize: 14, fontWeight: '800', color: '#14532D', marginBottom: 2 },
-  pendingBannerSub: { fontSize: 12, color: '#166534', lineHeight: 17 },
-  pendingBannerActions: { flexDirection: 'row', alignItems: 'center', gap: 8, flexShrink: 0 },
+  pendingBannerTitle: { fontSize: 13, fontWeight: '800', color: '#14532D', marginBottom: 1 },
+  pendingBannerSub:   { fontSize: 12, color: '#166534', lineHeight: 16 },
+  pendingBannerActions: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 0 },
   pendingViewBtn: {
-    backgroundColor: colors.success,
-    borderRadius: 10,
-    paddingHorizontal: 14,
-    paddingVertical: 8,
+    backgroundColor: colors.success, borderRadius: 10,
+    paddingHorizontal: 12, paddingVertical: 7,
   },
-  pendingViewBtnText: { fontSize: 13, fontWeight: '800', color: colors.card },
+  pendingViewBtnText: { fontSize: 12, fontWeight: '800', color: '#fff' },
   pendingCloseBtn: {
-    width: 28, height: 28, borderRadius: 14,
+    width: 26, height: 26, borderRadius: 13,
     backgroundColor: colors.successBg,
     justifyContent: 'center', alignItems: 'center',
     borderWidth: 1, borderColor: '#86EFAC',
   },
-  pendingCloseBtnText: { fontSize: 12, fontWeight: '800', color: colors.success },
+  pendingCloseBtnText: { fontSize: 11, fontWeight: '800', color: colors.success },
 
-  // ── Category Chips ───────────────────────────────────────────────────────────
+  // ── Category Chips ────────────────────────────────────────────────────────
   categoryScroll: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    gap: 8,
+    paddingHorizontal: 20, paddingBottom: 20, gap: 8,
   },
   categoryChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    paddingHorizontal: 13, paddingVertical: 8,
     borderRadius: 50,
     backgroundColor: colors.card,
-    borderWidth: 1.5,
-    borderColor: colors.borderLight,
-    marginRight: 8,
+    borderWidth: 1.5, borderColor: colors.borderLight,
+    marginRight: 6,
   },
-  categoryChipActive: {
-    backgroundColor: colors.info,
-    borderColor: colors.info,
-  },
-  categoryIcon: {
-    fontSize: 14,
-  },
-  categoryLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: colors.textSub,
-  },
-  categoryLabelActive: {
-    color: colors.card,
-  },
+  categoryChipActive: { backgroundColor: colors.info, borderColor: colors.info },
+  categoryIcon: { fontSize: 13 },
+  categoryLabel: { fontSize: 12, fontWeight: '600', color: colors.textSub },
+  categoryLabelActive: { color: '#fff' },
 
-  // ── Section Headers ──────────────────────────────────────────────────────────
+  // ── Section Headers ───────────────────────────────────────────────────────
   sectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 16,
+    flexDirection: 'row', justifyContent: 'space-between',
+    alignItems: 'center', paddingHorizontal: 20, marginBottom: 14,
   },
-  nearbySectionHeader: {
-    marginTop: 28,
-  },
-  sectionTitleGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
+  sectionTitleGroup: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   sectionAccentBar: {
-    width: 4,
-    height: 20,
-    borderRadius: 2,
-    backgroundColor: colors.info,
+    width: 4, height: 20, borderRadius: 2, backgroundColor: colors.info,
   },
   sectionTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: colors.text,
-    letterSpacing: -0.3,
+    fontSize: 16, fontWeight: '800', color: colors.text, letterSpacing: -0.3,
   },
-  viewMoreBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  viewMoreText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.info,
-  },
-  viewMoreArrow: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.info,
-  },
+  seeAllBtn: { flexDirection: 'row', alignItems: 'center' },
+  seeAllText: { fontSize: 13, fontWeight: '700', color: colors.info },
+
   filterBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 10,
-    backgroundColor: colors.infoBg,
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 10, backgroundColor: colors.infoBg,
+    borderWidth: 1, borderColor: '#BFDBFE',
   },
-  filterIcon: {
-    fontSize: 12,
-    color: colors.info,
-  },
-  filterBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.info,
-  },
+  filterBtnText: { fontSize: 12, fontWeight: '700', color: colors.info },
 
-  // ── Loading State ────────────────────────────────────────────────────────────
-  loadingBox: {
-    paddingVertical: 48,
-    alignItems: 'center',
-    gap: 12,
-  },
-  loadingText: {
-    fontSize: 13,
-    color: colors.textMuted,
-    fontWeight: '500',
-  },
+  // ── Loading ───────────────────────────────────────────────────────────────
+  loadingBox: { paddingVertical: 48, alignItems: 'center', gap: 12 },
+  loadingText: { fontSize: 13, color: colors.textMuted, fontWeight: '500' },
 
-  // ── Horizontal Scroll ────────────────────────────────────────────────────────
+  // ── Horizontal scroll ─────────────────────────────────────────────────────
   hScrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 4,
-    gap: 14,
+    paddingHorizontal: 20, paddingBottom: 6, gap: 12,
   },
 
-  // ── Empty States ─────────────────────────────────────────────────────────────
-  emptyIcon: {
-    fontSize: 32,
-    marginBottom: 8,
-  },
+  // ── Empty states ──────────────────────────────────────────────────────────
+  emptyIcon: { fontSize: 28, marginBottom: 6 },
   emptyHScroll: {
-    marginHorizontal: 20,
-    backgroundColor: colors.infoBg,
-    borderRadius: 18,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#BFDBFE',
-    borderStyle: 'dashed',
+    marginHorizontal: 20, backgroundColor: colors.infoBg,
+    borderRadius: 16, padding: 20, alignItems: 'center',
+    borderWidth: 1, borderColor: '#BFDBFE', borderStyle: 'dashed',
   },
   emptyHScrollText: {
-    fontSize: 14,
-    color: colors.info,
-    fontWeight: '600',
-    textAlign: 'center',
-    lineHeight: 20,
+    fontSize: 13, color: colors.info, fontWeight: '600',
+    textAlign: 'center', lineHeight: 18,
   },
   emptyNearby: {
-    marginHorizontal: 20,
-    marginBottom: 16,
-    alignItems: 'center',
-    paddingVertical: 40,
-    backgroundColor: colors.card,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
+    marginHorizontal: 20, marginBottom: 16, alignItems: 'center',
+    paddingVertical: 36, backgroundColor: colors.card,
+    borderRadius: 24, borderWidth: 1, borderColor: colors.borderLight,
   },
   emptyNearbyIconWrap: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
+    width: 64, height: 64, borderRadius: 32,
     backgroundColor: colors.infoBg,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 14,
+    justifyContent: 'center', alignItems: 'center', marginBottom: 12,
   },
-  emptyNearbyIcon: {
-    fontSize: 32,
-  },
-  emptyNearbyTitle: {
-    fontSize: 17,
-    fontWeight: '800',
-    color: colors.text,
-    marginBottom: 6,
-  },
+  emptyNearbyIcon: { fontSize: 30 },
+  emptyNearbyTitle: { fontSize: 16, fontWeight: '800', color: colors.text, marginBottom: 6 },
   emptyNearbyText: {
-    fontSize: 14,
-    color: colors.textSub,
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 20,
-    paddingHorizontal: 24,
+    fontSize: 13, color: colors.textSub, textAlign: 'center',
+    lineHeight: 20, marginBottom: 18, paddingHorizontal: 24,
   },
   emptyNearbyBtn: {
-    backgroundColor: colors.info,
-    paddingHorizontal: 28,
-    paddingVertical: 13,
-    borderRadius: 14,
+    backgroundColor: colors.info, paddingHorizontal: 24, paddingVertical: 12, borderRadius: 14,
   },
-  emptyNearbyBtnText: {
-    color: colors.card,
-    fontWeight: '700',
-    fontSize: 14,
-  },
+  emptyNearbyBtnText: { color: '#fff', fontWeight: '700', fontSize: 13 },
 
-  // ── Nearby List ──────────────────────────────────────────────────────────────
-  nearbyList: {
-    paddingHorizontal: 20,
-    gap: 12,
-  },
+  // ── Nearby List ───────────────────────────────────────────────────────────
+  nearbyList: { paddingHorizontal: 20, gap: 10 },
 
-  // ── Load More ────────────────────────────────────────────────────────────────
+  // ── Load More ─────────────────────────────────────────────────────────────
   loadMoreBtn: {
-    marginHorizontal: 20,
-    marginTop: 16,
-    paddingVertical: 15,
-    borderRadius: 16,
+    marginHorizontal: 20, marginTop: 14,
+    paddingVertical: 14, borderRadius: 16,
     backgroundColor: colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#BFDBFE',
-    minHeight: 52,
+    alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1.5, borderColor: '#BFDBFE', minHeight: 50,
   },
-  loadMoreInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  loadMoreText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.info,
-  },
-  loadMoreArrow: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.info,
-  },
+  loadMoreText: { fontSize: 14, fontWeight: '700', color: colors.info },
 });
 
-// ── Trusted Professionals Card Styles ─────────────────────────────────────────
-const makeProCard = (colors) => StyleSheet.create({
-  container: {
-    width: 220,
+// ══════════════════════════════════════════════════════════════════════════════
+// TRUSTED CARD STYLES  — compact, wide horizontal pill
+// ══════════════════════════════════════════════════════════════════════════════
+const trustedCardStyles = (colors) => StyleSheet.create({
+  card: {
+    width: 240,
     backgroundColor: colors.card,
-    borderRadius: 24,
+    borderRadius: 18,
     overflow: 'hidden',
     borderWidth: 1,
     borderColor: colors.borderLight,
+    padding: 14,
     ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.10,
-        shadowRadius: 16,
-      },
-      android: { elevation: 5 },
+      ios:     { shadowColor: colors.shadow, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.09, shadowRadius: 12 },
+      android: { elevation: 4 },
     }),
   },
-  headerStrip: {
-    height: 72,
-    backgroundColor: colors.info,
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    justifyContent: 'space-between',
-    paddingTop: 12,
-    paddingHorizontal: 12,
+
+  // Top row
+  topRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 12,
   },
-  headerStripPro: {
-    backgroundColor: '#B45309', // warm gold for Pro artisans
-  },
-  proLabel: {
-    paddingHorizontal: 8, paddingVertical: 3,
-    borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.25)',
-  },
-  proLabelText: { fontSize: 10, fontWeight: '800', color: colors.card, letterSpacing: 0.4 },
-  badgePill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 20,
-  },
-  badgeLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.3,
-  },
-  avatarBlock: {
-    alignItems: 'center',
-    marginTop: -30,
-    marginBottom: 10,
-    position: 'relative',
-  },
-  avatarRing: {
-    width: 68,
-    height: 68,
-    borderRadius: 34,
-    borderWidth: 3,
-    borderColor: colors.card,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.12,
-        shadowRadius: 6,
-      },
-      android: { elevation: 3 },
-    }),
-  },
-  avatar: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-  },
+  avatarWrap: { position: 'relative', flexShrink: 0 },
+  avatar: { width: 48, height: 48, borderRadius: 14 },
   avatarFallback: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
+    width: 48, height: 48, borderRadius: 14,
     backgroundColor: colors.infoBg,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center', alignItems: 'center',
   },
-  avatarInitial: {
-    fontSize: 26,
-    fontWeight: '900',
-    color: colors.info,
+  avatarInitial: { fontSize: 20, fontWeight: '900', color: colors.info },
+  proSticker: {
+    position: 'absolute', bottom: -4, right: -4,
+    width: 18, height: 18, borderRadius: 9,
+    backgroundColor: '#D97706',
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 2, borderColor: colors.card,
   },
-  verifiedDot: {
-    position: 'absolute',
-    bottom: 0,
-    right: '50%',
-    marginRight: -38,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: colors.card,
+  proStickerText: { fontSize: 8, fontWeight: '900', color: '#fff' },
+
+  nameBlock: { flex: 1 },
+  skillText: { fontSize: 13, fontWeight: '800', color: colors.info, marginBottom: 2, letterSpacing: -0.1 },
+  nameText:  { fontSize: 12, fontWeight: '500', color: colors.textSub },
+
+  badgePill: {
+    paddingHorizontal: 8, paddingVertical: 4,
+    borderRadius: 20, flexShrink: 0,
   },
-  verifiedDotText: {
-    fontSize: 9,
-    color: colors.card,
-    fontWeight: '900',
+  badgeLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 0.3 },
+
+  // Divider
+  divider: { height: 1, backgroundColor: colors.borderLight, marginBottom: 12 },
+
+  // Bottom row
+  bottomRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
   },
-  skills: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: colors.info,
-    textAlign: 'center',
-    paddingHorizontal: 12,
-    marginBottom: 2,
-    letterSpacing: -0.1,
-  },
-  name: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.textSub,
-    textAlign: 'center',
-    paddingHorizontal: 12,
-    marginBottom: 12,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    flexWrap: 'wrap',
-    gap: 6,
-    paddingHorizontal: 12,
-    marginBottom: 14,
-  },
-  statChip: {
-    backgroundColor: colors.bgAlt,
-    borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: colors.borderLight,
-  },
-  statChipText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: colors.textSub,
-  },
+  statsGroup: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  stat: { flexDirection: 'row', alignItems: 'center', gap: 3 },
+  statIcon: { fontSize: 11 },
+  statVal:  { fontSize: 12, fontWeight: '700', color: colors.textSub },
+
   bookBtn: {
-    marginHorizontal: 14,
-    marginBottom: 14,
-    backgroundColor: colors.info,
-    borderRadius: 14,
-    paddingVertical: 11,
-    alignItems: 'center',
+    backgroundColor: colors.info, borderRadius: 10,
+    paddingHorizontal: 16, paddingVertical: 8,
   },
-  bookBtnText: {
-    fontSize: 14,
-    fontWeight: '800',
-    color: colors.card,
-    letterSpacing: 0.2,
-  },
+  bookBtnText: { fontSize: 13, fontWeight: '800', color: '#fff', letterSpacing: 0.2 },
 });
 
-// ── Nearby Artisan Card Styles ─────────────────────────────────────────────────
-const makeNearbyCard = (colors) => StyleSheet.create({
+// ══════════════════════════════════════════════════════════════════════════════
+// NEARBY CARD STYLES
+// ══════════════════════════════════════════════════════════════════════════════
+const nearbyCardStyles = (colors) => StyleSheet.create({
   container: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: 'row', alignItems: 'center',
     backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 14,
-    gap: 12,
-    borderWidth: 2,
-    borderColor: colors.borderLight,
+    borderRadius: 18, padding: 12, gap: 12,
+    borderWidth: 1.5, borderColor: colors.borderLight,
     ...Platform.select({
-      ios: {
-        shadowColor: colors.shadow,
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 10,
-      },
-      android: { elevation: 3 },
+      ios:     { shadowColor: colors.shadow, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 8 },
+      android: { elevation: 2 },
     }),
   },
-
-  // Avatar
-  avatarWrap: {
-    position: 'relative',
-    flexShrink: 0,
-  },
-  avatar: {
-    width: 58,
-    height: 58,
-    borderRadius: 16,
-  },
+  avatarWrap: { position: 'relative', flexShrink: 0 },
+  avatar: { width: 54, height: 54, borderRadius: 14 },
   avatarFallback: {
-    width: 58,
-    height: 58,
-    borderRadius: 16,
+    width: 54, height: 54, borderRadius: 14,
     backgroundColor: colors.infoBg,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: 'center', alignItems: 'center',
   },
-  avatarInitial: {
-    fontSize: 22,
-    fontWeight: '900',
-    color: colors.info,
-  },
+  avatarInitial: { fontSize: 20, fontWeight: '900', color: colors.info },
   verifiedDot: {
-    position: 'absolute',
-    bottom: -4,
-    right: -4,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: colors.card,
+    position: 'absolute', bottom: -4, right: -4,
+    width: 18, height: 18, borderRadius: 9,
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 2, borderColor: colors.card,
   },
-  verifiedDotText: {
-    fontSize: 9,
-    color: colors.card,
-    fontWeight: '900',
-  },
+  verifiedDotText: { fontSize: 8, color: '#fff', fontWeight: '900' },
 
-  // Info
-  info: {
-    flex: 1,
-    gap: 3,
-  },
-  nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  skills: {
-    fontSize: 15,
-    fontWeight: '800',
-    color: colors.info,
-    letterSpacing: -0.3,
-    lineHeight: 20,
-  },
-  name: {
-    fontSize: 12,
-    fontWeight: '500',
-    color: colors.textSub,
-    flex: 1,
-  },
-  badgePill: {
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 20,
-    flexShrink: 0,
-  },
-  badgeLabel: {
-    fontSize: 10,
-    fontWeight: '800',
-    letterSpacing: 0.2,
-  },
+  info: { flex: 1, gap: 2 },
+  nameRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  skills: { fontSize: 14, fontWeight: '800', color: colors.info, letterSpacing: -0.2, lineHeight: 19 },
+  name:   { fontSize: 12, fontWeight: '500', color: colors.textSub, flex: 1 },
+  badgePill: { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 20, flexShrink: 0 },
+  badgeLabel: { fontSize: 10, fontWeight: '800', letterSpacing: 0.2 },
   proBadge: {
     paddingHorizontal: 7, paddingVertical: 3, borderRadius: 12,
-    backgroundColor: colors.warningBg, borderWidth: 1, borderColor: colors.star, flexShrink: 0,
+    backgroundColor: '#FFFBEB', borderWidth: 1, borderColor: '#D97706', flexShrink: 0,
   },
   proBadgeText: { fontSize: 10, fontWeight: '800', color: '#B45309' },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    flexWrap: 'wrap',
-    marginTop: 2,
-  },
-  rating: {
-    fontSize: 12,
-    color: colors.star,
-    fontWeight: '700',
-  },
-  dividerDot: {
-    fontSize: 12,
-    color: colors.textMuted,
-    fontWeight: '700',
-  },
-  jobs: {
-    fontSize: 12,
-    color: colors.textSub,
-    fontWeight: '500',
-  },
-  dist: {
-    fontSize: 12,
-    color: colors.info,
-    fontWeight: '600',
-  },
-  locationLine: {
-    fontSize: 11,
-    color: colors.info,
-    fontWeight: '600',
-    marginTop: 3,
-  },
 
-  // Book button
+  statsRow: { flexDirection: 'row', alignItems: 'center', gap: 5, flexWrap: 'wrap', marginTop: 2 },
+  rating: { fontSize: 12, color: '#F59E0B', fontWeight: '700' },
+  dot:    { fontSize: 12, color: colors.textMuted, fontWeight: '700' },
+  jobs:   { fontSize: 12, color: colors.textSub, fontWeight: '500' },
+  dist:   { fontSize: 11, color: colors.info, fontWeight: '600' },
+
   bookBtn: {
-    backgroundColor: colors.infoBg,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 9,
-    borderWidth: 1.5,
-    borderColor: '#BFDBFE',
-    flexShrink: 0,
+    backgroundColor: colors.infoBg, borderRadius: 12,
+    paddingHorizontal: 14, paddingVertical: 9,
+    borderWidth: 1.5, borderColor: '#BFDBFE', flexShrink: 0,
   },
-  bookBtnText: {
-    fontSize: 13,
-    fontWeight: '800',
-    color: colors.info,
-  },
+  bookBtnText: { fontSize: 13, fontWeight: '800', color: colors.info },
 });

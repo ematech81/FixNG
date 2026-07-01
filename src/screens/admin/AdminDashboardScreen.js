@@ -24,6 +24,7 @@ import {
   warnCustomer,
   suspendCustomer,
   unsuspendCustomer,
+  broadcastAnnouncement,
 } from '../../api/adminApi';
 import { useTheme } from '../../context/ThemeContext';
 
@@ -59,6 +60,12 @@ export default function AdminDashboardScreen({ onLogout }) {
   const [usersHasMore, setUsersHasMore]         = useState(false);
   const [usersLoadingMore, setUsersLoadingMore] = useState(false);
   const [userActionLoading, setUserActionLoading] = useState(null);
+
+  const [announceModal, setAnnounceModal]     = useState(false);
+  const [announceTitle, setAnnounceTitle]     = useState('');
+  const [announceBody, setAnnounceBody]       = useState('');
+  const [announceRole, setAnnounceRole]       = useState('all');
+  const [announceLoading, setAnnounceLoading] = useState(false);
 
   useEffect(() => {
     getUser().then(setAdminUser);
@@ -281,6 +288,27 @@ export default function AdminDashboardScreen({ onLogout }) {
         },
       },
     ]);
+  };
+
+  const handleAnnounce = async () => {
+    if (!announceTitle.trim() || !announceBody.trim()) {
+      Alert.alert('Required', 'Please enter both a title and message.');
+      return;
+    }
+    setAnnounceLoading(true);
+    try {
+      const res = await broadcastAnnouncement(announceTitle.trim(), announceBody.trim(), announceRole);
+      const count = res.data.data?.count || 0;
+      setAnnounceModal(false);
+      setAnnounceTitle('');
+      setAnnounceBody('');
+      setAnnounceRole('all');
+      Alert.alert('Sent', `Announcement delivered to ${count} user${count !== 1 ? 's' : ''}.`);
+    } catch (err) {
+      Alert.alert('Error', err?.message || 'Failed to send announcement.');
+    } finally {
+      setAnnounceLoading(false);
+    }
   };
 
   const STAT_CARDS = stats ? [
@@ -540,9 +568,10 @@ export default function AdminDashboardScreen({ onLogout }) {
               <Text style={styles.drawerRole}>Administrator</Text>
             </View>
             <View style={styles.drawerDivider} />
-            <DrawerItem icon="grid-outline"   label="Dashboard"       active={activePage === 'dashboard'} colors={colors} styles={styles} onPress={() => navigate('dashboard')} />
-            <DrawerItem icon="people-outline" label="User Management" active={activePage === 'users'}     colors={colors} styles={styles} onPress={() => navigate('users')} />
-            <DrawerItem icon="person-outline" label="Profile"         active={activePage === 'profile'}   colors={colors} styles={styles} onPress={() => navigate('profile')} />
+            <DrawerItem icon="grid-outline"       label="Dashboard"       active={activePage === 'dashboard'} colors={colors} styles={styles} onPress={() => navigate('dashboard')} />
+            <DrawerItem icon="people-outline"     label="User Management" active={activePage === 'users'}     colors={colors} styles={styles} onPress={() => navigate('users')} />
+            <DrawerItem icon="megaphone-outline"  label="Announce"        active={false}                      colors={colors} styles={styles} onPress={() => { setDrawerOpen(false); setAnnounceModal(true); }} />
+            <DrawerItem icon="person-outline"     label="Profile"         active={activePage === 'profile'}   colors={colors} styles={styles} onPress={() => navigate('profile')} />
             <View style={styles.drawerDivider} />
             <DrawerItem icon="log-out-outline" label="Log Out" danger colors={colors} styles={styles} onPress={handleLogout} />
           </Pressable>
@@ -583,6 +612,55 @@ export default function AdminDashboardScreen({ onLogout }) {
           onChangeText={setActionReason}
           editable={!actionLoading}
         />
+      </BottomModal>
+
+      {/* Announce modal */}
+      <BottomModal
+        visible={announceModal}
+        onClose={() => !announceLoading && setAnnounceModal(false)}
+        title="Send Announcement"
+        subtitle="Delivers a pinned banner to selected users immediately."
+        confirmLabel="Send"
+        confirmColor={colors.primary}
+        onConfirm={handleAnnounce}
+        confirmLoading={announceLoading}
+      >
+        <TextInput
+          style={styles.reasonInput}
+          placeholder="Title (e.g. Platform Update)"
+          placeholderTextColor={colors.textHint}
+          value={announceTitle}
+          onChangeText={setAnnounceTitle}
+          editable={!announceLoading}
+        />
+        <TextInput
+          style={[styles.reasonInput, { marginTop: 10, minHeight: 72 }]}
+          placeholder="Message body…"
+          placeholderTextColor={colors.textHint}
+          multiline
+          numberOfLines={3}
+          value={announceBody}
+          onChangeText={setAnnounceBody}
+          editable={!announceLoading}
+        />
+        <View style={styles.roleRow}>
+          {[
+            { key: 'all',      label: 'Everyone' },
+            { key: 'artisan',  label: 'Artisans' },
+            { key: 'customer', label: 'Customers' },
+          ].map((r) => (
+            <TouchableOpacity
+              key={r.key}
+              style={[styles.roleChip, announceRole === r.key && styles.roleChipActive]}
+              onPress={() => setAnnounceRole(r.key)}
+              activeOpacity={0.7}
+            >
+              <Text style={[styles.roleChipText, announceRole === r.key && styles.roleChipTextActive]}>
+                {r.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
       </BottomModal>
 
       {/* ID Full-Screen */}
@@ -1159,4 +1237,13 @@ const makeStyles = (colors) => StyleSheet.create({
     alignItems: 'center', borderWidth: 1, borderColor: colors.info,
   },
   loadMoreText: { fontSize: 14, fontWeight: '700', color: colors.info },
+
+  roleRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  roleChip: {
+    flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center',
+    backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.border,
+  },
+  roleChipActive: { backgroundColor: colors.primary + '22', borderColor: colors.primary },
+  roleChipText: { fontSize: 13, fontWeight: '700', color: colors.textMuted },
+  roleChipTextActive: { color: colors.primary },
 });

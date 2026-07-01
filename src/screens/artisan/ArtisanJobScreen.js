@@ -8,8 +8,10 @@ import { useFocusEffect } from '@react-navigation/native';
 import { getMe } from '../../api/authApi';
 import { getMyJobs, getAvailableJobs, acceptJob, declineJob, markCompleted } from '../../api/jobApi';
 import { getMySubscription } from '../../api/subscriptionApi';
+import { getBanners, dismissBanner } from '../../api/notificationApi';
 import BackButton from '../../components/BackButton';
 import VoiceNotePlayer from '../../components/VoiceNotePlayer';
+import HomeBannerList from '../../components/HomeBanner';
 import { useTheme } from '../../context/ThemeContext';
 
 const ACTIVE_STATUSES = ['accepted', 'arrived', 'in-progress'];
@@ -40,6 +42,7 @@ export default function ArtisanJobScreen({ navigation }) {
   const [activeJobs, setActiveJobs] = useState([]);
   const [nearbyJobs, setNearbyJobs] = useState([]);
   const [subscription, setSubscription] = useState(null);
+  const [banners, setBanners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -51,15 +54,17 @@ export default function ArtisanJobScreen({ navigation }) {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     try {
-      const [meRes, myJobsRes, availableRes, subRes] = await Promise.all([
+      const [meRes, myJobsRes, availableRes, subRes, bannersRes] = await Promise.all([
         getMe(),
         getMyJobs({ role: 'artisan' }),
         getAvailableJobs(),
         getMySubscription().catch(() => null),
+        getBanners().catch(() => null),
       ]);
       setUser(meRes.data.user);
       setArtisanProfile(meRes.data.artisanProfile);
       setSubscription(subRes?.data?.data || null);
+      setBanners(bannersRes?.data?.data || []);
 
       const myJobs = myJobsRes.data.data || [];
       setActiveJobs(myJobs.filter((j) => ACTIVE_STATUSES.includes(j.status)));
@@ -70,6 +75,11 @@ export default function ArtisanJobScreen({ navigation }) {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  const handleDismissBanner = async (id) => {
+    setBanners((prev) => prev.filter((b) => b._id !== id));
+    try { await dismissBanner(id); } catch { /* silent */ }
   };
 
   const removeNearbyJob = (jobId) =>
@@ -173,6 +183,9 @@ export default function ArtisanJobScreen({ navigation }) {
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Sticky banners — always visible above scroll content */}
+      <HomeBannerList banners={banners} onDismiss={handleDismissBanner} />
+
       <ScrollView
         contentContainerStyle={styles.scroll}
         showsVerticalScrollIndicator={false}

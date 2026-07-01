@@ -20,3 +20,6 @@ export const revokePro            = (userId)                 => api.post(`/admin
 export const warnCustomer         = (userId, reason)         => api.post(`/admin/customers/${userId}/warn`, { reason });
 export const suspendCustomer      = (userId, reason)         => api.post(`/admin/customers/${userId}/suspend`, { reason });
 export const unsuspendCustomer    = (userId)                 => api.post(`/admin/customers/${userId}/unsuspend`);
+
+// Announcements
+export const broadcastAnnouncement = (title, body, targetRole) => api.post('/admin/announce', { title, body, targetRole });
