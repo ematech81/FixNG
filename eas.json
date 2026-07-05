@@ -9,16 +9,10 @@
       "distribution": "internal"
     },
     "preview": {
-      "distribution": "internal",
-      "android": {
-        "googleServicesFile": "./google-services.json"
-      }
+      "distribution": "internal"
     },
     "production": {
-      "autoIncrement": true,
-      "android": {
-        "googleServicesFile": "./google-services.json"
-      }
+      "autoIncrement": true
     }
   },
   "submit": {
