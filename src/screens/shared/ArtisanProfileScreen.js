@@ -4,7 +4,6 @@ import {
   ActivityIndicator, Alert, Dimensions, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import * as Clipboard from 'expo-clipboard';
 import { getArtisanProfile, getArtisanReviews } from '../../api/discoveryApi';
 import { getUser } from '../../utils/storage';
 import BackButton from '../../components/BackButton';
@@ -61,7 +60,6 @@ export default function ArtisanProfileScreen({ route, navigation }) {
   const [hasMoreReviews, setHasMoreReviews] = useState(false);
   const [loadingReviews, setLoadingReviews] = useState(false);
   const [currentUserId, setCurrentUserId]   = useState(null);
-  const [codeCopied, setCodeCopied]         = useState(false);
 
   // ── All original logic preserved exactly ────────────────────────────────────
   useEffect(() => {
@@ -98,10 +96,8 @@ export default function ArtisanProfileScreen({ route, navigation }) {
     }
   };
 
-  const handleCopyCode = async (code) => {
-    await Clipboard.setStringAsync(code);
-    setCodeCopied(true);
-    setTimeout(() => setCodeCopied(false), 2000);
+  const handleCopyCode = (code) => {
+    Alert.alert('Artisan Code', code);
   };
   // ── End of original logic ───────────────────────────────────────────────────
 
@@ -203,13 +199,11 @@ export default function ArtisanProfileScreen({ route, navigation }) {
               <Text style={styles.codeLabel}>Artisan Code: </Text>
               <Text style={styles.codeValue}>{profile.artisanCode}</Text>
               <TouchableOpacity
-                style={[styles.copyBtn, codeCopied && styles.copyBtnDone]}
+                style={styles.copyBtn}
                 onPress={() => handleCopyCode(profile.artisanCode)}
                 activeOpacity={0.7}
               >
-                <Text style={[styles.copyBtnText, codeCopied && styles.copyBtnDoneText]}>
-                  {codeCopied ? 'Copied ✓' : 'Copy'}
-                </Text>
+                <Text style={styles.copyBtnText}>Show</Text>
               </TouchableOpacity>
             </View>
           )}

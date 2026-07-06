@@ -3,7 +3,6 @@ import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity,
   Image, ActivityIndicator, Alert, TextInput, Modal, Platform,
 } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { getJob, acceptJob, declineJob, markArrived, markCompleted, raiseDispute, cancelJob } from '../../api/jobApi';
 import useSocket from '../../hooks/useSocket';
@@ -30,7 +29,6 @@ export default function JobDetailScreen({ route, navigation }) {
   const [loading, setLoading] = useState(true);
   const [acting, setActing] = useState(false);
   const [currentUser, setCurrentUser] = useState(null);
-  const [codeCopied, setCodeCopied] = useState(false);
   const [disputeModal, setDisputeModal] = useState(false);
   const [disputeReason, setDisputeReason] = useState('');
   const [acceptModal, setAcceptModal] = useState(false);
@@ -180,10 +178,8 @@ export default function JobDetailScreen({ route, navigation }) {
     ]);
   };
 
-  const handleCopyCode = async () => {
-    await Clipboard.setStringAsync(job.artisanCode);
-    setCodeCopied(true);
-    setTimeout(() => setCodeCopied(false), 2000);
+  const handleCopyCode = () => {
+    Alert.alert('Artisan Code', job.artisanCode);
   };
 
   if (loading) {
@@ -292,13 +288,11 @@ export default function JobDetailScreen({ route, navigation }) {
                   <Text style={styles.codeLabel}>Code: </Text>
                   <Text style={styles.codeValue}>{artisanCode}</Text>
                   <TouchableOpacity
-                    style={[styles.copyBtn, codeCopied && styles.copyBtnDone]}
+                    style={styles.copyBtn}
                     onPress={handleCopyCode}
                     activeOpacity={0.7}
                   >
-                    <Text style={[styles.copyBtnText, codeCopied && styles.copyBtnDoneText]}>
-                      {codeCopied ? 'Copied ✓' : 'Copy'}
-                    </Text>
+                    <Text style={styles.copyBtnText}>Show</Text>
                   </TouchableOpacity>
                 </View>
               )}

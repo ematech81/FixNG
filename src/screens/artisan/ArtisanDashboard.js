@@ -3,7 +3,6 @@ import {
   View, Text, StyleSheet, TouchableOpacity, ScrollView,
   Alert, RefreshControl, Platform,
 } from 'react-native';
-import * as Clipboard from 'expo-clipboard';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { getMyJobs } from '../../api/jobApi';
@@ -27,7 +26,6 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
   const [subscription, setSubscription] = useState(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [dashCodeCopied, setDashCodeCopied] = useState(false);
 
   useFocusEffect(
     useCallback(() => {
@@ -129,17 +127,11 @@ export default function ArtisanDashboard({ navigation, onLogout }) {
                 <Text style={styles.myArtisanIdLabel}>Your ID: </Text>
                 <Text style={styles.myArtisanIdCode}>{user.artisanCode}</Text>
                 <TouchableOpacity
-                  style={[styles.copyBtn, dashCodeCopied && styles.copyBtnDone]}
-                  onPress={async () => {
-                    await Clipboard.setStringAsync(user.artisanCode);
-                    setDashCodeCopied(true);
-                    setTimeout(() => setDashCodeCopied(false), 2000);
-                  }}
+                  style={styles.copyBtn}
+                  onPress={() => Alert.alert('Your Artisan Code', user.artisanCode)}
                   activeOpacity={0.7}
                 >
-                  <Text style={[styles.copyBtnText, dashCodeCopied && styles.copyBtnDoneText]}>
-                    {dashCodeCopied ? 'Copied ✓' : 'Copy'}
-                  </Text>
+                  <Text style={styles.copyBtnText}>Show</Text>
                 </TouchableOpacity>
               </View>
             )}
