@@ -8,6 +8,7 @@ import Step2_Skills from '../screens/artisan/onboarding/Step2_Skills';
 import Step3_Location from '../screens/artisan/onboarding/Step3_Location';
 import Step4_VerificationID from '../screens/artisan/onboarding/Step4_VerificationID';
 import Step5_SkillVideo from '../screens/artisan/onboarding/Step5_SkillVideo';
+import Step6_Submit from '../screens/artisan/onboarding/Step6_Submit';
 import PendingVerification from '../screens/artisan/onboarding/PendingVerification';
 
 const Stack = createStackNavigator();
@@ -44,6 +45,7 @@ export default function ArtisanOnboardingNavigator({
         <Stack.Screen name="Step3_Location" component={Step3_Location} />
         <Stack.Screen name="Step4_VerificationID" component={Step4_VerificationID} />
         <Stack.Screen name="Step5_SkillVideo" component={Step5_SkillVideo} />
+        <Stack.Screen name="Step6_Submit" component={Step6_Submit} />
         <Stack.Screen name="PendingVerification" component={PendingVerification} />
       </Stack.Navigator>
     </OnboardingContext.Provider>

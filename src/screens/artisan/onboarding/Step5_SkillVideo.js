@@ -101,19 +101,16 @@ export default function Step5_SkillVideo({ navigation, route }) {
     setUploadProgress(0);
 
     try {
-      // Upload directly to Cloudinary from the device — no relay through backend
       const { url, publicId } = await uploadVideoToCloudinary(
         videoUri,
         (pct) => setUploadProgress(pct)
       );
-
-      // Tell the backend to save the URL (tiny JSON call — instant)
       await saveSkillVideoUrl({ url, publicId });
 
       if (isEdit) {
         navigation.goBack();
       } else {
-        navigation.navigate('PendingVerification');
+        navigation.navigate('Step6_Submit', { completedFlags: { 'Skill Video': true } });
       }
     } catch (err) {
       Alert.alert(
@@ -130,7 +127,7 @@ export default function Step5_SkillVideo({ navigation, route }) {
   const handleSkip = () => {
     Alert.alert(
       'Skip Skill Video?',
-      'Profiles with skill video evidence tend to receive significantly more job requests from customers. Are you sure you want to skip?',
+      'Artisans with a skill video receive significantly more job requests. Are you sure you want to skip?',
       [
         { text: 'Add Video', style: 'cancel' },
         {
@@ -140,7 +137,7 @@ export default function Step5_SkillVideo({ navigation, route }) {
             setSkipping(true);
             try {
               await skipSkillVideo();
-              navigation.navigate('PendingVerification');
+              navigation.navigate('Step6_Submit', { completedFlags: { 'Skill Video': false } });
             } catch (err) {
               Alert.alert('Error', err?.message || 'Could not skip step. Please try again.');
             } finally {
@@ -238,7 +235,7 @@ export default function Step5_SkillVideo({ navigation, route }) {
             <ActivityIndicator color={colors.card} />
           ) : (
             <Text style={styles.submitBtnText}>
-              {isEdit ? 'Save & Continue' : 'Submit for Verification'}
+              {isEdit ? 'Save & Continue' : 'Complete Registration'}
             </Text>
           )}
         </TouchableOpacity>
@@ -257,7 +254,7 @@ export default function Step5_SkillVideo({ navigation, route }) {
 
         {!isEdit && (
           <Text style={styles.submitNote}>
-            After submission, an admin will review your profile within 24–48 hours.
+            Your profile goes live immediately after submission.
           </Text>
         )}
       </View>
