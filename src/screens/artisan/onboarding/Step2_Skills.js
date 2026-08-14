@@ -36,9 +36,11 @@ export default function Step2_Skills({ navigation }) {
   const [othersText, setOthersText] = useState('');
   const [bio, setBio] = useState('');
   const [saving, setSaving] = useState(false);
+  const [bioError, setBioError] = useState('');
   const othersInputRef  = useRef(null);
   const scrollViewRef   = useRef(null);
   const dispatchYRef    = useRef(0);   // Y offset of the dispatch section inside the ScrollView
+  const bioYRef         = useRef(0);   // Y offset of the bio section inside the ScrollView
 
   // Dispatch rider fields
   const [vehicleType, setVehicleType]             = useState(null);
@@ -108,6 +110,15 @@ export default function Step2_Skills({ navigation }) {
         return;
       }
       setPlateError('');
+    }
+
+    // Bio is required — scroll to the field so the artisan sees it
+    if (!bio.trim()) {
+      setBioError('Please write a short bio. Customers read this before deciding who to hire.');
+      setTimeout(() => {
+        scrollViewRef.current?.scrollTo({ y: bioYRef.current - 16, animated: true });
+      }, 100);
+      return;
     }
 
     const skillsToSubmit = buildSubmitSkills();
@@ -289,22 +300,28 @@ export default function Step2_Skills({ navigation }) {
           )}
 
           {/* Bio */}
-          <Text style={styles.bioLabel}>
-            Professional Bio <Text style={styles.bioOptional}>(optional)</Text>
-          </Text>
-          <Text style={styles.bioHint}>
-            Briefly describe your experience and what makes you stand out. Customers see this on your profile.
-          </Text>
-          <TextInput
-            style={styles.bioInput}
-            placeholder="e.g. Certified electrician with 8 years of experience in residential wiring and fault detection…"
-            value={bio}
-            onChangeText={(t) => setBio(t.slice(0, BIO_MAX))}
-            multiline
-            numberOfLines={4}
-            textAlignVertical="top"
-          />
-          <Text style={styles.bioCount}>{bio.length}/{BIO_MAX}</Text>
+          <View onLayout={(e) => { bioYRef.current = e.nativeEvent.layout.y; }}>
+            <Text style={styles.bioLabel}>
+              Professional Bio <Text style={styles.bioRequired}>*</Text>
+            </Text>
+            <Text style={styles.bioHint}>
+              Tell customers about your experience and what makes you stand out. They read this before deciding who to hire.
+            </Text>
+            <TextInput
+              style={[styles.bioInput, bioError ? styles.bioInputError : null]}
+              placeholder="e.g. I have 5 years of experience fixing all types of plumbing issues — burst pipes, borehole installation, bathroom fitting and more. I am fast, affordable and always tidy up after the job."
+              value={bio}
+              onChangeText={(t) => {
+                setBio(t.slice(0, BIO_MAX));
+                if (bioError) setBioError('');
+              }}
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+            {bioError ? <Text style={styles.bioErrorText}>{bioError}</Text> : null}
+            <Text style={styles.bioCount}>{bio.length}/{BIO_MAX}</Text>
+          </View>
         </ScrollView>
 
         <View style={styles.footer}>
@@ -436,13 +453,15 @@ const makeStyles = (colors) => StyleSheet.create({
   toggleChipText:   { fontSize: 13, fontWeight: '600', color: '#374151' },
 
   bioLabel: { fontSize: 15, fontWeight: '700', color: colors.text, marginTop: 4, marginBottom: 6 },
-  bioOptional: { fontSize: 13, fontWeight: '400', color: colors.textMuted },
+  bioRequired: { fontSize: 15, fontWeight: '700', color: colors.error },
   bioHint: { fontSize: 13, color: colors.textSub, marginBottom: 10, lineHeight: 18 },
   bioInput: {
     borderWidth: 1.5, borderColor: colors.border, borderRadius: 10,
     padding: 13, fontSize: 15, color: colors.text,
-    backgroundColor: colors.surface, minHeight: 100,
+    backgroundColor: colors.surface, minHeight: 110,
   },
+  bioInputError: { borderColor: colors.error },
+  bioErrorText: { fontSize: 12, color: colors.error, marginTop: 5, lineHeight: 16 },
   bioCount: { fontSize: 12, color: colors.textMuted, textAlign: 'right', marginTop: 4, marginBottom: 8 },
 
   footer: { paddingHorizontal: 24, paddingVertical: 16 },
