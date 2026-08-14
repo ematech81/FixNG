@@ -178,13 +178,16 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
             </View>
 
             <TouchableOpacity
-              style={[styles.loginBtn, loading && styles.loginBtnDisabled]}
+              style={[styles.loginBtn, loading && styles.loginBtnLoading]}
               onPress={handleLogin}
               disabled={loading}
               activeOpacity={0.85}
             >
               {loading ? (
-                <ActivityIndicator color="#FFF" />
+                <View style={styles.loadingRow}>
+                  <ActivityIndicator color="#FFF" size="small" />
+                  <Text style={styles.loginBtnText}>Signing in…</Text>
+                </View>
               ) : (
                 <Text style={styles.loginBtnText}>Login  ⇥</Text>
               )}
@@ -387,8 +390,9 @@ const makeStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.info, paddingVertical: 17,
     borderRadius: 14, alignItems: 'center', marginBottom: 20,
   },
-  loginBtnDisabled: { backgroundColor: colors.infoBg },
+  loginBtnLoading: { opacity: 0.8 },
   loginBtnText: { color: '#FFF', fontWeight: '800', fontSize: 16, letterSpacing: 0.3 },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 
   forgotRow: { alignItems: 'center', marginBottom: 20 },
   forgotText: { color: colors.info, fontWeight: '700', fontSize: 14 },

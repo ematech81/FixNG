@@ -180,13 +180,16 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
+            style={[styles.submitBtn, loading && styles.submitBtnLoading]}
             onPress={handleCreateAccount}
             disabled={loading}
             activeOpacity={0.85}
           >
             {loading ? (
-              <ActivityIndicator color="#FFF" />
+              <View style={styles.loadingRow}>
+                <ActivityIndicator color="#FFF" size="small" />
+                <Text style={styles.submitBtnText}>Sending code…</Text>
+              </View>
             ) : (
               <Text style={styles.submitBtnText}>Create Account  →</Text>
             )}
@@ -280,8 +283,9 @@ const makeStyles = (colors) => StyleSheet.create({
     backgroundColor: colors.primary, paddingVertical: 18,
     borderRadius: 14, alignItems: 'center', marginBottom: 20,
   },
-  submitBtnDisabled: { backgroundColor: colors.primaryDisabled },
+  submitBtnLoading: { opacity: 0.8 },
   submitBtnText: { color: '#FFF', fontWeight: '800', fontSize: 16, letterSpacing: 0.3 },
+  loadingRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
 
   loginLink: { alignItems: 'center', paddingVertical: 4 },
   loginLinkText: { fontSize: 14, color: colors.textMuted },
