@@ -259,6 +259,10 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
               {(item.skills || []).join(' • ')}
             </Text>
 
+            {item.bio ? (
+              <Text style={styles.artisanBio} numberOfLines={2}>"{item.bio}"</Text>
+            ) : null}
+
             <View style={styles.statsRow}>
               {avgRating > 0 && (
                 <Text style={styles.rating}>⭐ {avgRating.toFixed(1)}</Text>
@@ -505,7 +509,8 @@ const makeStyles = (colors) => StyleSheet.create({
   badgeText:      { fontSize: 11, fontWeight: '700' },
   proBadge:       { paddingHorizontal: 7, paddingVertical: 3, borderRadius: 12, backgroundColor: colors.warningBg, borderWidth: 1, borderColor: colors.star },
   proBadgeText:   { fontSize: 11, fontWeight: '700', color: '#B45309' },
-  skills:         { fontSize: 15, fontWeight: '700', color: colors.textSub, marginBottom: 6 },
+  skills:         { fontSize: 15, fontWeight: '700', color: colors.textSub, marginBottom: 4 },
+  artisanBio:     { fontSize: 12, color: colors.textMuted, lineHeight: 17, marginBottom: 5, fontStyle: 'italic' },
   statsRow:       { flexDirection: 'row', gap: 10, alignItems: 'center', marginBottom: 4 },
   rating:         { fontSize: 13, color: colors.star, fontWeight: '700' },
   completedJobs:  { fontSize: 12, color: colors.textSub },
