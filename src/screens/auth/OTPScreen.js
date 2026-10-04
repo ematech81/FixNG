@@ -17,6 +17,7 @@ export default function OTPScreen({ route, navigation }) {
   const {
     mode, phone, name, role, deviceId, onAuthSuccess,
     email,
+    marketingOptIn,
     emailUsed:   emailUsedParam,
     maskedEmail: maskedEmailParam,
     hasEmail,
@@ -85,7 +86,7 @@ export default function OTPScreen({ route, navigation }) {
     try {
       let res;
       if (mode === 'register') {
-        res = await verifyRegister({ name, phone, role, otp, deviceId, email });
+        res = await verifyRegister({ name, phone, role, otp, deviceId, email, marketingOptIn: !!marketingOptIn });
       } else {
         res = await verifyLoginOTP({ phone, otp, deviceId });
       }

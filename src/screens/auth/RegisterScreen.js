@@ -16,6 +16,7 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [agreed, setAgreed] = useState(false);
+  const [marketingOptIn, setMarketingOptIn] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const handlePhoneChange = (text) => {
@@ -52,6 +53,7 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
           deviceId,
           onAuthSuccess,
           email:      cleanEmail,
+          marketingOptIn: !!cleanEmail && marketingOptIn,
           emailUsed:  res.data?.emailUsed  || false,
           maskedEmail: res.data?.maskedEmail || null,
         });
@@ -150,6 +152,21 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
             />
             <Text style={styles.inputIcon}>✉️</Text>
           </View>
+
+          {email.trim().length > 0 && (
+            <TouchableOpacity
+              style={styles.termsRow}
+              onPress={() => setMarketingOptIn((v) => !v)}
+              activeOpacity={0.8}
+            >
+              <View style={[styles.checkbox, marketingOptIn && styles.checkboxChecked]}>
+                {marketingOptIn && <Text style={styles.checkboxTick}>✓</Text>}
+              </View>
+              <Text style={styles.termsText}>
+                Send me tips, offers and updates from FixNG by email. You can unsubscribe anytime.
+              </Text>
+            </TouchableOpacity>
+          )}
 
           <View style={styles.dividerRow}>
             <View style={styles.dividerLine} />
