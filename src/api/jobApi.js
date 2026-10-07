@@ -50,4 +50,7 @@ export const declineJob = (jobId) => api.post(`/jobs/${jobId}/decline`);
 export const markArrived = (jobId) => api.post(`/jobs/${jobId}/arrived`);
 export const markCompleted = (jobId) => api.post(`/jobs/${jobId}/complete`);
 export const raiseDispute = (jobId, reason) => api.post(`/jobs/${jobId}/dispute`, { reason });
-export const cancelJob = (jobId, reason) => api.post(`/jobs/${jobId}/cancel`, { reason });
+// What cancelling would mean right now (allowed?, late?, which reasons to offer)
+export const getCancelPolicy = (jobId) => api.get(`/jobs/${jobId}/cancel-policy`);
+// reasonCode comes from the policy's `reasons` list; note is required when the code is 'other'
+export const cancelJob = (jobId, reasonCode, note) => api.post(`/jobs/${jobId}/cancel`, { reasonCode, note });

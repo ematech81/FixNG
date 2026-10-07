@@ -31,6 +31,10 @@ const TYPE_CONFIG = {
   account_warning:    { icon: '⚠️', color: '#D97706', label: 'Account Warning'    },
   account_suspended:  { icon: '🔒', color: '#EF4444', label: 'Account Suspended'  },
   account_unsuspended:{ icon: '🔓', color: '#16A34A', label: 'Account Restored'   },
+  subscription:       { icon: '💎', color: '#D97706', label: 'Subscription'       },
+  review_received:    { icon: '⭐', color: '#F59E0B', label: 'New Review'         },
+  announcement:       { icon: '📣', color: '#FF6B00', label: 'Announcement'       },
+  badge_upgraded:     { icon: '🏅', color: '#D97706', label: 'Badge Upgraded'     },
 };
 
 const cfg = (type, colors) => TYPE_CONFIG[type] || { icon: '🔔', color: colors.info, label: 'Notification' };

@@ -4,7 +4,7 @@ import {
   Image, ActivityIndicator, Alert, TextInput, Modal, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { getJob, acceptJob, declineJob, markArrived, markCompleted, raiseDispute, cancelJob } from '../../api/jobApi';
+import { getJob, acceptJob, declineJob, markArrived, markCompleted, raiseDispute, cancelJob, getCancelPolicy } from '../../api/jobApi';
 import useSocket from '../../hooks/useSocket';
 import BackButton from '../../components/BackButton';
 import { getUser } from '../../utils/storage';
@@ -34,6 +34,11 @@ export default function JobDetailScreen({ route, navigation }) {
   const [acceptModal, setAcceptModal] = useState(false);
   const [eta, setEta] = useState('');
   const [price, setPrice] = useState('');
+  // Cancel flow: rules + reasons come from the server (GET /jobs/:id/cancel-policy)
+  const [cancelModal, setCancelModal] = useState(false);
+  const [cancelPolicy, setCancelPolicy] = useState(null);
+  const [cancelCode, setCancelCode] = useState('');
+  const [cancelNote, setCancelNote] = useState('');
 
   useEffect(() => {
     getUser().then(setCurrentUser);
@@ -157,25 +162,35 @@ export default function JobDetailScreen({ route, navigation }) {
     }
   };
 
-  const handleCancel = () => {
-    Alert.alert('Cancel Job', 'This cannot be undone. Are you sure?', [
-      { text: 'No', style: 'cancel' },
-      {
-        text: 'Yes, Cancel',
-        style: 'destructive',
-        onPress: async () => {
-          setActing(true);
-          try {
-            await cancelJob(jobId);
-            await fetchJob();
-          } catch (err) {
-            Alert.alert('Error', err?.message || 'Failed to cancel.');
-          } finally {
-            setActing(false);
-          }
-        },
-      },
-    ]);
+  const handleCancel = async () => {
+    setCancelPolicy(null);
+    setCancelCode('');
+    setCancelNote('');
+    setCancelModal(true);
+    try {
+      const res = await getCancelPolicy(jobId);
+      setCancelPolicy(res.data.data);
+    } catch (err) {
+      setCancelModal(false);
+      Alert.alert('Error', err?.message || 'Could not load the cancellation rules. Please try again.');
+    }
+  };
+
+  const noteRequired = cancelCode === 'other';
+  const cancelReady = !!cancelPolicy?.allowed && !!cancelCode && (!noteRequired || cancelNote.trim().length >= 5);
+
+  const submitCancel = async () => {
+    if (!cancelReady) return;
+    setActing(true);
+    try {
+      await cancelJob(jobId, cancelCode, cancelNote.trim() || undefined);
+      setCancelModal(false);
+      await fetchJob();
+    } catch (err) {
+      Alert.alert('Could not cancel', err?.message || 'Failed to cancel. Please try again.');
+    } finally {
+      setActing(false);
+    }
   };
 
   const handleCopyCode = () => {
@@ -414,6 +429,12 @@ export default function JobDetailScreen({ route, navigation }) {
             </TouchableOpacity>
           )}
 
+          {isCustomer && job.status === 'in-progress' && (
+            <TouchableOpacity style={styles.disputeCompletedBtn} onPress={() => setDisputeModal(true)}>
+              <Text style={styles.disputeCompletedBtnText}>⚠️ Problem with the job? Raise a Dispute</Text>
+            </TouchableOpacity>
+          )}
+
           {isCustomer && ['pending', 'accepted'].includes(job.status) && (
             <View style={styles.actionRow}>
               <TouchableOpacity style={styles.declineBtn} onPress={handleCancel}>
@@ -452,9 +473,14 @@ export default function JobDetailScreen({ route, navigation }) {
             </View>
           )}
           {isArtisan && job.status === 'accepted' && (
-            <TouchableOpacity style={styles.primaryBtn} onPress={handleArrived}>
-              <Text style={styles.primaryBtnText}>📍 Let Customer Know You've Accepted</Text>
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity style={styles.primaryBtn} onPress={handleArrived}>
+                <Text style={styles.primaryBtnText}>📍 Let Customer Know You've Accepted</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.declineBtn, { marginTop: 10 }]} onPress={handleCancel}>
+                <Text style={styles.declineBtnText}>Cancel Job</Text>
+              </TouchableOpacity>
+            </>
           )}
           {isArtisan && job.status === 'in-progress' && (
             <View style={styles.actionRow}>
@@ -494,6 +520,45 @@ export default function JobDetailScreen({ route, navigation }) {
           value={price}
           onChangeText={setPrice}
         />
+      </BottomModal>
+
+      <BottomModal
+        visible={cancelModal}
+        onClose={() => setCancelModal(false)}
+        title="Cancel this job?"
+        subtitle={cancelPolicy ? cancelPolicy.message : 'Checking the cancellation rules…'}
+        confirmLabel="Cancel Job"
+        confirmColor="#DC2626"
+        onConfirm={submitCancel}
+        confirmLoading={acting}
+        confirmDisabled={!cancelReady}
+      >
+        {cancelPolicy?.allowed && (
+          <>
+            <Text style={styles.modalLabel}>Why are you cancelling?</Text>
+            <ScrollView style={{ maxHeight: 240 }} nestedScrollEnabled keyboardShouldPersistTaps="handled">
+              {cancelPolicy.reasons.map((r) => (
+                <TouchableOpacity
+                  key={r.code}
+                  style={[styles.reasonRow, cancelCode === r.code && styles.reasonRowActive]}
+                  onPress={() => setCancelCode(r.code)}
+                  activeOpacity={0.8}
+                >
+                  <View style={[styles.reasonDot, cancelCode === r.code && styles.reasonDotActive]} />
+                  <Text style={styles.reasonText}>{r.label}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+            <TextInput
+              style={[styles.modalInput, { height: 70, textAlignVertical: 'top', marginTop: 8 }]}
+              placeholder={noteRequired ? 'Please tell us the reason (required)' : 'Add a note (optional)'}
+              multiline
+              maxLength={300}
+              value={cancelNote}
+              onChangeText={setCancelNote}
+            />
+          </>
+        )}
       </BottomModal>
 
       <BottomModal
@@ -631,6 +696,15 @@ const makeStyles = (colors) => StyleSheet.create({
     borderWidth: 1.5, borderColor: colors.border, alignItems: 'center',
   },
   declineBtnText: { color: colors.textSub, fontWeight: '600', fontSize: 15 },
+  reasonRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingVertical: 11, paddingHorizontal: 12, marginBottom: 6,
+    borderRadius: 12, borderWidth: 1.5, borderColor: colors.border,
+  },
+  reasonRowActive: { borderColor: '#2563EB', backgroundColor: 'rgba(37,99,235,0.08)' },
+  reasonDot: { width: 18, height: 18, borderRadius: 9, borderWidth: 2, borderColor: colors.border },
+  reasonDotActive: { borderColor: '#2563EB', backgroundColor: '#2563EB' },
+  reasonText: { flex: 1, fontSize: 14, color: colors.text },
   disputeActionBtn: {
     flex: 1, backgroundColor: colors.errorBg, padding: 14,
     borderRadius: 12, alignItems: 'center',

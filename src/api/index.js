@@ -9,6 +9,8 @@ const api = axios.create({
   timeout: 30000, // 30s — Nigerian networks can be slow
   headers: {
     'x-app-key': APP_KEY,
+    // Identifies this build to the API: job cancellation requires a reason from clients that send this
+    'x-client': 'mobile',
   },
 });
 

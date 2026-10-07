@@ -19,6 +19,7 @@ export default function OTPScreen({ route, navigation }) {
     email,
     marketingOptIn,
     emailUsed:   emailUsedParam,
+    smsSent:     smsSentParam,
     maskedEmail: maskedEmailParam,
     hasEmail,
   } = route.params;
@@ -28,6 +29,8 @@ export default function OTPScreen({ route, navigation }) {
   const [resendCountdown, setResendCountdown] = useState(RESEND_COUNTDOWN);
   const [resending, setResending] = useState(false);
   const [sentToEmail, setSentToEmail] = useState(!!emailUsedParam);
+  // The backend now sends the code by SMS AND email when the user has an email
+  const [alsoSms, setAlsoSms] = useState(!!smsSentParam);
   const [maskedEmail, setMaskedEmail] = useState(maskedEmailParam || null);
   const inputRefs = useRef([]);
 
@@ -153,12 +156,13 @@ export default function OTPScreen({ route, navigation }) {
       const res = await sendOTP(phone, email || undefined);
       const result = res.data || {};
       setSentToEmail(result.emailUsed ?? false);
+      setAlsoSms(!!result.smsSent);
       if (result.maskedEmail) setMaskedEmail(result.maskedEmail);
       setDigits(Array(OTP_LENGTH).fill(''));
       startCountdown();
       setTimeout(() => inputRefs.current[0]?.focus(), 100);
       Alert.alert('Sent', result.emailUsed
-        ? 'A new code has been sent to your email.'
+        ? (result.smsSent ? 'A new code has been sent to your phone and email.' : 'A new code has been sent to your email.')
         : 'A new code has been sent to your phone.');
     } catch (err) {
       Alert.alert('Error', err?.message || 'Could not resend OTP. Try again.');
@@ -189,7 +193,8 @@ export default function OTPScreen({ route, navigation }) {
           <Text style={styles.title}>OTP Verification</Text>
           {sentToEmail ? (
             <Text style={styles.subtitle}>
-              Access key sent to your email{maskedEmail ? `\n(${maskedEmail})` : ''}
+              {alsoSms ? 'Access key sent to your phone and email' : 'Access key sent to your email'}
+              {maskedEmail ? `\n(${maskedEmail})` : ''}
             </Text>
           ) : (
             <Text style={styles.subtitle}>

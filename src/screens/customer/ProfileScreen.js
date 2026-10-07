@@ -109,6 +109,18 @@ export default function ProfileScreen({ navigation, onLogout, onRefreshAuth }) {
   };
 
   const handleBecomeArtisan = () => {
+    // Artisans must have an email (job and message alerts are sent there)
+    if (!user?.email) {
+      Alert.alert(
+        'Add your email first',
+        'Artisans need an email address — it is how we alert you when a customer books or messages you. Add it in Edit Profile, then come back.',
+        [
+          { text: 'Not Now', style: 'cancel' },
+          { text: 'Add Email', onPress: () => navigation.navigate('EditProfile') },
+        ]
+      );
+      return;
+    }
     Alert.alert(
       'Become an Artisan',
       "List your skills and start receiving job requests from customers near you. You'll complete a quick 5-step profile setup.",

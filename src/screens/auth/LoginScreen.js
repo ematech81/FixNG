@@ -71,6 +71,7 @@ export default function LoginScreen({ navigation, onAuthSuccess }) {
         onAuthSuccess,
         hasEmail:   data.hasEmail   || false,
         emailUsed:  data.emailUsed  || false,
+        smsSent:    data.smsSent    || false,
         maskedEmail: data.maskedEmail || null,
       });
     } catch (err) {

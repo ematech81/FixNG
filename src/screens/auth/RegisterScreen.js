@@ -55,6 +55,7 @@ export default function RegisterScreen({ navigation, onAuthSuccess }) {
           email:      cleanEmail,
           marketingOptIn: !!cleanEmail && marketingOptIn,
           emailUsed:  res.data?.emailUsed  || false,
+          smsSent:    res.data?.smsSent    || false,
           maskedEmail: res.data?.maskedEmail || null,
         });
       } catch (err) {

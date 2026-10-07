@@ -32,6 +32,10 @@ const TOAST_ICON = {
   account_warning:    '⚠️',
   account_suspended:  '🔒',
   account_unsuspended:'🔓',
+  subscription:       '💎',
+  review_received:    '⭐',
+  announcement:       '📣',
+  badge_upgraded:     '🏅',
 };
 
 const TABS = [
