@@ -148,8 +148,9 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
     const coords = coordsRef.current;
+    // No maxDistance: the server lists every artisan nearest-first, so a thin area still fills the list
     const geoParams = coords
-      ? { latitude: coords.latitude, longitude: coords.longitude, maxDistance: 20 }
+      ? { latitude: coords.latitude, longitude: coords.longitude }
       : {};
     try {
       const [trustedRes, nearbyRes] = await Promise.all([
@@ -159,10 +160,10 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
       const trustedData = trustedRes.data.data || [];
       const nearData    = nearbyRes.data.data  || [];
       setTrustedArtisans(trustedData);
-      setHasMoreTrusted(trustedData.length === 20);
+      setHasMoreTrusted(trustedRes.data?.pagination ? !!trustedRes.data.pagination.hasMore : trustedData.length === 20);
       setTrustedPage(1);
       setNearbyArtisans(nearData.length > 0 ? nearData : (cat === 'all' ? DUMMY_NEARBY_ARTISANS : []));
-      setHasMoreNearby(nearData.length === 20);
+      setHasMoreNearby(nearbyRes.data?.pagination ? !!nearbyRes.data.pagination.hasMore : nearData.length === 20);
       setNearbyPage(1);
     } catch {
       setTrustedArtisans([]);
@@ -183,7 +184,7 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
       const res = await searchArtisans({ isPro: true, limit: 20, page: nextPage, ...categoryParam });
       const more = res.data.data || [];
       setTrustedArtisans((prev) => [...prev, ...more]);
-      setHasMoreTrusted(more.length === 20);
+      setHasMoreTrusted(res.data?.pagination ? !!res.data.pagination.hasMore : more.length === 20);
       setTrustedPage(nextPage);
     } catch { /* silent */ }
     finally { setLoadingMoreTrusted(false); }
@@ -194,15 +195,18 @@ export default function CustomerHomeScreen({ navigation, onSwitchTab }) {
     setLoadingMore(true);
     const coords = coordsRef.current;
     const geoParams = coords
-      ? { latitude: coords.latitude, longitude: coords.longitude, maxDistance: 20 }
+      ? { latitude: coords.latitude, longitude: coords.longitude }
       : {};
     const categoryParam = activeCategory !== 'all' ? { category: activeCategory } : {};
     try {
       const nextPage = nearbyPage + 1;
       const res = await searchArtisans({ ...geoParams, limit: 20, page: nextPage, ...categoryParam });
       const more = res.data.data || [];
-      setNearbyArtisans((prev) => [...prev, ...more]);
-      setHasMoreNearby(more.length === 20);
+      setNearbyArtisans((prev) => {
+        const have = new Set(prev.map((a) => a.id));
+        return [...prev, ...more.filter((a) => !have.has(a.id))];
+      });
+      setHasMoreNearby(res.data?.pagination ? !!res.data.pagination.hasMore : more.length === 20);
       setNearbyPage(nextPage);
     } catch { /* silent */ }
     finally { setLoadingMore(false); }

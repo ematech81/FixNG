@@ -120,7 +120,7 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
       if (!mountedRef.current) return;
       const data = res.data.data || [];
       if (replace) { setArtisans(data); setPage(1); }
-      setHasMore(data.length === PAGE_LIMIT);
+      setHasMore(res.data?.pagination ? !!res.data.pagination.hasMore : data.length === PAGE_LIMIT);
     } catch { /* silently ignore — Phase 2 may still succeed */ }
   };
 
@@ -132,7 +132,7 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
       const data = res.data.data || [];
       setArtisans(data);
       setPage(1);
-      setHasMore(data.length === PAGE_LIMIT);
+      setHasMore(res.data?.pagination ? !!res.data.pagination.hasMore : data.length === PAGE_LIMIT);
     } catch { /* keep Phase 1 results */ }
   };
 
@@ -165,7 +165,7 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
       const data = res.data.data || [];
       setArtisans(data);
       setPage(1);
-      setHasMore(data.length === PAGE_LIMIT);
+      setHasMore(res.data?.pagination ? !!res.data.pagination.hasMore : data.length === PAGE_LIMIT);
     } catch (err) {
       Alert.alert('Error', err?.response?.data?.message || 'Could not refresh.');
     } finally {
@@ -184,7 +184,7 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
       const data = res.data.data || [];
       setArtisans(data);
       setPage(1);
-      setHasMore(data.length === PAGE_LIMIT);
+      setHasMore(res.data?.pagination ? !!res.data.pagination.hasMore : data.length === PAGE_LIMIT);
     } catch (err) {
       Alert.alert('Error', err?.response?.data?.message || 'Search failed.');
     } finally {
@@ -204,7 +204,7 @@ export default function SearchArtisansScreen({ navigation, embedded = false }) {
       const data = res.data.data || [];
       setArtisans((prev) => [...prev, ...data]);
       setPage(nextPage);
-      setHasMore(data.length === PAGE_LIMIT);
+      setHasMore(res.data?.pagination ? !!res.data.pagination.hasMore : data.length === PAGE_LIMIT);
     } catch { /* silently ignore */ }
     finally { setLoadingMore(false); }
   };
